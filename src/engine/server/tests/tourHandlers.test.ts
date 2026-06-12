@@ -23,6 +23,21 @@ describe("listTours", () => {
     const result = await listTours({ workspaceRoot: "/nonexistent/path" });
     expect(result.tours).toEqual([]);
   });
+
+  test("degrades unreadable files to error summaries instead of rejecting", async () => {
+    const { mkdir, rmdir } = await import("node:fs/promises");
+    const path = await import("node:path");
+    const fakeDir = path.join(workspaceRoot, ".hdtw", "tours", "dir-tour.tour.json");
+    await mkdir(fakeDir);
+    try {
+      const result = await listTours({ workspaceRoot });
+      const dirTour = result.tours.find((tour) => tour.id === "dir-tour");
+      expect(dirTour?.error).toContain("could not read file");
+      expect(result.tours.map((tour) => tour.id)).toContain("good-tour");
+    } finally {
+      await rmdir(fakeDir);
+    }
+  });
 });
 
 describe("getTour", () => {

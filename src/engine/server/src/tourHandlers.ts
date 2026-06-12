@@ -30,7 +30,14 @@ export async function listTours(params: ListToursParams): Promise<ListToursResul
   const tours = await Promise.all(
     tourFiles.map(async (name) => {
       const stem = name.slice(0, -TOUR_FILE_SUFFIX.length);
-      const jsonText = await readFile(path.join(toursDir, name), "utf8");
+      // Graceful degradation: one unreadable file becomes an error badge,
+      // never a rejection that blanks the whole tour list.
+      let jsonText: string;
+      try {
+        jsonText = await readFile(path.join(toursDir, name), "utf8");
+      } catch (error) {
+        return toErrorSummary(stem, [`could not read file: ${(error as Error).message}`]);
+      }
       const result = parseTour(jsonText, stem);
       return result.ok ? toTourSummary(result.tour) : toErrorSummary(stem, result.errors);
     })
