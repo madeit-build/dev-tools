@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "id": "monorepo-architecture",
+  "title": "Monorepo architecture",
+  "summary": "How the engine, protocol, and clients fit together",
+  "steps": [
+    {
+      "title": "The contract",
+      "anchor": {
+        "file": "src/protocol/src/tours.ts",
+        "startLine": 28,
+        "endLine": 34,
+        "snippetHash": "sha256:1194f5a0c413f09a4bfe45fbe0c979ce9de419acf34f96edf0888e7f09861a1f"
+      },
+      "narration": "The protocol package is the only thing engine and clients share. A *tour* is the product's core artifact: steps anchored to real code, narration in markdown. Both sides depend on this contract — neither owns it."
+    },
+    {
+      "title": "Pure domain",
+      "anchor": {
+        "file": "src/engine/core/src/tours.ts",
+        "startLine": 7,
+        "endLine": 13,
+        "snippetHash": "sha256:14edf56f9493a96965c3e1841344d3852d4b3eae3b17d027d1af04fdcb84fd30"
+      },
+      "narration": "engine-core never touches the filesystem or the transport — it validates and parses, nothing else. That keeps the domain testable in isolation and reusable under any transport."
+    },
+    {
+      "title": "The process boundary",
+      "anchor": {
+        "file": "src/engine/server/src/main.ts",
+        "startLine": 19,
+        "endLine": 42,
+        "snippetHash": "sha256:3af560215545eb97751bbe71873fdb686108a0563bc4bd0834917e91f51242cf"
+      },
+      "narration": "The engine ships as a *process*, not a library. stdio JSON-RPC means any IDE on any runtime can drive it — this is what makes the JetBrains client possible later. Note the shutdown contract comment: stdin EOF is the cleanup mechanism."
+    },
+    {
+      "title": "The thin client",
+      "anchor": {
+        "file": "src/clients/vscode/src/engineClient.ts",
+        "startLine": 32,
+        "endLine": 44,
+        "snippetHash": "sha256:1977a642c5cf8b8aace73c9e741bd51c6264fd7bf41c1cdd6749de3898e9e580"
+      },
+      "narration": "The VS Code extension never imports engine code — it resolves the binary's path and spawns it. Clients depend only on the protocol; if a client needs engine data, the answer is a protocol addition, not an import."
+    },
+    {
+      "title": "The rails you are on",
+      "anchor": {
+        "file": "src/clients/vscode/src/walkController.ts",
+        "startLine": 116,
+        "endLine": 123,
+        "snippetHash": "sha256:151b720847ff1a9e1a2a582caae195c6730928bf6b6a3e43c9781db5da3b45bf"
+      },
+      "narration": "This very narration thread is rendered by the code you are looking at. Each step opens a file, highlights the anchor, and pins the guide's voice under it — deterministic playback of a committed artifact, no agent required."
+    }
+  ]
+}

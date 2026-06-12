@@ -33,7 +33,7 @@ An IDE extension that explains how a codebase works — from entrypoint to exit 
 | `@made-i-t/hdtw-engine-server` + `engine-core` | Standalone engine process over stdio; pure domain core |
 | `hdtw-vscode` thin client (`madeit.hdtw-vscode`) | Spawns engine, ping/pong handshake, fail-fast error surfacing |
 
-### Chunk 1 — Tour artifacts + rails playback 🔄 spec'd, next up
+### Chunk 1 — Tour artifacts + rails playback ✅ shipped 2026-06-12
 
 Spec: `docs/superpowers/specs/2026-06-12-chunk-1-rails-playback-design.md`
 

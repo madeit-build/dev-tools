@@ -59,6 +59,7 @@ Launching the extension: open the repo in VS Code and press F5 (Run Extension). 
 - **Product roadmap:** `docs/product-roadmap.md` — the full feature set across all build chunks, key decisions, and per-chunk status. **Read this first for product context.**
 - **Approved design spec:** `docs/superpowers/specs/2026-06-12-monorepo-structure-design.md` — the source of truth for the structure described above.
 - **Runnable skeleton implemented** (plan: `docs/superpowers/plans/2026-06-12-monorepo-skeleton.md`): `pnpm install && pnpm build` works; F5 in VS Code launches the extension, which spawns the engine and completes the ping/pong handshake.
+- **Chunk 1 shipped — tour playback:** tours live in `.hdtw/tours/*.tour.json`; the engine serves `hdtw/listTours`/`hdtw/getTour`; the extension walks tours with inline narration threads. Dogfood tour: `.hdtw/tours/monorepo-architecture.tour.json` (plan: `docs/superpowers/plans/2026-06-12-chunk-1-rails-playback.md`).
 - Not yet designed: the guided-tour/rails feature set, agent bootstrapping behavior, JetBrains client, release pipeline.
 
 ## Working conventions
