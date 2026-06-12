@@ -1,4 +1,7 @@
+/** JSON-RPC method name: client→engine, stateless list of all tours in workspaceRoot. */
 export const LIST_TOURS_METHOD = "hdtw/listTours";
+
+/** JSON-RPC method name: client→engine, fetch a single validated tour by id. */
 export const GET_TOUR_METHOD = "hdtw/getTour";
 
 /** JSON-RPC error code returned by hdtw/getTour for an unknown or invalid tour id. */
@@ -35,7 +38,10 @@ export interface TourSummary {
   title: string;
   summary: string;
   stepCount: number;
-  /** Present when the tour file failed validation; such a tour cannot be started. */
+  /**
+   * Present when the tour file failed validation; such a tour cannot be started.
+   * Human-readable, free-form — structured error codes are deferred to a later chunk.
+   */
   error?: string;
 }
 
