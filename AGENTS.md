@@ -44,12 +44,12 @@ Monorepo intended for multiple teams: each workspace package is an independently
 ### Commands
 
 ```bash
-pnpm install                          # install all workspace deps
-turbo build                           # build all packages in dependency order
-turbo test                            # run all tests
-turbo lint                            # lint all packages
-turbo test --filter=@hdtw/engine-core # test one package
-pnpm --filter @hdtw/engine-core vitest run path/to/file.test.ts  # run a single test file
+pnpm install                              # install all workspace deps
+pnpm build                                # turbo build, dependency order
+pnpm test                                 # turbo test (builds first)
+pnpm lint                                 # turbo lint
+pnpm turbo test --filter=@hdtw/engine-core            # test one package
+pnpm --filter @hdtw/engine-server exec vitest run tests/server.e2e.test.ts  # single test file
 ```
 
 Launching the extension: open the repo in VS Code and press F5 (Run Extension). The extension spawns the engine as a child process; success shows "HDTW engine connected" in the UI. Engine spawn/handshake failures must surface as visible error notifications — fail fast and visibly.
@@ -57,10 +57,12 @@ Launching the extension: open the repo in VS Code and press F5 (Run Extension). 
 ## Current state (update this section as the repo evolves)
 
 - **Approved design spec:** `docs/superpowers/specs/2026-06-12-monorepo-structure-design.md` — the source of truth for the structure described above.
-- **The scaffold does not exist yet.** The commands above are the designed interface; they become real when the runnable skeleton (workspace config + ping/pong engine handshake) is implemented. If `pnpm-workspace.yaml` is missing, you are looking at a pre-scaffold repo — read the spec before creating anything.
+- **Runnable skeleton implemented** (plan: `docs/superpowers/plans/2026-06-12-monorepo-skeleton.md`): `pnpm install && pnpm build` works; F5 in VS Code launches the extension, which spawns the engine and completes the ping/pong handshake.
 - Not yet designed: the guided-tour/rails feature set, agent bootstrapping behavior, JetBrains client, release pipeline.
 
 ## Working conventions
 
 - Design before building: significant features get a design doc in `docs/superpowers/specs/` (dated, e.g. `YYYY-MM-DD-<topic>-design.md`); durable architectural choices get an ADR in `docs/adr/`.
 - Keep the engine/client/protocol boundaries intact in every change — if a client needs engine data, the answer is a protocol addition, not an import.
+- The VS Code extension package is `hdtw-vscode` with publisher `madeit` (extension ID `madeit.hdtw-vscode`) — extension manifests cannot use npm scopes, so it deviates from the `@hdtw/*` naming.
+- Package convention: every library package has an `exports` map (`types` condition first); all relative imports in .ts files use `.js` extensions (Node16 module resolution).
