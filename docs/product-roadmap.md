@@ -21,6 +21,8 @@ An IDE extension that explains how a codebase works — from entrypoint to exit 
 | V1 entry experiences | Both catalog and ask-first conversation (chunks 1–3) | Unified by the tours-as-currency insight |
 | Walk UX | Inline narration thread in the editor (VS Code Comments API), collapsible; tours sidebar; status-bar progress | Zero eye travel; "senior engineer commenting on your screen"; native markdown/theming/collapse |
 | Tour storage | `.hdtw/tours/*.tour.json` committed alongside source | The repo is the distribution channel; sharing = `git pull` |
+| Generation auth | API key (SecretStorage) → Claude Code CLI credential fallback | Zero-setup for subscription holders; key path for everyone else; consumers never need auth |
+| Agent backend seam | All generation behind a `TourGenerator` port | Bring-your-own-agent (Codex, Copilot, …) can land later without touching pipeline/protocol/clients |
 
 ## Chunks
 
@@ -46,14 +48,17 @@ Spec: `docs/superpowers/specs/2026-06-12-chunk-1-rails-playback-design.md`
 | Graceful degradation: invalid tours badged with precise errors; drifted anchors warn but don't break the walk | Tours stay useful as code evolves |
 | Dogfood artifact: committed tour of this repo's architecture | Proves the format; doubles as our own onboarding |
 
-### Chunk 2 — Embedded agent + tour generation ⬜ not started
+### Chunk 2 — Embedded agent + tour generation 🔄 spec'd, next up
+
+Spec: `docs/superpowers/specs/2026-06-12-chunk-2-agent-tour-generation-design.md`
 
 | Feature | Capability |
 |---|---|
-| Agent SDK embedded in engine; BYOK / subscription auth | The "principal engineer" comes alive — explores with read/grep/glob tools |
-| "Generate tour…" flow (topic prompt → exploration → tour artifact) | Tours created on demand for any codebase |
-| Live progress + token-cost visibility; budget caps | Users trust the product with their key |
-| Schema validation + anchor verification of generated tours | Generated steps must point at real code (no hallucinated anchors) |
+| Agent SDK embedded in engine; API-key or Claude Code subscription auth | The "principal engineer" comes alive — explores with read/grep/glob tools |
+| "Generate Tour…" flow (topic prompt → exploration → verified tour → auto-walk) | Tours created on demand for any codebase; git is the review mechanism |
+| Live progress + token-cost visibility; budget caps; cancellation | Users trust the product with their key |
+| Engine-owned anchor verification + repair round (agent never supplies hashes) | Generated steps must point at real code (no hallucinated anchors) |
+| `TourGenerator` port (Claude implementation + test fake) | Reserved seam for future bring-your-own-agent backends (Codex, Copilot, …) |
 
 ### Chunk 3 — Conversational walks (V1 complete) ⬜ not started
 
