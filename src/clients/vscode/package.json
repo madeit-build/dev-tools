@@ -14,7 +14,8 @@
   "contributes": {},
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test": "vitest run"
   },
   "dependencies": {
     "@made-i-t/hdtw-engine-server": "workspace:*",
@@ -24,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^20.17.0",
     "@types/vscode": "^1.96.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.0"
   }
 }
