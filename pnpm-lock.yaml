@@ -24,6 +24,28 @@ importers:
         specifier: ^8.32.0
         version: 8.61.0(eslint@9.39.4)(typescript@5.9.3)
 
+  src/clients/vscode:
+    dependencies:
+      '@hdtw/engine-server':
+        specifier: workspace:*
+        version: link:../../engine/server
+      '@hdtw/protocol':
+        specifier: workspace:*
+        version: link:../../protocol
+      vscode-jsonrpc:
+        specifier: ^8.2.1
+        version: 8.2.1
+    devDependencies:
+      '@types/node':
+        specifier: ^20.17.0
+        version: 20.19.43
+      '@types/vscode':
+        specifier: ^1.96.0
+        version: 1.120.0
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+
   src/engine/core:
     devDependencies:
       typescript:
@@ -452,6 +474,9 @@ packages:
 
   '@types/node@20.19.43':
     resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
+
+  '@types/vscode@1.120.0':
+    resolution: {integrity: sha512-feaT4Rst+FkTch5zz/ZbNCxoIvo55YU80Be2kiL7OJcod4+CUYf2lUBPdIJzozNnSEMq1VRTGrWEcCGFB3fBmA==}
 
   '@typescript-eslint/eslint-plugin@8.61.0':
     resolution: {integrity: sha512-bFNvl9ZczlVb+wR2Akszf3gHfKVj/8WanXaGJ3UstTA7brNKg0cNdk6X1Psu5V7MZ2oQtzZKOEzIUehaoxbDGw==}
@@ -1326,6 +1351,8 @@ snapshots:
   '@types/node@20.19.43':
     dependencies:
       undici-types: 6.21.0
+
+  '@types/vscode@1.120.0': {}
 
   '@typescript-eslint/eslint-plugin@8.61.0(@typescript-eslint/parser@8.61.0(eslint@9.39.4)(typescript@5.9.3))(eslint@9.39.4)(typescript@5.9.3)':
     dependencies:

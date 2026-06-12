@@ -1,0 +1,29 @@
+{
+  "name": "hdtw-vscode",
+  "displayName": "How Does This Work",
+  "description": "Guided, rails-driven explanation of how a codebase works from entrypoint to exit.",
+  "version": "0.0.1",
+  "private": true,
+  "publisher": "madeit",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": ["Other"],
+  "main": "./dist/extension.js",
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {},
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@hdtw/engine-server": "workspace:*",
+    "@hdtw/protocol": "workspace:*",
+    "vscode-jsonrpc": "^8.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "@types/vscode": "^1.96.0",
+    "typescript": "^5.8.3"
+  }
+}
