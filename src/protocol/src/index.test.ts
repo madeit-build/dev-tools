@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { PING_METHOD, PROTOCOL_VERSION } from "./index";
+import { PING_METHOD, PROTOCOL_VERSION } from "./index.js";
 
 test("protocol constants are stable", () => {
   expect(PING_METHOD).toBe("hdtw/ping");
