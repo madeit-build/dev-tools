@@ -1,0 +1,27 @@
+{
+  "name": "@hdtw/engine-server",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./dist/main.js",
+  "exports": {
+    ".": {
+      "require": "./dist/main.js",
+      "default": "./dist/main.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src tests"
+  },
+  "dependencies": {
+    "@hdtw/engine-core": "workspace:*",
+    "@hdtw/protocol": "workspace:*",
+    "vscode-jsonrpc": "^8.2.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.0"
+  }
+}
