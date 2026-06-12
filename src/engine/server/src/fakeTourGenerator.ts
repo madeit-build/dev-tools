@@ -27,6 +27,8 @@ const DEFAULT_DRAFT: DraftTour = {
 };
 
 export class FakeTourGenerator implements TourGenerator {
+  private runningCostUsd = 0;
+
   constructor(private readonly options: FakeTourGeneratorOptions = {}) {}
 
   async generate(
@@ -66,7 +68,7 @@ export class FakeTourGenerator implements TourGenerator {
       message,
       tokensIn,
       tokensOut,
-      estimatedCostUsd: this.options.costPerEvent ?? 0.01,
+      estimatedCostUsd: (this.runningCostUsd += this.options.costPerEvent ?? 0.01),
     });
   }
 

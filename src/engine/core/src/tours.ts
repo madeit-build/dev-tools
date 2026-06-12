@@ -69,7 +69,11 @@ function validateAnchor(anchor: unknown, stepLabel: string): string[] {
   const errors: string[] = [];
   if (typeof candidate.file !== "string" || candidate.file.length === 0) {
     errors.push(`${label}.file must be a non-empty string`);
-  } else if (candidate.file.startsWith("/") || candidate.file.includes("\\")) {
+  } else if (
+    candidate.file.startsWith("/") ||
+    candidate.file.includes("\\") ||
+    candidate.file.split("/").includes("..")
+  ) {
     errors.push(`${label}.file must be a workspace-relative POSIX path`);
   }
   if (!Number.isInteger(candidate.startLine) || (candidate.startLine as number) < 1) {

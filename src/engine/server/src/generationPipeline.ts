@@ -37,58 +37,63 @@ export async function runGeneration(
   if (cancelSignal.aborted) {
     throw new GenerationCancelledError("generation cancelled");
   }
-  cancelSignal.addEventListener("abort", () => abort.abort(), { once: true });
+  const forwardAbort = () => abort.abort();
+  cancelSignal.addEventListener("abort", forwardAbort, { once: true });
 
-  const hooks = {
-    signal: abort.signal,
-    onProgress: (progress: GenerationProgressParams) => {
-      onProgress(progress);
-      if (progress.estimatedCostUsd > maxBudgetUsd && budgetBreachedAtUsd === undefined) {
-        budgetBreachedAtUsd = progress.estimatedCostUsd;
-        abort.abort();
-      }
-    },
-  };
-
-  const translateAbort = (error: unknown): never => {
-    if (budgetBreachedAtUsd !== undefined) {
-      throw new BudgetExceededError(
-        `generation aborted: estimated cost $${budgetBreachedAtUsd.toFixed(2)} exceeded budget $${maxBudgetUsd.toFixed(2)}`,
-        budgetBreachedAtUsd
-      );
-    }
-    if (cancelSignal.aborted || abort.signal.aborted) {
-      throw new GenerationCancelledError("generation cancelled");
-    }
-    throw error;
-  };
-
-  let draft: DraftTour;
   try {
-    draft = await generator.generate(params.workspaceRoot, params.topic, normalizeModel(params.model), hooks);
-  } catch (error) {
-    translateAbort(error);
-    throw error; // unreachable; satisfies control flow
-  }
+    const hooks = {
+      signal: abort.signal,
+      onProgress: (progress: GenerationProgressParams) => {
+        onProgress(progress);
+        if (progress.estimatedCostUsd > maxBudgetUsd && budgetBreachedAtUsd === undefined) {
+          budgetBreachedAtUsd = progress.estimatedCostUsd;
+          abort.abort();
+        }
+      },
+    };
 
-  let verified = await verifyDraft(params.workspaceRoot, draft, onProgress);
-  if (!verified.ok) {
+    const translateAbort = (error: unknown): never => {
+      if (budgetBreachedAtUsd !== undefined) {
+        throw new BudgetExceededError(
+          `generation aborted: estimated cost $${budgetBreachedAtUsd.toFixed(2)} exceeded budget $${maxBudgetUsd.toFixed(2)}`,
+          budgetBreachedAtUsd
+        );
+      }
+      if (cancelSignal.aborted || abort.signal.aborted) {
+        throw new GenerationCancelledError("generation cancelled");
+      }
+      throw error;
+    };
+
+    let draft: DraftTour;
     try {
-      draft = await generator.repair(params.workspaceRoot, params.topic, draft, verified.errors, hooks);
+      draft = await generator.generate(params.workspaceRoot, params.topic, normalizeModel(params.model), hooks);
     } catch (error) {
       translateAbort(error);
-      throw error;
+      throw error; // unreachable; satisfies control flow
     }
-    verified = await verifyDraft(params.workspaceRoot, draft, onProgress);
-    if (!verified.ok) {
-      throw new GenerationFailedError(
-        `agent could not produce verifiable anchors after one repair round: ${verified.errors.join("; ")}`
-      );
-    }
-  }
 
-  onProgress({ phase: "saving", message: "Saving tour", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
-  return saveTour(params.workspaceRoot, draft, verified.steps);
+    let verified = await verifyDraft(params.workspaceRoot, draft, onProgress);
+    if (!verified.ok) {
+      try {
+        draft = await generator.repair(params.workspaceRoot, params.topic, draft, verified.errors, hooks);
+      } catch (error) {
+        translateAbort(error);
+        throw error;
+      }
+      verified = await verifyDraft(params.workspaceRoot, draft, onProgress);
+      if (!verified.ok) {
+        throw new GenerationFailedError(
+          `agent could not produce verifiable anchors after one repair round: ${verified.errors.join("; ")}`
+        );
+      }
+    }
+
+    onProgress({ phase: "saving", message: "Saving tour", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
+    return saveTour(params.workspaceRoot, draft, verified.steps);
+  } finally {
+    cancelSignal.removeEventListener("abort", forwardAbort);
+  }
 }
 
 function normalizeModel(model: string | undefined): string | undefined {
@@ -119,9 +124,14 @@ async function verifyDraft(
 }
 
 async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourStep | string> {
+  const resolvedRoot = path.resolve(workspaceRoot);
+  const resolved = path.resolve(resolvedRoot, ...step.anchor.file.split("/"));
+  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
+    return `${step.anchor.file}: anchor path escapes the workspace`;
+  }
   let fileContent: string;
   try {
-    fileContent = await readFile(path.join(workspaceRoot, ...step.anchor.file.split("/")), "utf8");
+    fileContent = await readFile(resolved, "utf8");
   } catch {
     return `${step.anchor.file}: file does not exist in the workspace`;
   }
