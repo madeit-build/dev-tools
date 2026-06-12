@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { PROTOCOL_VERSION } from "@hdtw/protocol";
+import { PROTOCOL_VERSION } from "@made-i-t/hdtw-protocol";
 import { handlePing } from "./pingHandler.js";
 
 test("handlePing returns engine identity and protocol version", () => {

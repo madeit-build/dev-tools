@@ -1,5 +1,5 @@
 {
-  "name": "@hdtw/engine-core",
+  "name": "@made-i-t/hdtw-engine-core",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/index.js",

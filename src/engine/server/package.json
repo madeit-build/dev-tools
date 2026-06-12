@@ -1,5 +1,5 @@
 {
-  "name": "@hdtw/engine-server",
+  "name": "@made-i-t/hdtw-engine-server",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/main.js",
@@ -15,8 +15,8 @@
     "lint": "eslint src tests"
   },
   "dependencies": {
-    "@hdtw/engine-core": "workspace:*",
-    "@hdtw/protocol": "workspace:*",
+    "@made-i-t/hdtw-engine-core": "workspace:*",
+    "@made-i-t/hdtw-protocol": "workspace:*",
     "vscode-jsonrpc": "^8.2.1"
   },
   "devDependencies": {

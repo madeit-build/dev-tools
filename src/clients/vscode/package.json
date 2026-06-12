@@ -17,8 +17,8 @@
     "lint": "eslint src"
   },
   "dependencies": {
-    "@hdtw/engine-server": "workspace:*",
-    "@hdtw/protocol": "workspace:*",
+    "@made-i-t/hdtw-engine-server": "workspace:*",
+    "@made-i-t/hdtw-protocol": "workspace:*",
     "vscode-jsonrpc": "^8.2.1"
   },
   "devDependencies": {

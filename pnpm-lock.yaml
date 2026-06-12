@@ -26,10 +26,10 @@ importers:
 
   src/clients/vscode:
     dependencies:
-      '@hdtw/engine-server':
+      '@made-i-t/hdtw-engine-server':
         specifier: workspace:*
         version: link:../../engine/server
-      '@hdtw/protocol':
+      '@made-i-t/hdtw-protocol':
         specifier: workspace:*
         version: link:../../protocol
       vscode-jsonrpc:
@@ -57,10 +57,10 @@ importers:
 
   src/engine/server:
     dependencies:
-      '@hdtw/engine-core':
+      '@made-i-t/hdtw-engine-core':
         specifier: workspace:*
         version: link:../core
-      '@hdtw/protocol':
+      '@made-i-t/hdtw-protocol':
         specifier: workspace:*
         version: link:../../protocol
       vscode-jsonrpc:

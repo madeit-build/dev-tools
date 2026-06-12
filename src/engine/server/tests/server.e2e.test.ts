@@ -6,7 +6,7 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
 } from "vscode-jsonrpc/node";
-import { PING_METHOD, PROTOCOL_VERSION, type PingResult } from "@hdtw/protocol";
+import { PING_METHOD, PROTOCOL_VERSION, type PingResult } from "@made-i-t/hdtw-protocol";
 
 const serverEntry = fileURLToPath(new URL("../dist/main.js", import.meta.url));
 

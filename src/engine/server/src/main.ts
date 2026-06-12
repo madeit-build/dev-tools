@@ -3,7 +3,7 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
 } from "vscode-jsonrpc/node";
-import { PING_METHOD, type PingParams } from "@hdtw/protocol";
+import { PING_METHOD, type PingParams } from "@made-i-t/hdtw-protocol";
 import { handlePing } from "./pingHandler.js";
 
 const connection = createMessageConnection(

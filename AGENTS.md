@@ -4,7 +4,7 @@ Bootstrapping guide for AI agents and new contributors working in this repositor
 
 ## Product
 
-**"How Does This Work" (working scope: `@hdtw`)** — an IDE extension providing guided, rails-driven explanations of how a codebase works, from entrypoint to exit. VS Code is the first target IDE; the architecture is built to expand to others (JetBrains next).
+**"How Does This Work" (packages: `@made-i-t/hdtw-*`)** — an IDE extension providing guided, rails-driven explanations of how a codebase works, from entrypoint to exit. VS Code is the first target IDE; the architecture is built to expand to others (JetBrains next).
 
 ## Architecture (the one thing to internalize)
 
@@ -12,7 +12,7 @@ The core logic runs as a **standalone engine process** (LSP-style JSON-RPC serve
 
 Dependency rules (architectural, not conventional):
 
-- Clients depend **only** on `@hdtw/protocol` — never on engine internals.
+- Clients depend **only** on `@made-i-t/hdtw-protocol` — never on engine internals.
 - `src/engine/core` is a pure library with no transport or IDE concerns; `src/engine/server` wraps it behind the protocol.
 - `src/protocol` is the engine↔client contract, owned by neither side. Changes to it affect every client — treat them as breaking until versioned otherwise.
 
@@ -21,9 +21,9 @@ Dependency rules (architectural, not conventional):
 ```
 src/
 ├── engine/
-│   ├── core/        # @hdtw/engine-core — analysis + rails/tour domain model (pure TS lib)
-│   └── server/      # @hdtw/engine-server — standalone process, JSON-RPC over stdio
-├── protocol/        # @hdtw/protocol — engine↔client contract (types + schema)
+│   ├── core/        # @made-i-t/hdtw-engine-core — analysis + rails/tour domain model (pure TS lib)
+│   └── server/      # @made-i-t/hdtw-engine-server — standalone process, JSON-RPC over stdio
+├── protocol/        # @made-i-t/hdtw-protocol — engine↔client contract (types + schema)
 └── clients/
     └── vscode/      # hdtw-vscode — thin VS Code extension (ID: madeit.hdtw-vscode)
 tools/               # repo-level scripts (release, codegen) — not product code
@@ -48,8 +48,8 @@ pnpm install                              # install all workspace deps
 pnpm build                                # turbo build, dependency order
 pnpm test                                 # turbo test (builds first)
 pnpm lint                                 # turbo lint
-pnpm turbo test --filter=@hdtw/engine-core            # test one package
-pnpm --filter @hdtw/engine-server exec vitest run tests/server.e2e.test.ts  # single test file
+pnpm turbo test --filter=@made-i-t/hdtw-engine-core            # test one package
+pnpm --filter @made-i-t/hdtw-engine-server exec vitest run tests/server.e2e.test.ts  # single test file
 ```
 
 Launching the extension: open the repo in VS Code and press F5 (Run Extension). The extension spawns the engine as a child process; success shows "HDTW engine connected" in the UI. Engine spawn/handshake failures must surface as visible error notifications — fail fast and visibly.
@@ -64,5 +64,5 @@ Launching the extension: open the repo in VS Code and press F5 (Run Extension). 
 
 - Design before building: significant features get a design doc in `docs/superpowers/specs/` (dated, e.g. `YYYY-MM-DD-<topic>-design.md`); durable architectural choices get an ADR in `docs/adr/`.
 - Keep the engine/client/protocol boundaries intact in every change — if a client needs engine data, the answer is a protocol addition, not an import.
-- The VS Code extension package is `hdtw-vscode` with publisher `madeit` (extension ID `madeit.hdtw-vscode`) — extension manifests cannot use npm scopes, so it deviates from the `@hdtw/*` naming.
+- The VS Code extension package is `hdtw-vscode` with publisher `madeit` (extension ID `madeit.hdtw-vscode`) — extension manifests cannot use npm scopes, so it deviates from the `@made-i-t/hdtw-*` naming.
 - Package convention: every library package has an `exports` map (`types` condition first); all relative imports in .ts files use `.js` extensions (Node16 module resolution).

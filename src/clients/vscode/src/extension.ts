@@ -11,7 +11,7 @@ import {
   PROTOCOL_VERSION,
   type PingParams,
   type PingResult,
-} from "@hdtw/protocol";
+} from "@made-i-t/hdtw-protocol";
 
 const HANDSHAKE_TIMEOUT_MS = 5000;
 
@@ -38,7 +38,7 @@ async function connectToEngine(): Promise<PingResult> {
   // Resolves to the engine-server package's "main" (dist/main.js) via the
   // workspace symlink. The client never imports engine code — it only needs
   // the path to spawn the process.
-  const serverEntry = require.resolve("@hdtw/engine-server");
+  const serverEntry = require.resolve("@made-i-t/hdtw-engine-server");
 
   // The extension host is Electron; ELECTRON_RUN_AS_NODE makes the spawned
   // process behave as plain Node.js (same technique vscode-languageclient uses).
