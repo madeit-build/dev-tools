@@ -45,7 +45,7 @@ export function parseTour(jsonText: string, filenameStem: string): ParseTourResu
 
 function validateStep(step: unknown, index: number): string[] {
   const label = `steps[${index}]`;
-  if (typeof step !== "object" || step === null) {
+  if (typeof step !== "object" || step === null || Array.isArray(step)) {
     return [`${label} must be an object`];
   }
   const candidate = step as Record<string, unknown>;
@@ -62,7 +62,7 @@ function validateStep(step: unknown, index: number): string[] {
 
 function validateAnchor(anchor: unknown, stepLabel: string): string[] {
   const label = `${stepLabel}.anchor`;
-  if (typeof anchor !== "object" || anchor === null) {
+  if (typeof anchor !== "object" || anchor === null || Array.isArray(anchor)) {
     return [`${label} must be an object`];
   }
   const candidate = anchor as Record<string, unknown>;
@@ -75,8 +75,8 @@ function validateAnchor(anchor: unknown, stepLabel: string): string[] {
   if (!Number.isInteger(candidate.startLine) || (candidate.startLine as number) < 1) {
     errors.push(`${label}.startLine must be an integer >= 1`);
   }
-  if (!Number.isInteger(candidate.endLine)) {
-    errors.push(`${label}.endLine must be an integer`);
+  if (!Number.isInteger(candidate.endLine) || (candidate.endLine as number) < 1) {
+    errors.push(`${label}.endLine must be an integer >= 1`);
   } else if (
     Number.isInteger(candidate.startLine) &&
     (candidate.endLine as number) < (candidate.startLine as number)
@@ -101,7 +101,7 @@ export function toTourSummary(tour: Tour): TourSummary {
   };
 }
 
-export function toErrorSummary(filenameStem: string, errors: string[]): TourSummary {
+export function toErrorSummary(filenameStem: string, errors: [string, ...string[]]): TourSummary {
   return {
     id: filenameStem,
     title: filenameStem,

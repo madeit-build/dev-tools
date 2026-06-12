@@ -39,6 +39,18 @@ describe("parseTour", () => {
     if (!result.ok) expect(result.errors[0]).toContain("not valid JSON");
   });
 
+  test("rejects a JSON array root", () => {
+    const result = parseTour("[]", "demo");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toContain("root must be a JSON object");
+  });
+
+  test("rejects a JSON primitive root", () => {
+    const result = parseTour('"a string"', "demo");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toContain("root must be a JSON object");
+  });
+
   test("rejects wrong schemaVersion", () => {
     const result = parseTour(validTourJson({ schemaVersion: 2 }), "demo");
     expect(result.ok).toBe(false);
