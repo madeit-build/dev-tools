@@ -25,7 +25,7 @@ src/
 │   └── server/      # @hdtw/engine-server — standalone process, JSON-RPC over stdio
 ├── protocol/        # @hdtw/protocol — engine↔client contract (types + schema)
 └── clients/
-    └── vscode/      # @hdtw/vscode — thin VS Code extension
+    └── vscode/      # hdtw-vscode — thin VS Code extension (ID: madeit.hdtw-vscode)
 tools/               # repo-level scripts (release, codegen) — not product code
 docs/
 ├── adr/             # architecture decision records
