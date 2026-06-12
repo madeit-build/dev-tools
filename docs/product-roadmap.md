@@ -75,6 +75,16 @@ Spec: `docs/superpowers/specs/2026-06-12-chunk-2-agent-tour-generation-design.md
 | Code-map tools (tree-sitter/LSP): entrypoints, call graphs | Agent cites verified structure instead of guessing — less hallucination, fewer tokens |
 | Anchor drift detection (via stored `snippetHash`) + re-anchoring | Tour freshness as code evolves; stale steps flagged or auto-healed |
 
+### Candidate chunk — Tour graph: related-tour links + walk stack ⬜ idea (2026-06-12)
+
+| Feature | Capability |
+|---|---|
+| Optional `relatedTourIds` on tour steps (schema-additive — no version bump; old clients ignore it) | Tours stay flat as artifacts; hierarchy is composed at walk time |
+| Narration thread renders related-tour links; following one pushes the current walk onto a stack, walks the sub-tour, pops back | "I'm on a monorepo-architecture step and there's a whole tour on how JSON-RPC plays in" — detour and return without losing your place |
+| Agent cross-links during generation (it can see the existing tour catalog) | The tour graph grows itself as tours accumulate |
+
+Sequencing note: pairs naturally with Chunk 3 — "Why?" detours and related-tour detours share the push/pop walk-stack mechanic.
+
 ### Chunk 5 — Team & beyond ⬜ not started
 
 | Feature | Capability |
