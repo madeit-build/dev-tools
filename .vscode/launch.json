@@ -7,7 +7,7 @@
       "request": "launch",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}/src/clients/vscode",
-        "${workspaceFolder}"
+        "${workspaceFolder}/dogfood.code-workspace"
       ],
       "preLaunchTask": "build"
     }
