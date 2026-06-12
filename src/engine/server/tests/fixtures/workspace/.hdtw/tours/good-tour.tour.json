@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "good-tour",
+  "title": "Good tour",
+  "summary": "A valid fixture tour",
+  "steps": [
+    {
+      "title": "The readme",
+      "anchor": {
+        "file": "README.md",
+        "startLine": 1,
+        "endLine": 1,
+        "snippetHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "narration": "This is the fixture readme."
+    }
+  ]
+}

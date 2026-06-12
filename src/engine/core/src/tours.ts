@@ -2,7 +2,7 @@ import type { Tour, TourSummary } from "@made-i-t/hdtw-protocol";
 
 export type ParseTourResult =
   | { ok: true; tour: Tour }
-  | { ok: false; errors: string[] };
+  | { ok: false; errors: [string, ...string[]] };
 
 export function parseTour(jsonText: string, filenameStem: string): ParseTourResult {
   let raw: unknown;
@@ -38,7 +38,7 @@ export function parseTour(jsonText: string, filenameStem: string): ParseTourResu
   }
 
   if (errors.length > 0) {
-    return { ok: false, errors };
+    return { ok: false, errors: errors as [string, ...string[]] };
   }
   return { ok: true, tour: candidate as unknown as Tour };
 }
