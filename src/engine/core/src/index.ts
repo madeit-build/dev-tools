@@ -6,3 +6,5 @@ export interface EngineInfo {
 export function getEngineInfo(): EngineInfo {
   return { name: "hdtw-engine", version: "0.0.1" };
 }
+
+export * from "./tours.js";

@@ -16,6 +16,9 @@
     "test": "vitest run",
     "lint": "eslint src"
   },
+  "dependencies": {
+    "@made-i-t/hdtw-protocol": "workspace:*"
+  },
   "devDependencies": {
     "typescript": "^5.8.3",
     "vitest": "^3.1.0"

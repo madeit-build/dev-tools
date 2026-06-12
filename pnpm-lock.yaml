@@ -47,6 +47,10 @@ importers:
         version: 5.9.3
 
   src/engine/core:
+    dependencies:
+      '@made-i-t/hdtw-protocol':
+        specifier: workspace:*
+        version: link:../../protocol
     devDependencies:
       typescript:
         specifier: ^5.8.3
