@@ -13,3 +13,5 @@ export interface PingResult {
   engineVersion: string;
   protocolVersion: string;
 }
+
+export * from "./tours.js";
