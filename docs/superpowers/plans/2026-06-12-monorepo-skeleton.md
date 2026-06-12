@@ -10,7 +10,7 @@
 
 **Conventions used throughout:**
 - All commands run from the repo root: `/Users/mattdeclercq/code/made-it/ide-how-does-this-work`
-- The spec names the extension package `@hdtw/vscode`, but VS Code extension manifests cannot use npm scopes (the extension ID is `publisher.name`). The package is therefore named `hdtw-vscode` with publisher `hdtw`. This is the only intentional deviation from the spec.
+- The spec names the extension package `@hdtw/vscode`, but VS Code extension manifests cannot use npm scopes (the extension ID is `publisher.name`). The package is therefore named `hdtw-vscode` with publisher `madeit` (Made I.T.), giving the full extension ID `madeit.hdtw-vscode`. This is the only intentional deviation from the spec.
 - Unit tests are co-located with source (`src/foo.test.ts`) and excluded from `tsc` builds.
 
 ---
@@ -544,7 +544,7 @@ The extension has no automated tests yet (per spec, `@vscode/test-electron` is d
   "description": "Guided, rails-driven explanation of how a codebase works from entrypoint to exit.",
   "version": "0.0.1",
   "private": true,
-  "publisher": "hdtw",
+  "publisher": "madeit",
   "engines": {
     "vscode": "^1.96.0"
   },
