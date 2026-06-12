@@ -5,7 +5,10 @@
       "name": "Run Extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": ["--extensionDevelopmentPath=${workspaceFolder}/src/clients/vscode"],
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/src/clients/vscode",
+        "${workspaceFolder}"
+      ],
       "preLaunchTask": "build"
     }
   ]
