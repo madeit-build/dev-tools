@@ -122,6 +122,12 @@
           "type": "number",
           "default": 2,
           "description": "Abort tour generation when the estimated cost exceeds this many USD."
+        },
+        "hdtw.logLevel": {
+          "type": "string",
+          "enum": ["error", "warn", "info", "debug", "trace"],
+          "default": "info",
+          "description": "Verbosity of the HDTW output channel and engine logs."
         }
       }
     }
@@ -133,6 +139,7 @@
   },
   "dependencies": {
     "@made-i-t/hdtw-engine-server": "workspace:*",
+    "@made-i-t/hdtw-observability": "workspace:*",
     "@made-i-t/hdtw-protocol": "workspace:*",
     "vscode-jsonrpc": "^8.2.1"
   },

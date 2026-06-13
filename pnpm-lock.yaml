@@ -29,6 +29,9 @@ importers:
       '@made-i-t/hdtw-engine-server':
         specifier: workspace:*
         version: link:../../engine/server
+      '@made-i-t/hdtw-observability':
+        specifier: workspace:*
+        version: link:../../observability
       '@made-i-t/hdtw-protocol':
         specifier: workspace:*
         version: link:../../protocol

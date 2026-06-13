@@ -23,12 +23,16 @@ import {
   type PingParams,
   type PingResult,
 } from "@made-i-t/hdtw-protocol";
+import { parseRecord } from "@made-i-t/hdtw-observability";
+import type { OutputChannelSink } from "./outputChannelSink.js";
 
 const HANDSHAKE_TIMEOUT_MS = 5000;
 
 export class EngineClient {
   private engineProcess: childProcess.ChildProcess | undefined;
   private connection: MessageConnection | undefined;
+
+  constructor(private readonly sink: OutputChannelSink) {}
 
   get isConnected(): boolean {
     return this.connection !== undefined;
@@ -49,8 +53,21 @@ export class EngineClient {
     });
     this.engineProcess = serverProcess;
 
+    let stderrBuffer = "";
     serverProcess.stderr?.on("data", (chunk: Buffer) => {
-      console.error(`[hdtw-engine] ${chunk.toString().trimEnd()}`);
+      stderrBuffer += chunk.toString();
+      let newlineIndex = stderrBuffer.indexOf("\n");
+      while (newlineIndex !== -1) {
+        const line = stderrBuffer.slice(0, newlineIndex);
+        stderrBuffer = stderrBuffer.slice(newlineIndex + 1);
+        const record = parseRecord(line);
+        if (record) {
+          this.sink.record(record);
+        } else if (line.trim().length > 0) {
+          this.sink.appendRaw(`[engine] ${line}`);
+        }
+        newlineIndex = stderrBuffer.indexOf("\n");
+      }
     });
 
     if (!serverProcess.stdout || !serverProcess.stdin) {

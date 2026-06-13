@@ -3,7 +3,12 @@ import {
   GENERATION_AUTH_REQUIRED_ERROR_CODE,
   GENERATION_BUDGET_EXCEEDED_ERROR_CODE,
 } from "@made-i-t/hdtw-protocol";
+import {
+  createObserver,
+  type Observer,
+} from "@made-i-t/hdtw-observability";
 import { EngineClient } from "./engineClient.js";
+import { OutputChannelSink } from "./outputChannelSink.js";
 import { TourTreeProvider } from "./tourTree.js";
 import { WalkController } from "./walkController.js";
 
@@ -14,19 +19,36 @@ let client: EngineClient | undefined;
 let walk: WalkController | undefined;
 let tree: TourTreeProvider | undefined;
 let generating = false;
+let channel: vscode.LogOutputChannel | undefined;
+let sink: OutputChannelSink | undefined;
+let observer: Observer | undefined;
 
 function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  channel = channel ?? vscode.window.createOutputChannel("HDTW", { log: true });
+  sink = sink ?? new OutputChannelSink(channel);
+  const logLevel = vscode.workspace.getConfiguration("hdtw").get<string>("logLevel", "info");
+  observer = createObserver({ sink, minLevel: normalizeLevel(logLevel) });
+  context.subscriptions.push(channel);
+
   if (client) {
     return;
   }
-  client = new EngineClient();
+  client = new EngineClient(sink);
   try {
     const apiKey = await context.secrets.get(API_KEY_SECRET);
-    const result = await client.connect(apiKey ? { ANTHROPIC_API_KEY: apiKey } : {});
+    const env: Record<string, string> = { HDTW_LOG_LEVEL: logLevel };
+    if (apiKey) {
+      env.ANTHROPIC_API_KEY = apiKey;
+    }
+    const result = await client.connect(env);
+    observer.logger.info("engine.connected", {
+      engine: result.engineName,
+      version: result.engineVersion,
+    });
     void vscode.window.showInformationMessage(
       `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`
     );
@@ -59,6 +81,7 @@ async function startTour(tourId: string): Promise<void> {
   }
   try {
     const { tour } = await client.getTour(root, tourId);
+    observer?.logger.info("tour.started", { tourId });
     walk?.dispose();
     walk = new WalkController(root);
     await walk.start(tour);
@@ -86,6 +109,7 @@ async function generateTour(): Promise<void> {
   if (!topic) {
     return;
   }
+  observer?.logger.info("generate.requested", { topic });
 
   const config = vscode.workspace.getConfiguration("hdtw.generation");
   const model = config.get<string>("model", "");
@@ -122,6 +146,7 @@ async function generateTour(): Promise<void> {
 }
 
 function handleGenerationError(error: unknown): void {
+  observer?.logger.error("generate.error", { code: (error as { code?: number }).code, message: error instanceof Error ? error.message : String(error) });
   const code = (error as { code?: number }).code;
   const message = error instanceof Error ? error.message : String(error);
   if (code === REQUEST_CANCELLED_ERROR_CODE) {
@@ -169,6 +194,19 @@ async function setApiKey(context: vscode.ExtensionContext): Promise<void> {
   );
   if (action === "Reload") {
     void vscode.commands.executeCommand("workbench.action.reloadWindow");
+  }
+}
+
+function normalizeLevel(value: string): "error" | "warn" | "info" | "debug" | "trace" {
+  switch (value) {
+    case "error":
+    case "warn":
+    case "info":
+    case "debug":
+    case "trace":
+      return value;
+    default:
+      return "info";
   }
 }
 
