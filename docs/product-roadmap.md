@@ -78,12 +78,25 @@ Spec: `docs/superpowers/specs/2026-06-13-observability-design.md`
 | "Save this walk" → catalog tour | Conversation mints durable artifacts |
 | Mid-tour "Why? 💬" detours (in the narration thread) | The new hire can interrupt; the engineer answers in context, then returns to the rails |
 
-### Chunk 4 — Grounding (the hybrid stage) ⬜ not started
+### Chunk 4a — Anchor drift detection + re-anchor 🔄 spec'd, next up
+
+Spec: `docs/superpowers/specs/2026-06-13-drift-detection-design.md`
+
+Split out from the original "Chunk 4 — Grounding & drift": drift is playback-side, low-risk, and uses infrastructure we already have, so it ships first.
 
 | Feature | Capability |
 |---|---|
-| Code-map tools (tree-sitter/LSP): entrypoints, call graphs | Agent cites verified structure instead of guessing — less hallucination, fewer tokens |
-| Anchor drift detection (via stored `snippetHash`) + re-anchoring | Tour freshness as code evolves; stale steps flagged or auto-healed |
+| Engine recomputes each step's `snippetHash` on load → `fresh`/`drifted`/`out-of-range`/`file-missing` (`hdtw/checkTourDrift`) | Tours stay trustworthy as code evolves; hash-accurate, not a line-count heuristic |
+| Hash-window re-anchor (`hdtw/reanchorStep`): slide a window of the anchor's length, match the stored hash, rewrite the step atomically | Deterministic, no-agent relocation of verbatim-moved code; author reviews the git diff |
+| Walk badges + "Re-anchor this step" link; sidebar `⚠ N drifted` on demand | Drift surfaced where you walk; re-anchor is one click |
+
+### Chunk 4b — Code-map grounding ⬜ candidate (split from Chunk 4)
+
+| Feature | Capability |
+|---|---|
+| Code-map tools (tree-sitter/LSP): entrypoints, call graphs the generation agent queries | Agent cites verified structure instead of guessing — less hallucination, fewer tokens |
+
+Bigger, generation-side, multi-language — its own design pass. Sequenced after drift (4a).
 
 ### Tour Graph — related-tour links + walk stack ✅ shipped 2026-06-13
 Spec: `docs/superpowers/specs/2026-06-13-tour-graph-design.md`
