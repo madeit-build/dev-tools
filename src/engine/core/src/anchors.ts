@@ -53,3 +53,56 @@ export function verifyAnchor(anchor: AnchorRange, fileContent: string): AnchorVe
     ),
   };
 }
+
+export type AnchorFreshness = "fresh" | "drifted" | "out-of-range";
+
+/** Recompute the anchored snippet's hash and compare to the stored one. Assumes a valid anchor range (parseTour gates that). */
+export function checkAnchorFreshness(
+  anchor: AnchorRange & { snippetHash: string },
+  fileContent: string
+): AnchorFreshness {
+  const lineCount = fileContent.split(/\r?\n/).length;
+  if (anchor.endLine > lineCount) {
+    return "out-of-range";
+  }
+  const current = computeSnippetHash(
+    extractAnchoredText(fileContent, anchor.startLine, anchor.endLine)
+  );
+  return current === anchor.snippetHash ? "fresh" : "drifted";
+}
+
+export type ReanchorResult =
+  | { outcome: "reanchored"; startLine: number; endLine: number; snippetHash: string }
+  | { outcome: "not-found" }
+  | { outcome: "ambiguous" };
+
+/** Search the file for the window (of the anchor's original length) whose hash equals the stored hash. */
+export function findReanchor(
+  anchor: AnchorRange & { snippetHash: string },
+  fileContent: string
+): ReanchorResult {
+  const lines = fileContent.split(/\r?\n/);
+  const windowLength = anchor.endLine - anchor.startLine + 1;
+  if (windowLength < 1 || windowLength > lines.length) {
+    return { outcome: "not-found" };
+  }
+  const matches: { startLine: number; endLine: number }[] = [];
+  for (let start = 1; start + windowLength - 1 <= lines.length; start += 1) {
+    const end = start + windowLength - 1;
+    if (computeSnippetHash(lines.slice(start - 1, end).join("\n")) === anchor.snippetHash) {
+      matches.push({ startLine: start, endLine: end });
+    }
+  }
+  if (matches.length === 0) {
+    return { outcome: "not-found" };
+  }
+  if (matches.length > 1) {
+    return { outcome: "ambiguous" };
+  }
+  return {
+    outcome: "reanchored",
+    startLine: matches[0].startLine,
+    endLine: matches[0].endLine,
+    snippetHash: anchor.snippetHash,
+  };
+}
