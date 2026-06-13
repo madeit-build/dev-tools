@@ -78,7 +78,7 @@ Spec: `docs/superpowers/specs/2026-06-13-observability-design.md`
 | "Save this walk" → catalog tour | Conversation mints durable artifacts |
 | Mid-tour "Why? 💬" detours (in the narration thread) | The new hire can interrupt; the engineer answers in context, then returns to the rails |
 
-### Chunk 4a — Anchor drift detection + re-anchor 🔄 spec'd, next up
+### Chunk 4a — Anchor drift detection + re-anchor ✅ shipped 2026-06-13
 
 Spec: `docs/superpowers/specs/2026-06-13-drift-detection-design.md`
 

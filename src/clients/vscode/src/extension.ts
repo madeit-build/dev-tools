@@ -24,6 +24,7 @@ let channel: vscode.LogOutputChannel | undefined;
 let sink: OutputChannelSink | undefined;
 let observer: Observer | undefined;
 let tourTitles = new Map<string, string>();
+const driftCounts = new Map<string, number>();
 
 function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -76,7 +77,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     return;
   }
 
-  tree = new TourTreeProvider(client, workspaceRoot);
+  tree = new TourTreeProvider(client, workspaceRoot, (id) => driftCounts.get(id));
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("hdtwTours", tree),
     vscode.commands.registerCommand("hdtw.refreshTours", () => tree?.refresh()),
@@ -89,7 +90,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       reanchorStep(tourId, stepIndex)
     ),
     vscode.commands.registerCommand("hdtw.generateTour", () => generateTour()),
-    vscode.commands.registerCommand("hdtw.setApiKey", () => setApiKey(context))
+    vscode.commands.registerCommand("hdtw.setApiKey", () => setApiKey(context)),
+    vscode.commands.registerCommand("hdtw.checkTourDrift", async (item?: { id?: string }) => {
+      const root = workspaceRoot();
+      const tourId = typeof item?.id === "string" ? item.id : undefined;
+      if (!root || !client || !tourId) {
+        return;
+      }
+      try {
+        const { statuses } = await client.checkTourDrift(root, tourId);
+        driftCounts.set(tourId, statuses.filter((s) => s.status !== "fresh").length);
+        tree?.refresh();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        void vscode.window.showErrorMessage(`HDTW: drift check failed: ${message}`);
+      }
+    })
   );
 }
 
@@ -124,6 +140,8 @@ async function applyDrift(root: string, tourId: string): Promise<void> {
     await walk.refresh();
     const drifted = statuses.filter((s) => s.status !== "fresh").length;
     observer?.logger.info("drift.checked", { tourId, drifted, total: statuses.length });
+    driftCounts.set(tourId, drifted);
+    tree?.refresh();
   } catch {
     // Drift is best-effort; a failure leaves the walk usable without badges.
   }

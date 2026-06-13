@@ -79,7 +79,8 @@
         "category": "Made I.T. (HDTW)"
       },
       { "command": "hdtw.followRelated", "title": "HDTW: Follow Related Tour" },
-      { "command": "hdtw.reanchorStep", "title": "HDTW: Re-anchor Step" }
+      { "command": "hdtw.reanchorStep", "title": "HDTW: Re-anchor Step" },
+      { "command": "hdtw.checkTourDrift", "title": "HDTW: Check Tour for Drift", "icon": "$(search)" }
     ],
     "menus": {
       "view/title": [
@@ -93,6 +94,9 @@
           "when": "view == hdtwTours",
           "group": "navigation@2"
         }
+      ],
+      "view/item/context": [
+        { "command": "hdtw.checkTourDrift", "when": "view == hdtwTours && viewItem == hdtwTour", "group": "inline" }
       ],
       "comments/commentThread/title": [
         {
