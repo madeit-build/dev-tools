@@ -18,11 +18,19 @@ export interface TourAnchor {
   snippetHash: string;
 }
 
+export interface RelatedTour {
+  tourId: string;
+  /** Link text shown in the narration thread; falls back to the target tour's title when absent. */
+  label?: string;
+}
+
 export interface TourStep {
   title: string;
   anchor: TourAnchor;
   /** Markdown. */
   narration: string;
+  /** Optional cross-links to other tours, surfaced as buttons in the walk. Schema-additive. */
+  relatedTours?: RelatedTour[];
 }
 
 export interface Tour {
