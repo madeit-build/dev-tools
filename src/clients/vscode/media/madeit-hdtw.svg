@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Made I.T. mark">
+    <style>
+    svg       { --paper:currentColor; --stroke-w:4; --stroke-wHalf:calc(var(--stroke-w)*0.5); --stroke-wXBig:calc(var(--stroke-w)*8); }
+    #letter-M { stroke:var(--paper); stroke-width:var(--stroke-w); }
+    #triangle { fill:none; stroke:var(--paper); stroke-width:var(--stroke-wXBig); stroke-linejoin:miter; }
+    #charm { fill:none; stroke-width:var(--stroke-wHalf); stroke-linejoin:miter; }
+    </style>
+    <defs>
+        <filter id="invert-charm">
+            <!-- Inverts RGB channels while keeping alpha at 100% -->
+            <feComponentTransfer>
+                <feFuncR type="table" tableValues="1 0"/>
+                <feFuncG type="table" tableValues="1 0"/>
+                <feFuncB type="table" tableValues="1 0"/>
+            </feComponentTransfer>
+        </filter>
+    </defs>
+
+    <path id="letter-M" d="M 30 30 
+                           L 142.57 30 
+                           L 236.8 274.76 
+                           L 329.43 30 
+                           L 442 30 
+                           L 442 482 
+                           L 364.57 482 
+                           L 364.57 144.34 
+                           L 273.53 396.25 
+                           L 200.06 396.25 
+                           L 107.43 144.34 
+                           L 107.43 482 
+                           L 30 482 Z"/>
+
+    <path id="triangle" d="M 273.5 380.5 L 336 154.22 L 356 154.22 L 482 380.5 Z"/>
+
+    <!-- foreground charm: code -->
+    <g id="charm" transform="translate(280 -30) rotate(0) scale(10)" stroke="currentColor" filter="url(#invert-charm)">
+        <path d="M7 8l-4 4l4 4" />
+        <path d="M17 8l4 4l-4 4" />
+        <path d="M14 4l-4 16" />
+    </g>
+</svg>

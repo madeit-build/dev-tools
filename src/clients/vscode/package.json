@@ -11,7 +11,7 @@
   "categories": [
     "Other"
   ],
-  "icon": "media/icon.png",
+  "icon": "media/madeit-hdtw.svg",
   "main": "./dist/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -22,7 +22,7 @@
         {
           "id": "hdtw",
           "title": "How Does This Work",
-          "icon": "media/compass.svg"
+          "icon": "media/madeit-hdtw.svg"
         }
       ]
     },
@@ -125,7 +125,13 @@
         },
         "hdtw.logLevel": {
           "type": "string",
-          "enum": ["error", "warn", "info", "debug", "trace"],
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
           "default": "info",
           "description": "Verbosity of the HDTW output channel and engine logs."
         }
