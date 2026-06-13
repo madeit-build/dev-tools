@@ -60,6 +60,16 @@ Spec: `docs/superpowers/specs/2026-06-12-chunk-2-agent-tour-generation-design.md
 | Engine-owned anchor verification + repair round (agent never supplies hashes) | Generated steps must point at real code (no hallucinated anchors) |
 | `TourGenerator` port (Claude implementation + test fake) | Reserved seam for future bring-your-own-agent backends (Codex, Copilot, …) |
 
+### Chunk 2.5 — Observability ✅ shipped 2026-06-13
+
+Spec: `docs/superpowers/specs/2026-06-13-observability-design.md`
+
+| Feature | Capability |
+|---|---|
+| `@made-i-t/hdtw-observability` — injected `Logger` + `Metrics` + sink seam | Structured observability shared across packages; one seam for future telemetry export |
+| Engine emits NDJSON records to stderr; client renders them in a native "HDTW" Output channel | See the agent's tool use, anchor verification, repair rounds, and timings live — even on startup/crash |
+| `hdtw.logLevel` setting → `HDTW_LOG_LEVEL` engine env | One control for engine + client verbosity |
+
 ### Chunk 3 — Conversational walks (V1 complete) ⬜ not started
 
 | Feature | Capability |
