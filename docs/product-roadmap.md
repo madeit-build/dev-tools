@@ -70,7 +70,7 @@ Spec: `docs/superpowers/specs/2026-06-13-observability-design.md`
 | Engine emits NDJSON records to stderr; client renders them in a native "HDTW" Output channel | See the agent's tool use, anchor verification, repair rounds, and timings live — even on startup/crash |
 | `hdtw.logLevel` setting → `HDTW_LOG_LEVEL` engine env | One control for engine + client verbosity |
 
-### Chunk 3a — Conversational Ask 🔄 spec'd, next up
+### Chunk 3a — Conversational Ask ✅ shipped 2026-06-13
 
 Spec: `docs/superpowers/specs/2026-06-13-conversational-ask-design.md`
 
