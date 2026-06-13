@@ -6,7 +6,7 @@
   "main": "./dist/main.js",
   "exports": {
     ".": {
-      "require": "./dist/main.js",
+      "import": "./dist/main.js",
       "default": "./dist/main.js"
     }
   },
