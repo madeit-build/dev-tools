@@ -95,6 +95,18 @@ Spec: `docs/superpowers/specs/2026-06-13-observability-design.md`
 
 Sequencing note: pairs naturally with Chunk 3 — "Why?" detours and related-tour detours share the push/pop walk-stack mechanic.
 
+### Candidate — GitHub browser client (cross-repo tours) ⬜ idea (2026-06-13)
+
+A browser extension that renders `.hdtw/tours/*.tour.json` inline on github.com, plus cross-repo references.
+
+| Feature | Capability |
+|---|---|
+| Browser playback client — fetch tour JSON + anchored file blobs via the GitHub API, render the rails over GitHub's code view | Walk a tour with **zero install, zero clone** — playback is engine-free (Chunk 1), so the browser needs no engine/LLM. GitHub becomes the discovery channel; the repo is already the distribution channel |
+| Cross-repo related-tour links — qualify a `relatedTours` id with a repo (e.g. `owner/repo#tourId`) | Builds directly on the walk-stack from the Tour Graph chunk; only the sub-tour *fetch* differs (GitHub API vs local). A tour can branch into another repo's tour |
+| (Later) hosted generation with managed keys | Generation needs an engine; in-browser generation implies a hosted engine — ties to the monetization thread |
+
+Strategic note: highest-value first slice is **browser playback** (low risk, large distribution leverage, leans on the engine-free playback model). Cross-repo references extend the Tour Graph branching. Risks: GitHub's DOM is a moving target for overlay UI; private-repo auth; a separate web-extension build/store pipeline. Sequencing: after Tour Graph ships.
+
 ### Chunk 5 — Team & beyond ⬜ not started
 
 | Feature | Capability |
