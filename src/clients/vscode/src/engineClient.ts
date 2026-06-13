@@ -1,15 +1,21 @@
 import * as childProcess from "node:child_process";
 import {
+  CancellationTokenSource,
   createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
 } from "vscode-jsonrpc/node";
 import {
+  GENERATE_TOUR_METHOD,
+  GENERATION_PROGRESS_NOTIFICATION,
   GET_TOUR_METHOD,
   LIST_TOURS_METHOD,
   PING_METHOD,
   PROTOCOL_VERSION,
+  type GenerateTourParams,
+  type GenerateTourResult,
+  type GenerationProgressParams,
   type GetTourParams,
   type GetTourResult,
   type ListToursParams,
@@ -28,7 +34,7 @@ export class EngineClient {
     return this.connection !== undefined;
   }
 
-  async connect(): Promise<PingResult> {
+  async connect(extraEnv: Record<string, string> = {}): Promise<PingResult> {
     // Resolves to the engine-server package's "main" (dist/main.js) via the
     // workspace symlink. The client never imports engine code — it only needs
     // the path to spawn the process.
@@ -38,7 +44,7 @@ export class EngineClient {
     // process behave as plain Node.js (same technique vscode-languageclient uses).
     // The piped stdin doubles as orphan cleanup: the engine exits on stdin EOF.
     const serverProcess = childProcess.spawn(process.execPath, [serverEntry], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      env: { ...process.env, ...extraEnv, ELECTRON_RUN_AS_NODE: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     });
     this.engineProcess = serverProcess;
@@ -98,6 +104,33 @@ export class EngineClient {
   async getTour(workspaceRoot: string, tourId: string): Promise<GetTourResult> {
     const params: GetTourParams = { workspaceRoot, tourId };
     return this.request<GetTourResult>(GET_TOUR_METHOD, params);
+  }
+
+  async generateTour(
+    params: GenerateTourParams,
+    onProgress: (progress: GenerationProgressParams) => void,
+    cancellation: { onCancellationRequested(listener: () => void): { dispose(): void } }
+  ): Promise<GenerateTourResult> {
+    if (!this.connection) {
+      throw new Error("engine not connected");
+    }
+    const progressSubscription = this.connection.onNotification(
+      GENERATION_PROGRESS_NOTIFICATION,
+      onProgress
+    );
+    const source = new CancellationTokenSource();
+    const cancelSubscription = cancellation.onCancellationRequested(() => source.cancel());
+    try {
+      return await this.connection.sendRequest<GenerateTourResult>(
+        GENERATE_TOUR_METHOD,
+        params,
+        source.token
+      );
+    } finally {
+      progressSubscription.dispose();
+      cancelSubscription.dispose();
+      source.dispose();
+    }
   }
 
   private request<T>(method: string, params: unknown): Promise<T> {
