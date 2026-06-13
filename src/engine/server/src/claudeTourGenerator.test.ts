@@ -21,4 +21,19 @@ describe("parseDraft", () => {
   test("rejects structurally invalid drafts", () => {
     expect(() => parseDraft('```json\n{"title":"T"}\n```')).toThrow(GenerationFailedError);
   });
+
+  test("accepts a draft with relatedTours on a step", () => {
+    const text = `\`\`\`json
+{ "title": "T", "summary": "S", "steps": [ { "title": "s1", "narration": "n", "anchor": { "file": "a.ts", "startLine": 1, "endLine": 2 }, "relatedTours": [ { "tourId": "other", "label": "Other" } ] } ] }
+\`\`\``;
+    const draft = parseDraft(text);
+    expect(draft.steps[0].relatedTours).toEqual([{ tourId: "other", label: "Other" }]);
+  });
+
+  test("rejects relatedTours with a non-string tourId", () => {
+    const text = `\`\`\`json
+{ "title": "T", "summary": "S", "steps": [ { "title": "s1", "narration": "n", "anchor": { "file": "a.ts", "startLine": 1, "endLine": 2 }, "relatedTours": [ { "tourId": 5 } ] } ] }
+\`\`\``;
+    expect(() => parseDraft(text)).toThrow();
+  });
 });

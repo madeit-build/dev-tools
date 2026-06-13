@@ -29,7 +29,7 @@ Rules for narration:
 - 2 to 4 sentences per step, in Markdown.
 - Explain WHY the code is the way it is — patterns, architecture, intent — not just what it does. Speak like a senior engineer walking someone through the system.
 
-Your FINAL message must be ONLY a fenced JSON block in exactly this shape, with no other prose:
+Your FINAL message must be ONLY a fenced JSON block in exactly this shape, with no other prose. The "relatedTours" array is OPTIONAL and only allowed when the workspace lists tours you may link to:
 
 \`\`\`json
 {
@@ -39,7 +39,8 @@ Your FINAL message must be ONLY a fenced JSON block in exactly this shape, with 
     {
       "title": "Step title",
       "narration": "Markdown narration.",
-      "anchor": { "file": "relative/path.ts", "startLine": 10, "endLine": 24 }
+      "anchor": { "file": "relative/path.ts", "startLine": 10, "endLine": 24 },
+      "relatedTours": [{ "tourId": "existing-tour-id", "label": "Optional link text" }]
     }
   ]
 }
@@ -50,10 +51,10 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
     workspaceRoot: string,
     topic: string,
     model: string | undefined,
-    _catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
+    catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
     hooks: GenerationHooks
   ): Promise<DraftTour> {
-    const prompt = `Create a guided tour for this topic: ${topic}`;
+    const prompt = `Create a guided tour for this topic: ${topic}${catalogSection(catalog)}`;
     return this.runQuery(workspaceRoot, prompt, model, MAX_GENERATE_TURNS, "exploring", hooks);
   }
 
@@ -176,6 +177,14 @@ function isAuthError(error: unknown): boolean {
   return /api key|authentication|unauthorized|401|not logged in|credential|billing/i.test(text);
 }
 
+function catalogSection(catalog: import("@made-i-t/hdtw-protocol").TourSummary[]): string {
+  if (catalog.length === 0) {
+    return "";
+  }
+  const lines = catalog.map((tour) => `- ${tour.id}: ${tour.title}`).join("\n");
+  return `\n\nThe workspace already has these tours. Where a step naturally leads into one of them, you MAY add a "relatedTours" array to that step with the exact id (and an optional label). Only reference ids from this list:\n${lines}`;
+}
+
 export function parseDraft(resultText: string): DraftTour {
   const fenced =
     [...resultText.matchAll(/```json\s*([\s\S]*?)```/g)].at(-1)?.[1] ?? resultText;
@@ -222,6 +231,23 @@ function validateDraft(value: unknown): string[] {
       !Number.isInteger(anchor.endLine)
     ) {
       errors.push(`steps[${index}].anchor incomplete`);
+    }
+    if (candidate.relatedTours !== undefined) {
+      if (!Array.isArray(candidate.relatedTours)) {
+        errors.push(`steps[${index}].relatedTours must be an array`);
+      } else {
+        candidate.relatedTours.forEach((link, linkIndex) => {
+          const entry = link as Record<string, unknown> | null;
+          if (
+            typeof entry !== "object" ||
+            entry === null ||
+            typeof entry.tourId !== "string" ||
+            entry.tourId.length === 0
+          ) {
+            errors.push(`steps[${index}].relatedTours[${linkIndex}].tourId must be a non-empty string`);
+          }
+        });
+      }
     }
   });
   return errors;
