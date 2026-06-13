@@ -90,10 +90,9 @@ Spec: `docs/superpowers/specs/2026-06-13-tour-graph-design.md`
 
 | Feature | Capability |
 |---|---|
-| Optional `relatedTourIds` on tour steps (schema-additive — no version bump; old clients ignore it) | Tours stay flat as artifacts; hierarchy is composed at walk time |
-| Narration thread renders related-tour links; following one pushes the current walk onto a stack, walks the sub-tour, pops back | "I'm on a monorepo-architecture step and there's a whole tour on how JSON-RPC plays in" — detour and return without losing your place |
-| Agent cross-links during generation (it can see the existing tour catalog) | The tour graph grows itself as tours accumulate |
-| Agent cross-linking — catalog injected into generation; engine keeps only resolvable links | The tour graph grows itself as tours accumulate |
+| Optional `relatedTours` (`{tourId,label?}`) on tour steps (schema-additive — no version bump; old clients ignore it) | Tours stay flat as artifacts; hierarchy is composed at walk time |
+| Narration thread renders related-tour links; following one pushes the current walk onto a stack, walks the sub-tour, auto-returns to the parent step; status-bar breadcrumb | "I'm on a monorepo-architecture step and there's a whole tour on how JSON-RPC plays in" — detour and return without losing your place |
+| Agent cross-linking — the tour catalog is injected into generation; the engine keeps only catalog-resolvable links (`verify.related_dropped`) | The tour graph grows itself as tours accumulate |
 
 ### Candidate — GitHub browser client (cross-repo tours) ⬜ idea (2026-06-13)
 
