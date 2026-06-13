@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile, access } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
   parseTour,
@@ -23,9 +23,9 @@ import {
   type DraftTour,
   type TourGenerator,
 } from "./tourGenerator.js";
+import { writeTourToCatalog } from "./tourStorage.js";
 
 const DEFAULT_MAX_BUDGET_USD = 2;
-const TOURS_DIR_SEGMENTS = [".hdtw", "tours"];
 
 export async function runGeneration(
   params: GenerateTourParams,
@@ -115,11 +115,28 @@ export async function runGeneration(
       }
     }
 
+    const tour = assembleTour(draft, verified.steps);
+
+    if (params.save === false) {
+      observer.logger.info("generate.done", { id: tour.id, steps: tour.steps.length, saved: false });
+      span.end({ steps: tour.steps.length });
+      return { tour, savedPath: undefined };
+    }
+
     onProgress({ phase: "saving", message: "Saving tour", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
-    const result = await saveTour(params.workspaceRoot, draft, verified.steps);
-    observer.logger.info("generate.done", { id: result.tour.id, steps: result.tour.steps.length, savedPath: result.savedPath });
-    span.end({ steps: result.tour.steps.length });
-    return result;
+    let saved;
+    try {
+      saved = await writeTourToCatalog(params.workspaceRoot, tour);
+    } catch (error) {
+      throw new GenerationFailedError(error instanceof Error ? error.message : String(error));
+    }
+    observer.logger.info("generate.done", {
+      id: saved.tour.id,
+      steps: saved.tour.steps.length,
+      savedPath: saved.savedPath,
+    });
+    span.end({ steps: saved.tour.steps.length });
+    return { tour: saved.tour, savedPath: saved.savedPath };
   } finally {
     cancelSignal.removeEventListener("abort", forwardAbort);
   }
@@ -200,62 +217,23 @@ async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourS
   };
 }
 
-async function saveTour(
-  workspaceRoot: string,
-  draft: DraftTour,
-  steps: TourStep[]
-): Promise<GenerateTourResult> {
-  const toursDir = path.join(workspaceRoot, ...TOURS_DIR_SEGMENTS);
-  await mkdir(toursDir, { recursive: true });
-
-  const id = await uniqueTourId(toursDir, slugify(draft.title));
+function assembleTour(draft: DraftTour, steps: TourStep[]): Tour {
   const tour: Tour = {
     schemaVersion: 1,
-    id,
+    id: slugifyTitle(draft.title),
     title: draft.title,
     summary: draft.summary,
     steps,
   };
-
-  // Final gate: the generated artifact must pass the same validation playback uses.
   const serialized = JSON.stringify(tour, null, 2) + "\n";
-  const gate = parseTour(serialized, id);
+  const gate = parseTour(serialized, tour.id);
   if (!gate.ok) {
     throw new GenerationFailedError(`generated tour failed validation: ${gate.errors.join("; ")}`);
   }
-
-  // Atomic write: a half-written tour file can never appear.
-  const finalPath = path.join(toursDir, `${id}.tour.json`);
-  const tempPath = `${finalPath}.tmp`;
-  await writeFile(tempPath, serialized, "utf8");
-  await rename(tempPath, finalPath);
-
-  return { tour, savedPath: [...TOURS_DIR_SEGMENTS, `${id}.tour.json`].join("/") };
+  return tour;
 }
 
-function slugify(title: string): string {
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+function slugifyTitle(title: string): string {
+  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   return slug.length > 0 ? slug : "tour";
-}
-
-async function uniqueTourId(toursDir: string, baseId: string): Promise<string> {
-  let id = baseId;
-  let counter = 2;
-  while (await exists(path.join(toursDir, `${id}.tour.json`))) {
-    id = `${baseId}-${counter}`;
-    counter += 1;
-  }
-  return id;
-}
-
-async function exists(filePath: string): Promise<boolean> {
-  try {
-    await access(filePath);
-    return true;
-  } catch {
-    return false;
-  }
 }
