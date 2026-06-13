@@ -76,7 +76,14 @@ export async function runGeneration(
     let verified = await verifyDraft(params.workspaceRoot, draft, onProgress);
     if (!verified.ok) {
       try {
-        draft = await generator.repair(params.workspaceRoot, params.topic, draft, verified.errors, hooks);
+        draft = await generator.repair(
+          params.workspaceRoot,
+          params.topic,
+          normalizeModel(params.model),
+          draft,
+          verified.errors,
+          hooks
+        );
       } catch (error) {
         translateAbort(error);
         throw error;

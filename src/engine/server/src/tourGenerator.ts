@@ -35,6 +35,7 @@ export interface TourGenerator {
   repair(
     workspaceRoot: string,
     topic: string,
+    model: string | undefined,
     draft: DraftTour,
     anchorErrors: string[],
     hooks: GenerationHooks

@@ -47,6 +47,7 @@ export class FakeTourGenerator implements TourGenerator {
   async repair(
     _workspaceRoot: string,
     _topic: string,
+    _model: string | undefined,
     _draft: DraftTour,
     _anchorErrors: string[],
     hooks: GenerationHooks

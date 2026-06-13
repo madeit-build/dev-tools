@@ -59,6 +59,7 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
   async repair(
     workspaceRoot: string,
     topic: string,
+    model: string | undefined,
     draft: DraftTour,
     anchorErrors: string[],
     hooks: GenerationHooks
@@ -73,7 +74,7 @@ These anchors failed verification against the actual files:
 ${anchorErrors.map((error) => `- ${error}`).join("\n")}
 
 Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or choose a better location), and output the corrected complete tour in the required fenced JSON format.`;
-    return this.runQuery(workspaceRoot, prompt, undefined, MAX_REPAIR_TURNS, "repairing", hooks);
+    return this.runQuery(workspaceRoot, prompt, model, MAX_REPAIR_TURNS, "repairing", hooks);
   }
 
   private async runQuery(
