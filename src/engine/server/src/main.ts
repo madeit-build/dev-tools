@@ -15,17 +15,19 @@ import {
   GET_TOUR_METHOD,
   LIST_TOURS_METHOD,
   PING_METHOD,
+  REANCHOR_STEP_METHOD,
   TOUR_NOT_FOUND_ERROR_CODE,
   type CheckTourDriftParams,
   type GenerateTourParams,
   type GetTourParams,
   type ListToursParams,
   type PingParams,
+  type ReanchorStepParams,
 } from "@made-i-t/hdtw-protocol";
 import { createObserver, parseLogLevel } from "@made-i-t/hdtw-observability";
 import { handlePing } from "./pingHandler.js";
 import { getTour, listTours, TourNotFoundError } from "./tourHandlers.js";
-import { checkTourDrift } from "./driftHandlers.js";
+import { checkTourDrift, reanchorStep } from "./driftHandlers.js";
 import { runGeneration } from "./generationPipeline.js";
 import { FakeTourGenerator } from "./fakeTourGenerator.js";
 import { ClaudeAgentTourGenerator } from "./claudeTourGenerator.js";
@@ -106,6 +108,17 @@ connection.onRequest(
 connection.onRequest(CHECK_TOUR_DRIFT_METHOD, async (params: CheckTourDriftParams) => {
   try {
     return await checkTourDrift(params);
+  } catch (error) {
+    if (error instanceof TourNotFoundError) {
+      throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
+    }
+    throw error;
+  }
+});
+
+connection.onRequest(REANCHOR_STEP_METHOD, async (params: ReanchorStepParams) => {
+  try {
+    return await reanchorStep(params);
   } catch (error) {
     if (error instanceof TourNotFoundError) {
       throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
