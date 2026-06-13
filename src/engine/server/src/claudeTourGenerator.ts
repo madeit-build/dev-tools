@@ -113,15 +113,22 @@ Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or c
           const usage = message.message.usage;
           tokensIn += usage?.input_tokens ?? 0;
           tokensOut += usage?.output_tokens ?? 0;
+          for (const block of message.message.content) {
+            if (block.type === "tool_use") {
+              hooks.observer.logger.debug("agent.tool", {
+                tool: block.name,
+                input: block.input,
+              });
+            }
+          }
+          hooks.observer.logger.debug("agent.usage", { phase, tokensIn, tokensOut });
           hooks.onProgress({
             phase,
-            message:
-              phase === "exploring" ? "Agent exploring the codebase" : "Agent repairing anchors",
+            message: phase === "exploring" ? "Agent exploring the codebase" : "Agent repairing anchors",
             tokensIn,
             tokensOut,
             estimatedCostUsd:
-              tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN +
-              tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
+              tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN + tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
           });
         }
         if (message.type === "result") {
@@ -151,7 +158,14 @@ Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or c
     if (resultText === undefined) {
       throw new GenerationFailedError("agent run produced no final result");
     }
-    return parseDraft(resultText);
+    try {
+      return parseDraft(resultText);
+    } catch (error) {
+      hooks.observer.logger.error("agent.parse_failed", {
+        resultPreview: resultText.slice(0, 2000),
+      });
+      throw error;
+    }
   }
 }
 
