@@ -48,7 +48,7 @@ Spec: `docs/superpowers/specs/2026-06-12-chunk-1-rails-playback-design.md`
 | Graceful degradation: invalid tours badged with precise errors; drifted anchors warn but don't break the walk | Tours stay useful as code evolves |
 | Dogfood artifact: committed tour of this repo's architecture | Proves the format; doubles as our own onboarding |
 
-### Chunk 2 — Embedded agent + tour generation 🔄 spec'd, next up
+### Chunk 2 — Embedded agent + tour generation ✅ shipped 2026-06-12 (F5 dogfood pending)
 
 Spec: `docs/superpowers/specs/2026-06-12-chunk-2-agent-tour-generation-design.md`
 

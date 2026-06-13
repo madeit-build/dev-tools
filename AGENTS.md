@@ -60,11 +60,13 @@ Launching the extension: open the repo in VS Code and press F5 (Run Extension). 
 - **Approved design spec:** `docs/superpowers/specs/2026-06-12-monorepo-structure-design.md` — the source of truth for the structure described above.
 - **Runnable skeleton implemented** (plan: `docs/superpowers/plans/2026-06-12-monorepo-skeleton.md`): `pnpm install && pnpm build` works; F5 in VS Code launches the extension, which spawns the engine and completes the ping/pong handshake.
 - **Chunk 1 shipped — tour playback:** tours live in `.hdtw/tours/*.tour.json`; the engine serves `hdtw/listTours`/`hdtw/getTour`; the extension walks tours with inline narration threads. Dogfood tour: `.hdtw/tours/monorepo-architecture.tour.json` (plan: `docs/superpowers/plans/2026-06-12-chunk-1-rails-playback.md`).
-- Not yet designed: the guided-tour/rails feature set, agent bootstrapping behavior, JetBrains client, release pipeline.
+- **Chunk 2 implemented — agent tour generation (pending human F5 dogfood):** the engine embeds the Claude Agent SDK behind a `TourGenerator` port; `hdtw/generateTour` streams progress, enforces a budget, verifies anchors engine-side with one repair round, and writes atomically. VS Code adds "HDTW: Generate Tour…", settings (`hdtw.generation.*`), and "HDTW: Set Anthropic API Key" (SecretStorage; falls back to Claude Code CLI credentials). Test generators: run the engine with `HDTW_GENERATOR=fake`. Note: `@made-i-t/hdtw-engine-server` is now an ESM package (the SDK is ESM-only); engine-core and protocol remain CJS.
+- Not yet designed: the guided-tour/rails feature set, JetBrains client, release pipeline.
 
 ## Working conventions
 
 - Design before building: significant features get a design doc in `docs/superpowers/specs/` (dated, e.g. `YYYY-MM-DD-<topic>-design.md`); durable architectural choices get an ADR in `docs/adr/`.
 - Keep the engine/client/protocol boundaries intact in every change — if a client needs engine data, the answer is a protocol addition, not an import.
+- `engine-core` purity rule, precisely: no filesystem, no transport, no SDK/network. Deterministic computation from `node:` builtins (e.g. `node:crypto` hashing) is allowed.
 - The VS Code extension package is `hdtw-vscode` with publisher `madeit` (extension ID `madeit.hdtw-vscode`) — extension manifests cannot use npm scopes, so it deviates from the `@made-i-t/hdtw-*` naming.
 - Package convention: every library package has an `exports` map (`types` condition first); all relative imports in .ts files use `.js` extensions (Node16 module resolution).
