@@ -78,7 +78,8 @@
         "title": "HDTW: Set Anthropic API Key",
         "category": "Made I.T. (HDTW)"
       },
-      { "command": "hdtw.followRelated", "title": "HDTW: Follow Related Tour" }
+      { "command": "hdtw.followRelated", "title": "HDTW: Follow Related Tour" },
+      { "command": "hdtw.reanchorStep", "title": "HDTW: Re-anchor Step" }
     ],
     "menus": {
       "view/title": [

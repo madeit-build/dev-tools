@@ -1,6 +1,6 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import type { Tour } from "@made-i-t/hdtw-protocol";
+import type { StepDriftState, Tour } from "@made-i-t/hdtw-protocol";
 import { currentStep, progressLabel, startWalk } from "./walkState.js";
 import {
   activeWalk,
@@ -10,6 +10,7 @@ import {
   retreat,
   type WalkStack,
 } from "./walkStack.js";
+import { driftBadge, isReanchorable } from "./driftBadge.js";
 
 export class WalkController implements vscode.Disposable {
   private stack: WalkStack = [];
@@ -18,6 +19,8 @@ export class WalkController implements vscode.Disposable {
   private readonly decoration: vscode.TextEditorDecorationType;
   private readonly statusBarItem: vscode.StatusBarItem;
   private decoratedEditor: vscode.TextEditor | undefined;
+  private driftByIndex = new Map<number, StepDriftState>();
+  private reanchorContext: { tourId: string } | undefined;
 
   constructor(
     private readonly workspaceRoot: string,
@@ -33,17 +36,31 @@ export class WalkController implements vscode.Disposable {
   }
 
   async start(tour: Tour): Promise<void> {
+    this.driftByIndex = new Map();
     this.stack = [startWalk(tour)];
     await this.renderCurrentStep();
   }
 
   /** Follow a related tour: push it onto the stack and walk it. */
   async pushTour(tour: Tour): Promise<void> {
+    this.driftByIndex = new Map();
     if (this.stack.length === 0) {
       this.stack = [startWalk(tour)];
     } else {
       this.stack = pushWalk(this.stack, tour);
     }
+    await this.renderCurrentStep();
+  }
+
+  setDrift(statuses: { index: number; status: StepDriftState }[]): void {
+    this.driftByIndex = new Map(statuses.map((s) => [s.index, s.status]));
+  }
+
+  setReanchorContext(tourId: string): void {
+    this.reanchorContext = { tourId };
+  }
+
+  async refresh(): Promise<void> {
     await this.renderCurrentStep();
   }
 
@@ -100,7 +117,8 @@ export class WalkController implements vscode.Disposable {
       return;
     }
 
-    const drifted = step.anchor.endLine > document.lineCount;
+    const status: StepDriftState = this.driftByIndex.get(activeWalk(this.stack).stepIndex) ?? "fresh";
+    const drifted = status !== "fresh";
     const startLine = Math.min(step.anchor.startLine, document.lineCount) - 1;
     const endLine = Math.min(step.anchor.endLine, document.lineCount) - 1;
     const range = new vscode.Range(startLine, 0, endLine, document.lineAt(endLine).text.length);
@@ -113,14 +131,20 @@ export class WalkController implements vscode.Disposable {
       this.decoratedEditor = editor;
     }
 
+    const badge = driftBadge(status);
+    const reanchorLink =
+      isReanchorable(status) && this.reanchorContext
+        ? `\n\n[🔧 Re-anchor this step](command:hdtw.reanchorStep?${encodeURIComponent(
+            JSON.stringify([this.reanchorContext.tourId, activeWalk(this.stack).stepIndex])
+          )})`
+        : "";
     const body =
-      (drifted
-        ? "⚠️ _This step's anchor has drifted — code may have changed since authoring._\n\n"
-        : "") +
+      (badge ? badge + "\n\n" : "") +
       step.narration +
+      reanchorLink +
       this.relatedSection(step.relatedTours);
     const narration = new vscode.MarkdownString(body);
-    narration.isTrusted = { enabledCommands: ["hdtw.followRelated"] };
+    narration.isTrusted = { enabledCommands: ["hdtw.followRelated", "hdtw.reanchorStep"] };
     const comments: vscode.Comment[] = [
       {
         body: narration,
