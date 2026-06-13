@@ -102,7 +102,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("hdtw.startTour", (tourId: string) => startTour(tourId)),
     vscode.commands.registerCommand("hdtw.tourNext", () => walk?.next()),
     vscode.commands.registerCommand("hdtw.tourPrevious", () => walk?.previous()),
-    vscode.commands.registerCommand("hdtw.tourExit", () => walk?.exit()),
+    vscode.commands.registerCommand("hdtw.tourExit", () => {
+      walk?.exit();
+      saveState.setSaved();
+      refreshSaveAffordance();
+    }),
     vscode.commands.registerCommand("hdtw.followRelated", (tourId: string) => followRelated(tourId)),
     vscode.commands.registerCommand("hdtw.reanchorStep", (tourId: string, stepIndex: number) =>
       reanchorStep(tourId, stepIndex)
@@ -317,7 +321,8 @@ async function askWalk(): Promise<void> {
     walk = new WalkController(root, (id) => tourTitles.get(id));
     walk.setReanchorContext(result.tour.id);
     await walk.start(result.tour);
-    await applyDrift(root, result.tour.id);
+    // An ephemeral Ask walk isn't on disk, and it was just generated against
+    // current code, so it's fresh by construction — skip the drift check.
     saveState.setUnsaved(result.tour);
     refreshSaveAffordance();
   } catch (error) {
