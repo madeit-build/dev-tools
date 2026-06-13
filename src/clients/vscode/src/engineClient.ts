@@ -7,12 +7,15 @@ import {
   StreamMessageWriter,
 } from "vscode-jsonrpc/node";
 import {
+  CHECK_TOUR_DRIFT_METHOD,
   GENERATE_TOUR_METHOD,
   GENERATION_PROGRESS_NOTIFICATION,
   GET_TOUR_METHOD,
   LIST_TOURS_METHOD,
   PING_METHOD,
   PROTOCOL_VERSION,
+  REANCHOR_STEP_METHOD,
+  type CheckTourDriftResult,
   type GenerateTourParams,
   type GenerateTourResult,
   type GenerationProgressParams,
@@ -22,6 +25,7 @@ import {
   type ListToursResult,
   type PingParams,
   type PingResult,
+  type ReanchorStepResult,
 } from "@made-i-t/hdtw-protocol";
 import { parseRecord } from "@made-i-t/hdtw-observability";
 import type { OutputChannelSink } from "./outputChannelSink.js";
@@ -135,6 +139,18 @@ export class EngineClient {
   async getTour(workspaceRoot: string, tourId: string): Promise<GetTourResult> {
     const params: GetTourParams = { workspaceRoot, tourId };
     return this.request<GetTourResult>(GET_TOUR_METHOD, params);
+  }
+
+  async checkTourDrift(workspaceRoot: string, tourId: string): Promise<CheckTourDriftResult> {
+    return this.request<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, { workspaceRoot, tourId });
+  }
+
+  async reanchorStep(
+    workspaceRoot: string,
+    tourId: string,
+    stepIndex: number
+  ): Promise<ReanchorStepResult> {
+    return this.request<ReanchorStepResult>(REANCHOR_STEP_METHOD, { workspaceRoot, tourId, stepIndex });
   }
 
   async generateTour(
