@@ -20,10 +20,7 @@ import {
   type ListToursParams,
   type PingParams,
 } from "@made-i-t/hdtw-protocol";
-import {
-  createObserver,
-  type LogLevel,
-} from "@made-i-t/hdtw-observability";
+import { createObserver, parseLogLevel } from "@made-i-t/hdtw-observability";
 import { handlePing } from "./pingHandler.js";
 import { getTour, listTours, TourNotFoundError } from "./tourHandlers.js";
 import { runGeneration } from "./generationPipeline.js";
@@ -46,10 +43,7 @@ const connection = createMessageConnection(
   new StreamMessageWriter(process.stdout)
 );
 
-const VALID_LEVELS: readonly LogLevel[] = ["trace", "debug", "info", "warn", "error"];
-const configuredLevel = process.env.HDTW_LOG_LEVEL as LogLevel | undefined;
-const minLevel: LogLevel =
-  configuredLevel && VALID_LEVELS.includes(configuredLevel) ? configuredLevel : "info";
+const minLevel = parseLogLevel(process.env.HDTW_LOG_LEVEL, "info");
 const observer = createObserver({ sink: new StderrSink(), minLevel });
 
 function createGenerator(): TourGenerator {

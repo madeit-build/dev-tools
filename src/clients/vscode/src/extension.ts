@@ -5,6 +5,7 @@ import {
 } from "@made-i-t/hdtw-protocol";
 import {
   createObserver,
+  parseLogLevel,
   type Observer,
 } from "@made-i-t/hdtw-observability";
 import { EngineClient } from "./engineClient.js";
@@ -34,7 +35,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     context.subscriptions.push(channel);
   }
   sink = sink ?? new OutputChannelSink(channel);
-  observer = observer ?? createObserver({ sink, minLevel: normalizeLevel(logLevel) });
+  observer = observer ?? createObserver({ sink, minLevel: parseLogLevel(logLevel, "info") });
 
   if (client) {
     return;
@@ -196,19 +197,6 @@ async function setApiKey(context: vscode.ExtensionContext): Promise<void> {
   );
   if (action === "Reload") {
     void vscode.commands.executeCommand("workbench.action.reloadWindow");
-  }
-}
-
-function normalizeLevel(value: string): "error" | "warn" | "info" | "debug" | "trace" {
-  switch (value) {
-    case "error":
-    case "warn":
-    case "info":
-    case "debug":
-    case "trace":
-      return value;
-    default:
-      return "info";
   }
 }
 

@@ -9,6 +9,11 @@ export const LOG_LEVEL_ORDER: Record<LogLevel, number> = {
   error: 50,
 };
 
+/** Validate an arbitrary string (e.g. env var or setting) into a LogLevel, falling back when unrecognized. */
+export function parseLogLevel(value: string | undefined, fallback: LogLevel): LogLevel {
+  return value !== undefined && value in LOG_LEVEL_ORDER ? (value as LogLevel) : fallback;
+}
+
 export interface LogRecord {
   kind: "log";
   ts: number;
