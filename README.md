@@ -80,4 +80,4 @@ HDTW_GENERATOR=fake …    # run the engine with a deterministic test generator 
 
 ## License
 
-TBD.
+[MIT](LICENSE) © Matt deClercq
