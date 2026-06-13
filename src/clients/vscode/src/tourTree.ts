@@ -3,7 +3,7 @@ import type { TourSummary } from "@made-i-t/hdtw-protocol";
 import type { EngineClient } from "./engineClient.js";
 
 export class TourTreeItem extends vscode.TreeItem {
-  constructor(tour: TourSummary) {
+  constructor(tour: TourSummary, driftCount?: number) {
     super(tour.title, vscode.TreeItemCollapsibleState.None);
     this.id = tour.id;
     if (tour.error) {
@@ -12,7 +12,10 @@ export class TourTreeItem extends vscode.TreeItem {
       this.iconPath = new vscode.ThemeIcon("warning");
       this.contextValue = "hdtwTourInvalid";
     } else {
-      this.description = `${tour.stepCount} steps`;
+      this.description =
+        driftCount && driftCount > 0
+          ? `${tour.stepCount} steps · ⚠ ${driftCount} drifted`
+          : `${tour.stepCount} steps`;
       this.tooltip = tour.summary;
       this.iconPath = new vscode.ThemeIcon("compass");
       this.contextValue = "hdtwTour";
@@ -31,7 +34,8 @@ export class TourTreeProvider implements vscode.TreeDataProvider<TourTreeItem> {
 
   constructor(
     private readonly client: EngineClient,
-    private readonly getWorkspaceRoot: () => string | undefined
+    private readonly getWorkspaceRoot: () => string | undefined,
+    private readonly driftCount: (tourId: string) => number | undefined
   ) {}
 
   refresh(): void {
@@ -48,6 +52,6 @@ export class TourTreeProvider implements vscode.TreeDataProvider<TourTreeItem> {
       return [];
     }
     const result = await this.client.listTours(workspaceRoot);
-    return result.tours.map((tour) => new TourTreeItem(tour));
+    return result.tours.map((tour) => new TourTreeItem(tour, this.driftCount(tour.id)));
   }
 }
