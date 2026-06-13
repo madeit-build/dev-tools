@@ -8,16 +8,21 @@
   "engines": {
     "vscode": "^1.96.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
+  "icon": "media/madeit-hdtw.svg",
   "main": "./dist/extension.js",
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "hdtw",
           "title": "How Does This Work",
-          "icon": "media/compass.svg"
+          "icon": "media/madeit-hdtw.svg"
         }
       ]
     },
@@ -30,21 +35,107 @@
       ]
     },
     "commands": [
-      { "command": "hdtw.refreshTours", "title": "HDTW: Refresh Tours", "icon": "$(refresh)" },
-      { "command": "hdtw.startTour", "title": "HDTW: Start Tour" },
-      { "command": "hdtw.tourPrevious", "title": "Back", "icon": "$(arrow-left)" },
-      { "command": "hdtw.tourNext", "title": "Next", "icon": "$(arrow-right)" },
-      { "command": "hdtw.tourExit", "title": "Exit Tour", "icon": "$(close)" }
+      {
+        "command": "hdtw.refreshTours",
+        "title": "HDTW: Refresh Tours",
+        "category": "Made I.T. HDTW",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "hdtw.startTour",
+        "title": "HDTW: Start Tour",
+        "category": "Made I.T. HDTW"
+      },
+      {
+        "command": "hdtw.tourPrevious",
+        "title": "Back",
+        "category": "Made I.T. (HDTW)",
+        "icon": "$(arrow-left)",
+        "when": "false"
+      },
+      {
+        "command": "hdtw.tourNext",
+        "title": "Next",
+        "category": "Made I.T. (HDTW)",
+        "icon": "$(arrow-right)",
+        "when": "false"
+      },
+      {
+        "command": "hdtw.tourExit",
+        "title": "Exit Tour",
+        "category": "Made I.T. (HDTW)",
+        "icon": "$(close)",
+        "when": "false"
+      },
+      {
+        "command": "hdtw.generateTour",
+        "title": "Generate Tour…",
+        "category": "Made I.T. (HDTW)",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "hdtw.setApiKey",
+        "title": "HDTW: Set Anthropic API Key",
+        "category": "Made I.T. (HDTW)"
+      }
     ],
     "menus": {
       "view/title": [
-        { "command": "hdtw.refreshTours", "when": "view == hdtwTours", "group": "navigation" }
+        {
+          "command": "hdtw.generateTour",
+          "when": "view == hdtwTours",
+          "group": "navigation@1"
+        },
+        {
+          "command": "hdtw.refreshTours",
+          "when": "view == hdtwTours",
+          "group": "navigation@2"
+        }
       ],
       "comments/commentThread/title": [
-        { "command": "hdtw.tourPrevious", "when": "commentController == hdtw-tour", "group": "inline@1" },
-        { "command": "hdtw.tourNext", "when": "commentController == hdtw-tour", "group": "inline@2" },
-        { "command": "hdtw.tourExit", "when": "commentController == hdtw-tour", "group": "inline@3" }
+        {
+          "command": "hdtw.tourPrevious",
+          "when": "commentController == hdtw-tour",
+          "group": "inline@1"
+        },
+        {
+          "command": "hdtw.tourNext",
+          "when": "commentController == hdtw-tour",
+          "group": "inline@2"
+        },
+        {
+          "command": "hdtw.tourExit",
+          "when": "commentController == hdtw-tour",
+          "group": "inline@3"
+        }
       ]
+    },
+    "configuration": {
+      "title": "How Does This Work",
+      "properties": {
+        "hdtw.generation.model": {
+          "type": "string",
+          "default": "",
+          "description": "Model for tour generation. Empty uses the agent SDK default."
+        },
+        "hdtw.generation.maxBudgetUsd": {
+          "type": "number",
+          "default": 2,
+          "description": "Abort tour generation when the estimated cost exceeds this many USD."
+        },
+        "hdtw.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "default": "info",
+          "description": "Verbosity of the HDTW output channel and engine logs."
+        }
+      }
     }
   },
   "scripts": {
@@ -54,6 +145,7 @@
   },
   "dependencies": {
     "@made-i-t/hdtw-engine-server": "workspace:*",
+    "@made-i-t/hdtw-observability": "workspace:*",
     "@made-i-t/hdtw-protocol": "workspace:*",
     "vscode-jsonrpc": "^8.2.1"
   },

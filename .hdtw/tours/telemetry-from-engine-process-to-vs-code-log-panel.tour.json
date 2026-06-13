@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "id": "telemetry-from-engine-process-to-vs-code-log-panel",
+  "title": "Telemetry: From Engine Process to VS Code Log Panel",
+  "summary": "Observability records are emitted by the engine, serialized as NDJSON over stderr (keeping stdout free for JSON-RPC), then parsed by the client and rendered into a native VS Code log channel.",
+  "steps": [
+    {
+      "title": "The shared record contract",
+      "narration": "Telemetry starts with a wire contract that both processes agree on. `LogRecord` and `MetricRecord` are discriminated by a `kind` field and unioned into `ObservabilityRecord`, while `ObservabilitySink` is the one-method interface every destination implements. This lives in its own `@made-i-t/hdtw-observability` package precisely so the server and the VS Code client can depend on the *same* types without either importing the other's code.",
+      "anchor": {
+        "file": "src/observability/src/records.ts",
+        "startLine": 17,
+        "endLine": 40,
+        "snippetHash": "sha256:d85fa193d6f2428a49023ac1de2df0182235cbc03dc031dfd6d15562309b12b0"
+      }
+    },
+    {
+      "title": "The engine wires up its observer",
+      "narration": "On the server, `main.ts` deliberately binds JSON-RPC to stdin/stdout, then builds the observer on top of a `StderrSink`. The minimum log level is read from the `HDTW_LOG_LEVEL` env var (passed down by the client), so verbosity is controlled from the IDE rather than hardcoded. Splitting the data channel (stdout) from the telemetry channel (stderr) is the architectural decision that makes everything downstream work.",
+      "anchor": {
+        "file": "src/engine/server/src/main.ts",
+        "startLine": 41,
+        "endLine": 47,
+        "snippetHash": "sha256:1ef5cc7c115b79d620673cac0b61be00f956ccd21beb2d02b729a7b5565bc492"
+      }
+    },
+    {
+      "title": "Emitting records, gated by level",
+      "narration": "`createObserver` is the producer-side facade: the `log` helper drops anything below the configured threshold *before* it ever touches the sink, so filtering happens at the source instead of on the wire. Every record is stamped with `now()` and shaped to match the contract, then handed to `emit`, which simply forwards to the injected sink — the observer never knows or cares where records ultimately go.",
+      "anchor": {
+        "file": "src/observability/src/observer.ts",
+        "startLine": 46,
+        "endLine": 53,
+        "snippetHash": "sha256:7f852192396aaf36dff49d3997af5f643668aae911461dfe3697fd4087b62f84"
+      }
+    },
+    {
+      "title": "Serializing to NDJSON on stderr",
+      "narration": "The `StderrSink` is intentionally tiny: it serializes each record to JSON and writes it as one newline-delimited line to stderr. The comment captures the whole reason it exists — stdout is the JSON-RPC channel, so any stray writes there would corrupt the protocol; stderr is the safe side-band for human/diagnostic output.",
+      "anchor": {
+        "file": "src/engine/server/src/stderrSink.ts",
+        "startLine": 3,
+        "endLine": 8,
+        "snippetHash": "sha256:926811be641cdc84e438bc332c6ea81be5fd17afe497e2f0947782a3f5b41af9"
+      }
+    },
+    {
+      "title": "Defensive parsing on the receiving end",
+      "narration": "`parseRecord` is the inverse of `serializeRecord`, but it's written defensively because stderr also carries non-telemetry noise (raw SDK output, stack traces). It returns `null` for blank lines, invalid JSON, or anything that doesn't structurally match a log or metric record — letting the client cleanly distinguish real telemetry from arbitrary stderr text instead of trusting the stream blindly.",
+      "anchor": {
+        "file": "src/observability/src/serialization.ts",
+        "startLine": 7,
+        "endLine": 34,
+        "snippetHash": "sha256:f14a676b89fbba0cda2293675cbf08e4a86e75e7500e8a481c3aa1b192fe1dc0"
+      }
+    },
+    {
+      "title": "The client reassembles and routes the stream",
+      "narration": "When `EngineClient` spawns the engine it pipes all three stdio streams, then accumulates stderr into a buffer and splits on newlines — because a single `data` chunk may contain partial or multiple NDJSON lines. Each complete line is run through `parseRecord`: structured records go to the sink, while anything unrecognized is preserved verbatim via `appendRaw` so no diagnostic output is silently lost.",
+      "anchor": {
+        "file": "src/clients/vscode/src/engineClient.ts",
+        "startLine": 56,
+        "endLine": 71,
+        "snippetHash": "sha256:d10d0c5ed114d3eaef6f204f9493d19d67c4e6ad5af9821769e38fa304f6b319"
+      }
+    },
+    {
+      "title": "Rendering into the VS Code log panel",
+      "narration": "The `OutputChannelSink` is the client's implementation of the same `ObservabilitySink` interface, closing the loop: it maps each record's level onto the native `LogOutputChannel` methods (`trace`/`debug`/`info`/`warn`/`error`) so VS Code's built-in log filtering just works. The whole body is wrapped in try/catch following a key principle — rendering telemetry must never throw back into and break the producer that emitted it.",
+      "anchor": {
+        "file": "src/clients/vscode/src/outputChannelSink.ts",
+        "startLine": 8,
+        "endLine": 35,
+        "snippetHash": "sha256:dbb1d990d396fabf475ee245f5836e6fbce14d16172ed00524ad0bc73ce066bb"
+      }
+    }
+  ]
+}

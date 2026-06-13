@@ -1,5 +1,5 @@
 {
-  "name": "@made-i-t/hdtw-engine-core",
+  "name": "@made-i-t/hdtw-observability",
   "version": "0.0.1",
   "private": true,
   "main": "./dist/index.js",
@@ -16,11 +16,7 @@
     "test": "vitest run",
     "lint": "eslint src"
   },
-  "dependencies": {
-    "@made-i-t/hdtw-protocol": "workspace:*"
-  },
   "devDependencies": {
-    "@types/node": "^20.17.0",
     "typescript": "^5.8.3",
     "vitest": "^3.1.0"
   }

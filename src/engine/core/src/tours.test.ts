@@ -89,6 +89,21 @@ describe("parseTour", () => {
     }
   });
 
+  test("rejects anchor paths with .. segments", () => {
+    const step = {
+      title: "Escape",
+      anchor: { file: "../../etc/passwd", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
+      narration: "x",
+    };
+    const result = parseTour(validTourJson({ steps: [step] }), "demo");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContain(
+        "steps[0].anchor.file must be a workspace-relative POSIX path"
+      );
+    }
+  });
+
   test("rejects endLine before startLine", () => {
     const step = {
       title: "Bad range",

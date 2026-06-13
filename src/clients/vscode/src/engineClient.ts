@@ -1,15 +1,21 @@
 import * as childProcess from "node:child_process";
 import {
+  CancellationTokenSource,
   createMessageConnection,
   type MessageConnection,
   StreamMessageReader,
   StreamMessageWriter,
 } from "vscode-jsonrpc/node";
 import {
+  GENERATE_TOUR_METHOD,
+  GENERATION_PROGRESS_NOTIFICATION,
   GET_TOUR_METHOD,
   LIST_TOURS_METHOD,
   PING_METHOD,
   PROTOCOL_VERSION,
+  type GenerateTourParams,
+  type GenerateTourResult,
+  type GenerationProgressParams,
   type GetTourParams,
   type GetTourResult,
   type ListToursParams,
@@ -17,6 +23,8 @@ import {
   type PingParams,
   type PingResult,
 } from "@made-i-t/hdtw-protocol";
+import { parseRecord } from "@made-i-t/hdtw-observability";
+import type { OutputChannelSink } from "./outputChannelSink.js";
 
 const HANDSHAKE_TIMEOUT_MS = 5000;
 
@@ -24,11 +32,13 @@ export class EngineClient {
   private engineProcess: childProcess.ChildProcess | undefined;
   private connection: MessageConnection | undefined;
 
+  constructor(private readonly sink: OutputChannelSink) {}
+
   get isConnected(): boolean {
     return this.connection !== undefined;
   }
 
-  async connect(): Promise<PingResult> {
+  async connect(extraEnv: Record<string, string> = {}): Promise<PingResult> {
     // Resolves to the engine-server package's "main" (dist/main.js) via the
     // workspace symlink. The client never imports engine code — it only needs
     // the path to spawn the process.
@@ -38,13 +48,40 @@ export class EngineClient {
     // process behave as plain Node.js (same technique vscode-languageclient uses).
     // The piped stdin doubles as orphan cleanup: the engine exits on stdin EOF.
     const serverProcess = childProcess.spawn(process.execPath, [serverEntry], {
-      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
+      env: { ...process.env, ...extraEnv, ELECTRON_RUN_AS_NODE: "1" },
       stdio: ["pipe", "pipe", "pipe"],
     });
     this.engineProcess = serverProcess;
 
+    let stderrBuffer = "";
     serverProcess.stderr?.on("data", (chunk: Buffer) => {
-      console.error(`[hdtw-engine] ${chunk.toString().trimEnd()}`);
+      stderrBuffer += chunk.toString();
+      let newlineIndex = stderrBuffer.indexOf("\n");
+      while (newlineIndex !== -1) {
+        const line = stderrBuffer.slice(0, newlineIndex);
+        stderrBuffer = stderrBuffer.slice(newlineIndex + 1);
+        const record = parseRecord(line);
+        if (record) {
+          this.sink.record(record);
+        } else if (line.trim().length > 0) {
+          this.sink.appendRaw(`[engine] ${line}`);
+        }
+        newlineIndex = stderrBuffer.indexOf("\n");
+      }
+    });
+
+    serverProcess.on("close", () => {
+      const remaining = stderrBuffer;
+      stderrBuffer = "";
+      if (remaining.trim().length === 0) {
+        return;
+      }
+      const record = parseRecord(remaining);
+      if (record) {
+        this.sink.record(record);
+      } else {
+        this.sink.appendRaw(`[engine] ${remaining}`);
+      }
     });
 
     if (!serverProcess.stdout || !serverProcess.stdin) {
@@ -98,6 +135,33 @@ export class EngineClient {
   async getTour(workspaceRoot: string, tourId: string): Promise<GetTourResult> {
     const params: GetTourParams = { workspaceRoot, tourId };
     return this.request<GetTourResult>(GET_TOUR_METHOD, params);
+  }
+
+  async generateTour(
+    params: GenerateTourParams,
+    onProgress: (progress: GenerationProgressParams) => void,
+    cancellation: { onCancellationRequested(listener: () => void): { dispose(): void } }
+  ): Promise<GenerateTourResult> {
+    if (!this.connection) {
+      throw new Error("engine not connected");
+    }
+    const progressSubscription = this.connection.onNotification(
+      GENERATION_PROGRESS_NOTIFICATION,
+      onProgress
+    );
+    const source = new CancellationTokenSource();
+    const cancelSubscription = cancellation.onCancellationRequested(() => source.cancel());
+    try {
+      return await this.connection.sendRequest<GenerateTourResult>(
+        GENERATE_TOUR_METHOD,
+        params,
+        source.token
+      );
+    } finally {
+      progressSubscription.dispose();
+      cancelSubscription.dispose();
+      source.dispose();
+    }
   }
 
   private request<T>(method: string, params: unknown): Promise<T> {

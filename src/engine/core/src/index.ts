@@ -8,3 +8,4 @@ export function getEngineInfo(): EngineInfo {
 }
 
 export * from "./tours.js";
+export * from "./anchors.js";
