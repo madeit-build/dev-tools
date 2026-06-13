@@ -23,7 +23,7 @@ import {
   type DraftTour,
   type TourGenerator,
 } from "./tourGenerator.js";
-import { writeTourToCatalog } from "./tourStorage.js";
+import { slugify, writeTourToCatalog } from "./tourStorage.js";
 
 const DEFAULT_MAX_BUDGET_USD = 2;
 
@@ -220,7 +220,7 @@ async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourS
 function assembleTour(draft: DraftTour, steps: TourStep[]): Tour {
   const tour: Tour = {
     schemaVersion: 1,
-    id: slugifyTitle(draft.title),
+    id: slugify(draft.title),
     title: draft.title,
     summary: draft.summary,
     steps,
@@ -233,7 +233,3 @@ function assembleTour(draft: DraftTour, steps: TourStep[]): Tour {
   return tour;
 }
 
-function slugifyTitle(title: string): string {
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return slug.length > 0 ? slug : "tour";
-}
