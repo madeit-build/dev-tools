@@ -4,7 +4,7 @@ import {
   StreamMessageReader,
   StreamMessageWriter,
   type CancellationToken,
-} from "vscode-jsonrpc/node";
+} from "vscode-jsonrpc/node.js";
 import {
   GENERATE_TOUR_METHOD,
   GENERATION_AUTH_REQUIRED_ERROR_CODE,
