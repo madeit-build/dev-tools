@@ -35,6 +35,7 @@ export class FakeTourGenerator implements TourGenerator {
     _workspaceRoot: string,
     topic: string,
     _model: string | undefined,
+    _catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
     hooks: GenerationHooks
   ): Promise<DraftTour> {
     this.emit(hooks, "exploring", `Exploring for "${topic}"`, 1000, 200);
@@ -48,6 +49,7 @@ export class FakeTourGenerator implements TourGenerator {
     _workspaceRoot: string,
     _topic: string,
     _model: string | undefined,
+    _catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
     _draft: DraftTour,
     _anchorErrors: string[],
     hooks: GenerationHooks

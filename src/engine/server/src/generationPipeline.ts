@@ -8,9 +8,12 @@ import type {
   GenerateTourParams,
   GenerateTourResult,
   GenerationProgressParams,
+  RelatedTour,
   Tour,
   TourStep,
+  TourSummary,
 } from "@made-i-t/hdtw-protocol";
+import { listTours } from "./tourHandlers.js";
 import type { Observer } from "@made-i-t/hdtw-observability";
 import {
   BudgetExceededError,
@@ -61,6 +64,10 @@ export async function runGeneration(
       },
     };
 
+    const catalogResult = await listTours({ workspaceRoot: params.workspaceRoot });
+    const catalog: TourSummary[] = catalogResult.tours.filter((tour) => tour.error === undefined);
+    const catalogIds = new Set(catalog.map((tour) => tour.id));
+
     const translateAbort = (error: unknown): never => {
       if (budgetBreachedAtUsd !== undefined) {
         throw new BudgetExceededError(
@@ -76,13 +83,13 @@ export async function runGeneration(
 
     let draft: DraftTour;
     try {
-      draft = await generator.generate(params.workspaceRoot, params.topic, normalizeModel(params.model), hooks);
+      draft = await generator.generate(params.workspaceRoot, params.topic, normalizeModel(params.model), catalog, hooks);
     } catch (error) {
       translateAbort(error);
       throw error; // unreachable; satisfies control flow
     }
 
-    let verified = await verifyDraft(params.workspaceRoot, draft, observer, onProgress);
+    let verified = await verifyDraft(params.workspaceRoot, draft, catalogIds, observer, onProgress);
     if (!verified.ok) {
       observer.logger.info("repair.round", { errors: verified.errors });
       observer.metrics.count("generate.repair_rounds");
@@ -91,6 +98,7 @@ export async function runGeneration(
           params.workspaceRoot,
           params.topic,
           normalizeModel(params.model),
+          catalog,
           draft,
           verified.errors,
           hooks
@@ -99,7 +107,7 @@ export async function runGeneration(
         translateAbort(error);
         throw error;
       }
-      verified = await verifyDraft(params.workspaceRoot, draft, observer, onProgress);
+      verified = await verifyDraft(params.workspaceRoot, draft, catalogIds, observer, onProgress);
       if (!verified.ok) {
         throw new GenerationFailedError(
           `agent could not produce verifiable anchors after one repair round: ${verified.errors.join("; ")}`
@@ -128,24 +136,45 @@ type VerifiedDraft =
 async function verifyDraft(
   workspaceRoot: string,
   draft: DraftTour,
+  catalogIds: Set<string>,
   observer: Observer,
   onProgress: (progress: GenerationProgressParams) => void
 ): Promise<VerifiedDraft> {
   onProgress({ phase: "verifying", message: "Verifying anchors", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
   const errors: string[] = [];
   const steps: TourStep[] = [];
-  for (const step of draft.steps) {
-    const verifiedStep = await verifyStep(workspaceRoot, step);
+  for (const draftStep of draft.steps) {
+    const verifiedStep = await verifyStep(workspaceRoot, draftStep);
     if (typeof verifiedStep === "string") {
-      observer.logger.warn("verify.step", { ok: false, file: step.anchor.file, error: verifiedStep });
+      observer.logger.warn("verify.step", { ok: false, file: draftStep.anchor.file, error: verifiedStep });
       observer.metrics.count("verify.drift");
       errors.push(verifiedStep);
     } else {
-      observer.logger.info("verify.step", { ok: true, title: step.title, file: step.anchor.file });
-      steps.push(verifiedStep);
+      observer.logger.info("verify.step", { ok: true, title: draftStep.title, file: draftStep.anchor.file });
+      const related = resolveRelatedTours(draftStep.relatedTours, catalogIds, observer);
+      steps.push(related.length > 0 ? { ...verifiedStep, relatedTours: related } : verifiedStep);
     }
   }
   return errors.length > 0 ? { ok: false, errors } : { ok: true, steps };
+}
+
+function resolveRelatedTours(
+  related: RelatedTour[] | undefined,
+  catalogIds: Set<string>,
+  observer: Observer
+): RelatedTour[] {
+  if (!related) {
+    return [];
+  }
+  const kept: RelatedTour[] = [];
+  for (const link of related) {
+    if (catalogIds.has(link.tourId)) {
+      kept.push(link);
+    } else {
+      observer.logger.info("verify.related_dropped", { tourId: link.tourId });
+    }
+  }
+  return kept;
 }
 
 async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourStep | string> {

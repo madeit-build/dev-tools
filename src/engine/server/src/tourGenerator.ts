@@ -1,4 +1,4 @@
-import type { GenerationProgressParams } from "@made-i-t/hdtw-protocol";
+import type { GenerationProgressParams, RelatedTour, TourSummary } from "@made-i-t/hdtw-protocol";
 import type { Observer } from "@made-i-t/hdtw-observability";
 
 export interface DraftAnchor {
@@ -11,6 +11,7 @@ export interface DraftStep {
   title: string;
   narration: string;
   anchor: DraftAnchor;
+  relatedTours?: RelatedTour[];
 }
 
 export interface DraftTour {
@@ -32,6 +33,7 @@ export interface TourGenerator {
     workspaceRoot: string,
     topic: string,
     model: string | undefined,
+    catalog: TourSummary[],
     hooks: GenerationHooks
   ): Promise<DraftTour>;
   /** One repair round: same topic, prior draft, and the anchor errors to fix. */
@@ -39,6 +41,7 @@ export interface TourGenerator {
     workspaceRoot: string,
     topic: string,
     model: string | undefined,
+    catalog: TourSummary[],
     draft: DraftTour,
     anchorErrors: string[],
     hooks: GenerationHooks

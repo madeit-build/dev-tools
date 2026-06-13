@@ -50,6 +50,7 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
     workspaceRoot: string,
     topic: string,
     model: string | undefined,
+    _catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
     hooks: GenerationHooks
   ): Promise<DraftTour> {
     const prompt = `Create a guided tour for this topic: ${topic}`;
@@ -60,6 +61,7 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
     workspaceRoot: string,
     topic: string,
     model: string | undefined,
+    _catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
     draft: DraftTour,
     anchorErrors: string[],
     hooks: GenerationHooks
