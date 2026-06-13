@@ -57,6 +57,33 @@ function validateStep(step: unknown, index: number): string[] {
     errors.push(`${label}.narration must be a non-empty string`);
   }
   errors.push(...validateAnchor(candidate.anchor, label));
+  errors.push(...validateRelatedTours(candidate.relatedTours, label));
+  return errors;
+}
+
+function validateRelatedTours(related: unknown, stepLabel: string): string[] {
+  if (related === undefined) {
+    return [];
+  }
+  const label = `${stepLabel}.relatedTours`;
+  if (!Array.isArray(related)) {
+    return [`${label} must be an array`];
+  }
+  const errors: string[] = [];
+  related.forEach((entry, index) => {
+    const entryLabel = `${label}[${index}]`;
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      errors.push(`${entryLabel} must be an object`);
+      return;
+    }
+    const candidate = entry as Record<string, unknown>;
+    if (typeof candidate.tourId !== "string" || candidate.tourId.length === 0) {
+      errors.push(`${entryLabel}.tourId must be a non-empty string`);
+    }
+    if (candidate.label !== undefined && typeof candidate.label !== "string") {
+      errors.push(`${entryLabel}.label must be a string when present`);
+    }
+  });
   return errors;
 }
 
