@@ -29,12 +29,14 @@ export interface GenerateTourParams {
   model?: string;
   /** Abort when estimated cost crosses this (USD). Engine default applies when omitted. */
   maxBudgetUsd?: number;
+  /** When false, generate without writing the tour to the catalog (ephemeral). Defaults to true. */
+  save?: boolean;
 }
 
 export interface GenerateTourResult {
   tour: Tour;
-  /** Workspace-root-relative path of the written tour file. */
-  savedPath: string;
+  /** Workspace-root-relative path of the written tour file; absent when save was false. */
+  savedPath?: string;
 }
 
 export interface GenerationProgressParams {
@@ -44,4 +46,19 @@ export interface GenerationProgressParams {
   tokensOut: number;
   /** Rough mid-flight estimate; the final result message is authoritative. */
   estimatedCostUsd: number;
+}
+
+/** JSON-RPC method: client→engine, persist a (previously generated, in-memory) tour into the catalog. */
+export const SAVE_TOUR_METHOD = "hdtw/saveTour";
+
+/** A tour could not be saved to the catalog (message carries detail). */
+export const SAVE_TOUR_FAILED_ERROR_CODE = -32005;
+
+export interface SaveTourParams {
+  workspaceRoot: string;
+  tour: Tour;
+}
+
+export interface SaveTourResult {
+  savedPath: string;
 }
