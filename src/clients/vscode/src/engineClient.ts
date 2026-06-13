@@ -70,6 +70,20 @@ export class EngineClient {
       }
     });
 
+    serverProcess.on("close", () => {
+      const remaining = stderrBuffer;
+      stderrBuffer = "";
+      if (remaining.trim().length === 0) {
+        return;
+      }
+      const record = parseRecord(remaining);
+      if (record) {
+        this.sink.record(record);
+      } else {
+        this.sink.appendRaw(`[engine] ${remaining}`);
+      }
+    });
+
     if (!serverProcess.stdout || !serverProcess.stdin) {
       throw new Error("engine process has no stdio streams");
     }

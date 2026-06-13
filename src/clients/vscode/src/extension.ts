@@ -28,11 +28,13 @@ function workspaceRoot(): string | undefined {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  channel = channel ?? vscode.window.createOutputChannel("HDTW", { log: true });
-  sink = sink ?? new OutputChannelSink(channel);
   const logLevel = vscode.workspace.getConfiguration("hdtw").get<string>("logLevel", "info");
-  observer = createObserver({ sink, minLevel: normalizeLevel(logLevel) });
-  context.subscriptions.push(channel);
+  if (!channel) {
+    channel = vscode.window.createOutputChannel("HDTW", { log: true });
+    context.subscriptions.push(channel);
+  }
+  sink = sink ?? new OutputChannelSink(channel);
+  observer = observer ?? createObserver({ sink, minLevel: normalizeLevel(logLevel) });
 
   if (client) {
     return;
@@ -146,9 +148,9 @@ async function generateTour(): Promise<void> {
 }
 
 function handleGenerationError(error: unknown): void {
-  observer?.logger.error("generate.error", { code: (error as { code?: number }).code, message: error instanceof Error ? error.message : String(error) });
   const code = (error as { code?: number }).code;
   const message = error instanceof Error ? error.message : String(error);
+  observer?.logger.error("generate.error", { code, message });
   if (code === REQUEST_CANCELLED_ERROR_CODE) {
     return; // user cancelled — silent
   }

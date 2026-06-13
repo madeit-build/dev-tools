@@ -1,4 +1,4 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
 import type { ObservabilityRecord, ObservabilitySink } from "@made-i-t/hdtw-observability";
 
 /** Renders observability records into a native VS Code LogOutputChannel. */
