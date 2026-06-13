@@ -1,4 +1,5 @@
 import type { GenerationProgressParams } from "@made-i-t/hdtw-protocol";
+import type { Observer } from "@made-i-t/hdtw-observability";
 
 export interface DraftAnchor {
   file: string;
@@ -22,6 +23,8 @@ export interface GenerationHooks {
   onProgress(progress: GenerationProgressParams): void;
   /** Aborted on client cancellation or budget breach. Implementations must stop promptly. */
   signal: AbortSignal;
+  /** Structured logging + metrics for this generation run. */
+  observer: Observer;
 }
 
 export interface TourGenerator {

@@ -11,6 +11,7 @@ import type {
   Tour,
   TourStep,
 } from "@made-i-t/hdtw-protocol";
+import type { Observer } from "@made-i-t/hdtw-observability";
 import {
   BudgetExceededError,
   GenerationCancelledError,
@@ -26,10 +27,17 @@ const TOURS_DIR_SEGMENTS = [".hdtw", "tours"];
 export async function runGeneration(
   params: GenerateTourParams,
   generator: TourGenerator,
+  observer: Observer,
   onProgress: (progress: GenerationProgressParams) => void,
   cancelSignal: AbortSignal
 ): Promise<GenerateTourResult> {
   const maxBudgetUsd = params.maxBudgetUsd ?? DEFAULT_MAX_BUDGET_USD;
+  const span = observer.metrics.startSpan("generate.duration_ms", { topic: params.topic });
+  observer.logger.info("generate.start", {
+    topic: params.topic,
+    model: params.model ?? "(default)",
+    maxBudgetUsd,
+  });
   // One controller feeds the generator: aborted by client cancellation OR budget breach.
   const abort = new AbortController();
   let budgetBreachedAtUsd: number | undefined;
@@ -43,6 +51,7 @@ export async function runGeneration(
   try {
     const hooks = {
       signal: abort.signal,
+      observer,
       onProgress: (progress: GenerationProgressParams) => {
         onProgress(progress);
         if (progress.estimatedCostUsd > maxBudgetUsd && budgetBreachedAtUsd === undefined) {
@@ -73,8 +82,10 @@ export async function runGeneration(
       throw error; // unreachable; satisfies control flow
     }
 
-    let verified = await verifyDraft(params.workspaceRoot, draft, onProgress);
+    let verified = await verifyDraft(params.workspaceRoot, draft, observer, onProgress);
     if (!verified.ok) {
+      observer.logger.info("repair.round", { errors: verified.errors });
+      observer.metrics.count("generate.repair_rounds");
       try {
         draft = await generator.repair(
           params.workspaceRoot,
@@ -88,7 +99,7 @@ export async function runGeneration(
         translateAbort(error);
         throw error;
       }
-      verified = await verifyDraft(params.workspaceRoot, draft, onProgress);
+      verified = await verifyDraft(params.workspaceRoot, draft, observer, onProgress);
       if (!verified.ok) {
         throw new GenerationFailedError(
           `agent could not produce verifiable anchors after one repair round: ${verified.errors.join("; ")}`
@@ -97,7 +108,10 @@ export async function runGeneration(
     }
 
     onProgress({ phase: "saving", message: "Saving tour", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
-    return saveTour(params.workspaceRoot, draft, verified.steps);
+    const result = await saveTour(params.workspaceRoot, draft, verified.steps);
+    observer.logger.info("generate.done", { id: result.tour.id, steps: result.tour.steps.length, savedPath: result.savedPath });
+    span.end({ steps: result.tour.steps.length });
+    return result;
   } finally {
     cancelSignal.removeEventListener("abort", forwardAbort);
   }
@@ -114,6 +128,7 @@ type VerifiedDraft =
 async function verifyDraft(
   workspaceRoot: string,
   draft: DraftTour,
+  observer: Observer,
   onProgress: (progress: GenerationProgressParams) => void
 ): Promise<VerifiedDraft> {
   onProgress({ phase: "verifying", message: "Verifying anchors", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
@@ -122,8 +137,11 @@ async function verifyDraft(
   for (const step of draft.steps) {
     const verifiedStep = await verifyStep(workspaceRoot, step);
     if (typeof verifiedStep === "string") {
+      observer.logger.warn("verify.step", { ok: false, file: step.anchor.file, error: verifiedStep });
+      observer.metrics.count("verify.drift");
       errors.push(verifiedStep);
     } else {
+      observer.logger.info("verify.step", { ok: true, title: step.title, file: step.anchor.file });
       steps.push(verifiedStep);
     }
   }

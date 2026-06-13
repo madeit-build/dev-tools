@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import type { GenerationProgressParams } from "@made-i-t/hdtw-protocol";
+import {
+  createObserver,
+  type ObservabilityRecord,
+} from "@made-i-t/hdtw-observability";
 import { FakeTourGenerator } from "../src/fakeTourGenerator.js";
 import { runGeneration } from "../src/generationPipeline.js";
 import {
@@ -14,11 +18,13 @@ import {
 
 let workspaceRoot: string;
 let progress: GenerationProgressParams[];
+let observed: ObservabilityRecord[];
 
 beforeEach(async () => {
   workspaceRoot = await mkdtemp(path.join(tmpdir(), "hdtw-gen-"));
   await writeFile(path.join(workspaceRoot, "README.md"), "fixture readme\nsecond line\n");
   progress = [];
+  observed = [];
 });
 
 afterEach(async () => {
@@ -27,9 +33,15 @@ afterEach(async () => {
 
 function run(generator: FakeTourGenerator, options: { maxBudgetUsd?: number; signal?: AbortSignal } = {}) {
   const controller = new AbortController();
+  const observer = createObserver({
+    sink: { record: (r) => observed.push(r) },
+    minLevel: "trace",
+    now: () => 0,
+  });
   return runGeneration(
     { workspaceRoot, topic: "how does it work", maxBudgetUsd: options.maxBudgetUsd },
     generator,
+    observer,
     (p) => progress.push(p),
     options.signal ?? controller.signal
   );
@@ -114,5 +126,21 @@ describe("runGeneration", () => {
     };
     const generator = new FakeTourGenerator({ draft: escaping, repairedDraft: escaping });
     await expect(run(generator)).rejects.toBeInstanceOf(GenerationFailedError);
+  });
+
+  test("emits observability records across the run", async () => {
+    await run(new FakeTourGenerator());
+    const logEvents = observed.filter((r) => r.kind === "log").map((r) => (r as { event: string }).event);
+    expect(logEvents).toContain("generate.start");
+    expect(logEvents).toContain("verify.step");
+    expect(logEvents).toContain("generate.done");
+    const metricNames = observed.filter((r) => r.kind === "metric").map((r) => (r as { name: string }).name);
+    expect(metricNames).toContain("generate.duration_ms");
+  });
+
+  test("repair round is logged", async () => {
+    await run(new FakeTourGenerator({ draft: BAD_DRAFT }));
+    const logEvents = observed.filter((r) => r.kind === "log").map((r) => (r as { event: string }).event);
+    expect(logEvents).toContain("repair.round");
   });
 });

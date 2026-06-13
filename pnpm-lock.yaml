@@ -73,6 +73,9 @@ importers:
       '@made-i-t/hdtw-engine-core':
         specifier: workspace:*
         version: link:../core
+      '@made-i-t/hdtw-observability':
+        specifier: workspace:*
+        version: link:../../observability
       '@made-i-t/hdtw-protocol':
         specifier: workspace:*
         version: link:../../protocol
