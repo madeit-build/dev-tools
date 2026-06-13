@@ -32,7 +32,10 @@
         "endLine": 42,
         "snippetHash": "sha256:3af560215545eb97751bbe71873fdb686108a0563bc4bd0834917e91f51242cf"
       },
-      "narration": "The engine ships as a *process*, not a library. stdio JSON-RPC means any IDE on any runtime can drive it — this is what makes the JetBrains client possible later. Note the shutdown contract comment: stdin EOF is the cleanup mechanism."
+      "narration": "The engine ships as a *process*, not a library. stdio JSON-RPC means any IDE on any runtime can drive it — this is what makes the JetBrains client possible later. Note the shutdown contract comment: stdin EOF is the cleanup mechanism.",
+      "relatedTours": [
+        { "tourId": "anchor-verification", "label": "How tour anchors are verified" }
+      ]
     },
     {
       "title": "The thin client",

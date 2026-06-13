@@ -114,6 +114,46 @@ describe("parseTour", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors).toContain("steps[0].anchor.endLine must be >= startLine");
   });
+
+  test("accepts a step with valid relatedTours", () => {
+    const step = {
+      title: "Linked",
+      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
+      narration: "x",
+      relatedTours: [{ tourId: "other" }, { tourId: "second", label: "Second" }],
+    };
+    const result = parseTour(validTourJson({ steps: [step] }), "demo");
+    expect(result.ok).toBe(true);
+  });
+
+  test("rejects relatedTours that is not an array", () => {
+    const step = {
+      title: "Bad",
+      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
+      narration: "x",
+      relatedTours: { tourId: "other" },
+    };
+    const result = parseTour(validTourJson({ steps: [step] }), "demo");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors).toContain("steps[0].relatedTours must be an array");
+  });
+
+  test("rejects a related entry with a non-string tourId or non-string label", () => {
+    const step = {
+      title: "Bad",
+      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
+      narration: "x",
+      relatedTours: [{ tourId: "" }, { tourId: "ok", label: 5 }],
+    };
+    const result = parseTour(validTourJson({ steps: [step] }), "demo");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors).toContain(
+        "steps[0].relatedTours[0].tourId must be a non-empty string"
+      );
+      expect(result.errors).toContain("steps[0].relatedTours[1].label must be a string when present");
+    }
+  });
 });
 
 describe("summaries", () => {

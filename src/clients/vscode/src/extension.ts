@@ -23,9 +23,22 @@ let generating = false;
 let channel: vscode.LogOutputChannel | undefined;
 let sink: OutputChannelSink | undefined;
 let observer: Observer | undefined;
+let tourTitles = new Map<string, string>();
 
 function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+async function refreshTourTitles(root: string): Promise<void> {
+  if (!client) {
+    return;
+  }
+  try {
+    const { tours } = await client.listTours(root);
+    tourTitles = new Map(tours.filter((tour) => tour.error === undefined).map((tour) => [tour.id, tour.title]));
+  } catch {
+    // Leave the previous snapshot in place.
+  }
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -71,6 +84,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("hdtw.tourNext", () => walk?.next()),
     vscode.commands.registerCommand("hdtw.tourPrevious", () => walk?.previous()),
     vscode.commands.registerCommand("hdtw.tourExit", () => walk?.exit()),
+    vscode.commands.registerCommand("hdtw.followRelated", (tourId: string) => followRelated(tourId)),
     vscode.commands.registerCommand("hdtw.generateTour", () => generateTour()),
     vscode.commands.registerCommand("hdtw.setApiKey", () => setApiKey(context))
   );
@@ -85,12 +99,28 @@ async function startTour(tourId: string): Promise<void> {
   try {
     const { tour } = await client.getTour(root, tourId);
     observer?.logger.info("tour.started", { tourId });
+    await refreshTourTitles(root);
     walk?.dispose();
-    walk = new WalkController(root);
+    walk = new WalkController(root, (id) => tourTitles.get(id));
     await walk.start(tour);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`HDTW: could not start tour: ${message}`);
+  }
+}
+
+async function followRelated(tourId: string): Promise<void> {
+  const root = workspaceRoot();
+  if (!root || !client || !walk) {
+    return;
+  }
+  try {
+    const { tour } = await client.getTour(root, tourId);
+    observer?.logger.info("tour.followed", { tourId });
+    await walk.pushTour(tour);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`HDTW: could not open related tour "${tourId}": ${message}`);
   }
 }
 
@@ -138,8 +168,9 @@ async function generateTour(): Promise<void> {
     );
     tree?.refresh();
     void vscode.window.showInformationMessage(`HDTW: tour saved to ${result.savedPath}`);
+    await refreshTourTitles(root);
     walk?.dispose();
-    walk = new WalkController(root);
+    walk = new WalkController(root, (id) => tourTitles.get(id));
     await walk.start(result.tour);
   } catch (error) {
     handleGenerationError(error);

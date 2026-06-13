@@ -85,15 +85,26 @@ Spec: `docs/superpowers/specs/2026-06-13-observability-design.md`
 | Code-map tools (tree-sitter/LSP): entrypoints, call graphs | Agent cites verified structure instead of guessing — less hallucination, fewer tokens |
 | Anchor drift detection (via stored `snippetHash`) + re-anchoring | Tour freshness as code evolves; stale steps flagged or auto-healed |
 
-### Candidate chunk — Tour graph: related-tour links + walk stack ⬜ idea (2026-06-12)
+### Tour Graph — related-tour links + walk stack ✅ shipped 2026-06-13
+Spec: `docs/superpowers/specs/2026-06-13-tour-graph-design.md`
 
 | Feature | Capability |
 |---|---|
-| Optional `relatedTourIds` on tour steps (schema-additive — no version bump; old clients ignore it) | Tours stay flat as artifacts; hierarchy is composed at walk time |
-| Narration thread renders related-tour links; following one pushes the current walk onto a stack, walks the sub-tour, pops back | "I'm on a monorepo-architecture step and there's a whole tour on how JSON-RPC plays in" — detour and return without losing your place |
-| Agent cross-links during generation (it can see the existing tour catalog) | The tour graph grows itself as tours accumulate |
+| Optional `relatedTours` (`{tourId,label?}`) on tour steps (schema-additive — no version bump; old clients ignore it) | Tours stay flat as artifacts; hierarchy is composed at walk time |
+| Narration thread renders related-tour links; following one pushes the current walk onto a stack, walks the sub-tour, auto-returns to the parent step; status-bar breadcrumb | "I'm on a monorepo-architecture step and there's a whole tour on how JSON-RPC plays in" — detour and return without losing your place |
+| Agent cross-linking — the tour catalog is injected into generation; the engine keeps only catalog-resolvable links (`verify.related_dropped`) | The tour graph grows itself as tours accumulate |
 
-Sequencing note: pairs naturally with Chunk 3 — "Why?" detours and related-tour detours share the push/pop walk-stack mechanic.
+### Candidate — GitHub browser client (cross-repo tours) ⬜ idea (2026-06-13)
+
+A browser extension that renders `.hdtw/tours/*.tour.json` inline on github.com, plus cross-repo references.
+
+| Feature | Capability |
+|---|---|
+| Browser playback client — fetch tour JSON + anchored file blobs via the GitHub API, render the rails over GitHub's code view | Walk a tour with **zero install, zero clone** — playback is engine-free (Chunk 1), so the browser needs no engine/LLM. GitHub becomes the discovery channel; the repo is already the distribution channel |
+| Cross-repo related-tour links — qualify a `relatedTours` id with a repo (e.g. `owner/repo#tourId`) | Builds directly on the walk-stack from the Tour Graph chunk; only the sub-tour *fetch* differs (GitHub API vs local). A tour can branch into another repo's tour |
+| (Later) hosted generation with managed keys | Generation needs an engine; in-browser generation implies a hosted engine — ties to the monetization thread |
+
+Strategic note: highest-value first slice is **browser playback** (low risk, large distribution leverage, leans on the engine-free playback model). Cross-repo references extend the Tour Graph branching. Risks: GitHub's DOM is a moving target for overlay UI; private-repo auth; a separate web-extension build/store pipeline. Sequencing: after Tour Graph ships.
 
 ### Chunk 5 — Team & beyond ⬜ not started
 

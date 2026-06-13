@@ -77,7 +77,8 @@
         "command": "hdtw.setApiKey",
         "title": "HDTW: Set Anthropic API Key",
         "category": "Made I.T. (HDTW)"
-      }
+      },
+      { "command": "hdtw.followRelated", "title": "HDTW: Follow Related Tour" }
     ],
     "menus": {
       "view/title": [

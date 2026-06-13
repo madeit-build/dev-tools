@@ -143,4 +143,42 @@ describe("runGeneration", () => {
     const logEvents = observed.filter((r) => r.kind === "log").map((r) => (r as { event: string }).event);
     expect(logEvents).toContain("repair.round");
   });
+
+  test("keeps catalog-resolvable related links and drops the rest", async () => {
+    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
+    await writeFile(
+      path.join(workspaceRoot, ".hdtw/tours/existing.tour.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        id: "existing",
+        title: "Existing",
+        summary: "",
+        steps: [
+          {
+            title: "s",
+            narration: "n",
+            anchor: { file: "README.md", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
+          },
+        ],
+      })
+    );
+    const draft: DraftTour = {
+      title: "Linked tour",
+      summary: "has links",
+      steps: [
+        {
+          title: "The readme",
+          narration: "x",
+          anchor: { file: "README.md", startLine: 1, endLine: 1 },
+          relatedTours: [{ tourId: "existing" }, { tourId: "ghost", label: "Nope" }],
+        },
+      ],
+    };
+    const result = await run(new FakeTourGenerator({ draft }));
+    expect(result.tour.steps[0].relatedTours).toEqual([{ tourId: "existing" }]);
+    const dropped = observed
+      .filter((r) => r.kind === "log" && (r as { event: string }).event === "verify.related_dropped")
+      .map((r) => (r as { fields?: { tourId?: string } }).fields?.tourId);
+    expect(dropped).toContain("ghost");
+  });
 });
