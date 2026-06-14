@@ -12,6 +12,7 @@ import { EngineClient } from "./engineClient.js";
 import { OutputChannelSink } from "./outputChannelSink.js";
 import { TourTreeProvider } from "./tourTree.js";
 import { WalkController } from "./walkController.js";
+import { createSaveState } from "./saveState.js";
 
 const API_KEY_SECRET = "hdtw.anthropicApiKey";
 const REQUEST_CANCELLED_ERROR_CODE = -32800;
@@ -25,6 +26,8 @@ let sink: OutputChannelSink | undefined;
 let observer: Observer | undefined;
 let tourTitles = new Map<string, string>();
 const driftCounts = new Map<string, number>();
+const saveState = createSaveState();
+let saveStatusItem: vscode.StatusBarItem | undefined;
 
 function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -39,6 +42,14 @@ async function refreshTourTitles(root: string): Promise<void> {
     tourTitles = new Map(tours.filter((tour) => tour.error === undefined).map((tour) => [tour.id, tour.title]));
   } catch {
     // Leave the previous snapshot in place.
+  }
+}
+
+function refreshSaveAffordance(): void {
+  if (saveState.unsavedTour()) {
+    saveStatusItem?.show();
+  } else {
+    saveStatusItem?.hide();
   }
 }
 
@@ -78,19 +89,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
 
   tree = new TourTreeProvider(client, workspaceRoot, (id) => driftCounts.get(id));
+
+  saveStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+  saveStatusItem.command = "hdtw.saveWalk";
+  saveStatusItem.text = "$(save) Save tour";
+  saveStatusItem.tooltip = "Save this walk to .hdtw/tours/";
+  context.subscriptions.push(saveStatusItem);
+
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("hdtwTours", tree),
     vscode.commands.registerCommand("hdtw.refreshTours", () => tree?.refresh()),
     vscode.commands.registerCommand("hdtw.startTour", (tourId: string) => startTour(tourId)),
     vscode.commands.registerCommand("hdtw.tourNext", () => walk?.next()),
     vscode.commands.registerCommand("hdtw.tourPrevious", () => walk?.previous()),
-    vscode.commands.registerCommand("hdtw.tourExit", () => walk?.exit()),
+    vscode.commands.registerCommand("hdtw.tourExit", () => {
+      walk?.exit();
+      saveState.setSaved();
+      refreshSaveAffordance();
+    }),
     vscode.commands.registerCommand("hdtw.followRelated", (tourId: string) => followRelated(tourId)),
     vscode.commands.registerCommand("hdtw.reanchorStep", (tourId: string, stepIndex: number) =>
       reanchorStep(tourId, stepIndex)
     ),
     vscode.commands.registerCommand("hdtw.generateTour", () => generateTour()),
     vscode.commands.registerCommand("hdtw.setApiKey", () => setApiKey(context)),
+    vscode.commands.registerCommand("hdtw.ask", () => askWalk()),
+    vscode.commands.registerCommand("hdtw.saveWalk", () => saveWalk()),
     vscode.commands.registerCommand("hdtw.checkTourDrift", async (item?: { id?: string }) => {
       const root = workspaceRoot();
       const tourId = typeof item?.id === "string" ? item.id : undefined;
@@ -123,6 +147,8 @@ async function startTour(tourId: string): Promise<void> {
     walk = new WalkController(root, (id) => tourTitles.get(id));
     walk.setReanchorContext(tourId);
     await walk.start(tour);
+    saveState.setSaved();
+    refreshSaveAffordance();
     await applyDrift(root, tourId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -186,6 +212,8 @@ async function followRelated(tourId: string): Promise<void> {
     const { tour } = await client.getTour(root, tourId);
     observer?.logger.info("tour.followed", { tourId });
     await walk.pushTour(tour);
+    saveState.setSaved();
+    refreshSaveAffordance();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`HDTW: could not open related tour "${tourId}": ${message}`);
@@ -241,11 +269,85 @@ async function generateTour(): Promise<void> {
     walk = new WalkController(root, (id) => tourTitles.get(id));
     walk.setReanchorContext(result.tour.id);
     await walk.start(result.tour);
+    saveState.setSaved();
+    refreshSaveAffordance();
     await applyDrift(root, result.tour.id);
   } catch (error) {
     handleGenerationError(error);
   } finally {
     generating = false;
+  }
+}
+
+async function askWalk(): Promise<void> {
+  const root = workspaceRoot();
+  if (!root || !client) {
+    void vscode.window.showErrorMessage("HDTW: open a folder to ask about its code.");
+    return;
+  }
+  if (generating) {
+    void vscode.window.showWarningMessage("HDTW: a tour is already being generated.");
+    return;
+  }
+  const question = await vscode.window.showInputBox({
+    title: "Ask HDTW",
+    prompt: "What do you want to understand?",
+    placeHolder: "e.g. how does drift detection work?",
+  });
+  if (!question) {
+    return;
+  }
+  observer?.logger.info("ask.requested", { question });
+  const config = vscode.workspace.getConfiguration("hdtw.generation");
+  const model = config.get<string>("model", "");
+  const maxBudgetUsd = config.get<number>("maxBudgetUsd", 2);
+  generating = true;
+  try {
+    const result = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: "HDTW: exploring", cancellable: true },
+      (progress, token) =>
+        client!.generateTour(
+          { workspaceRoot: root, topic: question, model: model || undefined, maxBudgetUsd, save: false },
+          (update) =>
+            progress.report({
+              message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
+            }),
+          token
+        )
+    );
+    observer?.logger.info("ask.generated", { id: result.tour.id });
+    await refreshTourTitles(root);
+    walk?.dispose();
+    walk = new WalkController(root, (id) => tourTitles.get(id));
+    walk.setReanchorContext(result.tour.id);
+    await walk.start(result.tour);
+    // An ephemeral Ask walk isn't on disk, and it was just generated against
+    // current code, so it's fresh by construction — skip the drift check.
+    saveState.setUnsaved(result.tour);
+    refreshSaveAffordance();
+  } catch (error) {
+    handleGenerationError(error);
+  } finally {
+    generating = false;
+  }
+}
+
+async function saveWalk(): Promise<void> {
+  const root = workspaceRoot();
+  const tour = saveState.unsavedTour();
+  if (!root || !client || !tour) {
+    return;
+  }
+  try {
+    const { savedPath } = await client.saveTour(root, tour);
+    observer?.logger.info("tour.saved", { savedPath });
+    saveState.setSaved();
+    refreshSaveAffordance();
+    tree?.refresh();
+    void vscode.window.showInformationMessage(`HDTW: saved to ${savedPath}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`HDTW: could not save tour: ${message}`);
   }
 }
 

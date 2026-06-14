@@ -15,6 +15,7 @@ import {
   PING_METHOD,
   PROTOCOL_VERSION,
   REANCHOR_STEP_METHOD,
+  SAVE_TOUR_METHOD,
   type CheckTourDriftResult,
   type GenerateTourParams,
   type GenerateTourResult,
@@ -26,6 +27,8 @@ import {
   type PingParams,
   type PingResult,
   type ReanchorStepResult,
+  type SaveTourResult,
+  type Tour,
 } from "@made-i-t/hdtw-protocol";
 import { parseRecord } from "@made-i-t/hdtw-observability";
 import type { OutputChannelSink } from "./outputChannelSink.js";
@@ -178,6 +181,10 @@ export class EngineClient {
       cancelSubscription.dispose();
       source.dispose();
     }
+  }
+
+  async saveTour(workspaceRoot: string, tour: Tour): Promise<SaveTourResult> {
+    return this.request<SaveTourResult>(SAVE_TOUR_METHOD, { workspaceRoot, tour });
   }
 
   private request<T>(method: string, params: unknown): Promise<T> {

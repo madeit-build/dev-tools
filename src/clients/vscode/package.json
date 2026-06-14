@@ -80,10 +80,13 @@
       },
       { "command": "hdtw.followRelated", "title": "HDTW: Follow Related Tour" },
       { "command": "hdtw.reanchorStep", "title": "HDTW: Re-anchor Step" },
-      { "command": "hdtw.checkTourDrift", "title": "HDTW: Check Tour for Drift", "icon": "$(search)" }
+      { "command": "hdtw.checkTourDrift", "title": "HDTW: Check Tour for Drift", "icon": "$(search)" },
+      { "command": "hdtw.ask", "title": "HDTW: Ask…", "icon": "$(comment-discussion)" },
+      { "command": "hdtw.saveWalk", "title": "HDTW: Save Current Walk to Catalog" }
     ],
     "menus": {
       "view/title": [
+        { "command": "hdtw.ask", "when": "view == hdtwTours", "group": "navigation@0" },
         {
           "command": "hdtw.generateTour",
           "when": "view == hdtwTours",

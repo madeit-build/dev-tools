@@ -70,13 +70,24 @@ Spec: `docs/superpowers/specs/2026-06-13-observability-design.md`
 | Engine emits NDJSON records to stderr; client renders them in a native "HDTW" Output channel | See the agent's tool use, anchor verification, repair rounds, and timings live — even on startup/crash |
 | `hdtw.logLevel` setting → `HDTW_LOG_LEVEL` engine env | One control for engine + client verbosity |
 
-### Chunk 3 — Conversational walks (V1 complete) ⬜ not started
+### Chunk 3a — Conversational Ask ✅ shipped 2026-06-13
+
+Spec: `docs/superpowers/specs/2026-06-13-conversational-ask-design.md`
+
+Split from "Chunk 3 — Conversational walks": the ask-first entry + ephemeral/save lifecycle ships first; the "Why?" detour is 3b.
 
 | Feature | Capability |
 |---|---|
-| "How does X work?" entry → live exploration → impromptu walk on the same rails | Ask-first magic; the answer is a tour, not a wall of text |
-| "Save this walk" → catalog tour | Conversation mints durable artifacts |
-| Mid-tour "Why? 💬" detours (in the narration thread) | The new hire can interrupt; the engineer answers in context, then returns to the rails |
+| "HDTW: Ask…" → input box → ephemeral generated walk (`generateTour{save:false}`) | Ask-first magic; the answer is a tour you walk, not a wall of text — and casual questions leave no trace |
+| "Save to catalog" promotes the walk into `.hdtw/tours/` (`hdtw/saveTour`) | Conversation mints durable artifacts only when you want them |
+
+### Chunk 3b — "Why?" detours ⬜ candidate (split from Chunk 3)
+
+| Feature | Capability |
+|---|---|
+| Reply to the narration thread → `hdtw/askAboutStep` agent Q&A → answer appended (ephemeral) | The new hire interrupts a step, the engineer answers in context, then [Next] resumes the rails. Reuses the Comments API + the agent |
+
+Completes V1 (chunks 1–3). Built right after 3a.
 
 ### Chunk 4a — Anchor drift detection + re-anchor ✅ shipped 2026-06-13
 

@@ -16,6 +16,8 @@ import {
   LIST_TOURS_METHOD,
   PING_METHOD,
   REANCHOR_STEP_METHOD,
+  SAVE_TOUR_METHOD,
+  SAVE_TOUR_FAILED_ERROR_CODE,
   TOUR_NOT_FOUND_ERROR_CODE,
   type CheckTourDriftParams,
   type GenerateTourParams,
@@ -23,10 +25,13 @@ import {
   type ListToursParams,
   type PingParams,
   type ReanchorStepParams,
+  type SaveTourParams,
 } from "@made-i-t/hdtw-protocol";
 import { createObserver, parseLogLevel } from "@made-i-t/hdtw-observability";
 import { handlePing } from "./pingHandler.js";
 import { getTour, listTours, TourNotFoundError } from "./tourHandlers.js";
+import { saveTour } from "./saveTourHandler.js";
+import { TourSaveError } from "./tourStorage.js";
 import { checkTourDrift, reanchorStep } from "./driftHandlers.js";
 import { runGeneration } from "./generationPipeline.js";
 import { FakeTourGenerator } from "./fakeTourGenerator.js";
@@ -104,6 +109,17 @@ connection.onRequest(
     }
   }
 );
+
+connection.onRequest(SAVE_TOUR_METHOD, async (params: SaveTourParams) => {
+  try {
+    return await saveTour(params);
+  } catch (error) {
+    if (error instanceof TourSaveError) {
+      throw new ResponseError(SAVE_TOUR_FAILED_ERROR_CODE, error.message);
+    }
+    throw error;
+  }
+});
 
 connection.onRequest(CHECK_TOUR_DRIFT_METHOD, async (params: CheckTourDriftParams) => {
   try {

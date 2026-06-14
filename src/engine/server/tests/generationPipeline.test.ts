@@ -144,6 +144,23 @@ describe("runGeneration", () => {
     expect(logEvents).toContain("repair.round");
   });
 
+  test("save:false returns the tour and writes nothing", async () => {
+    const controller = new AbortController();
+    const observer = createObserver({ sink: { record: () => {} }, minLevel: "error" });
+    const result = await runGeneration(
+      { workspaceRoot, topic: "x", save: false },
+      new FakeTourGenerator(),
+      observer,
+      () => {},
+      controller.signal
+    );
+    expect(result.savedPath).toBeUndefined();
+    expect(result.tour.steps).toHaveLength(1);
+    const { readdir } = await import("node:fs/promises");
+    const entries = await readdir(path.join(workspaceRoot, ".hdtw", "tours")).catch(() => []);
+    expect(entries).toEqual([]);
+  });
+
   test("keeps catalog-resolvable related links and drops the rest", async () => {
     await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
     await writeFile(
