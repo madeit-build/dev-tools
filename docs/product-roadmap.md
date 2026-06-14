@@ -81,14 +81,14 @@ Split from "Chunk 3 — Conversational walks": the ask-first entry + ephemeral/s
 | "HDTW: Ask…" → input box → ephemeral generated walk (`generateTour{save:false}`) | Ask-first magic; the answer is a tour you walk, not a wall of text — and casual questions leave no trace |
 | "Save to catalog" promotes the walk into `.hdtw/tours/` (`hdtw/saveTour`) | Conversation mints durable artifacts only when you want them |
 
-### Chunk 3b — "Why?" detours 🔄 spec'd, next up
+### Chunk 3b — "Why?" detours ✅ shipped 2026-06-14
 
 Spec: `docs/superpowers/specs/2026-06-14-why-detours-design.md`
 
 | Feature | Capability |
 |---|---|
-| Reply to the narration thread → `hdtw/askAboutStep` agent Q&A → answer appended (ephemeral) | The new hire interrupts a step, the engineer answers in context, then [Next] resumes the rails. Reuses the Comments API + the agent |
-| Read-only capped agent (maxTurns 6) + "🧠 thinking…" placeholder replaced by the answer | A quick "why" stays quick and cheap, but can still follow a reference to answer well |
+| Reply to the narration thread → `hdtw/askAboutStep` → read-only capped agent answers in step context → answer appended ephemerally | The new hire interrupts a step, the principal engineer answers in context, then [Next] resumes the rails — Q&A never alters the tour |
+| Read-only agent (Read/Grep/Glob, maxTurns 6, budget-capped, cancellable) + "🧠 thinking…" placeholder replaced by the answer | A quick "why" stays quick and cheap but can follow a reference to answer well; auth/budget/cancel reuse the Chunk 2 guard layer |
 
 **Completes V1 (chunks 1–3).**
 
