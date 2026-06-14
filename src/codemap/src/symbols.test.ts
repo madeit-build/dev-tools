@@ -29,3 +29,16 @@ test("parseSymbols disambiguates duplicate method names by qualifiedName", async
   const runs = symbols.filter((s) => s.name === "run");
   expect(runs.map((s) => s.qualifiedName).sort()).toEqual(["A.run", "B.run"]);
 });
+
+test("parseSymbols parses .tsx (JSX) sources via the tsx grammar", async () => {
+  const source = [
+    "export function Widget() {",
+    "  return <div>hi</div>;",
+    "}",
+    "",
+    "export const Label = () => <span>x</span>;",
+  ].join("\n");
+  const symbols = await parseSymbols(source, "tsx");
+  expect(symbols.find((s) => s.name === "Widget")).toMatchObject({ kind: "function", startLine: 1, endLine: 3 });
+  expect(symbols.find((s) => s.name === "Label")).toMatchObject({ kind: "const" });
+});

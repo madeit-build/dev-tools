@@ -89,6 +89,7 @@ function qualify(name: string, declaration: TsNode): string {
 
 function ownerName(classNode: TsNode): string | undefined {
   for (const child of classNode.namedChildren) {
+    if (!child) continue;
     if (child.type === "type_identifier" || child.type === "identifier")
       return child.text;
   }
