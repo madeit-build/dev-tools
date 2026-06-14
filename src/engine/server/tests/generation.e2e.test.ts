@@ -36,6 +36,34 @@ afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
 });
 
+test("generateTour with fake generator: symbol-anchor topic produces resolved step", async () => {
+  await writeFile(
+    path.join(workspaceRoot, "sample.ts"),
+    "export function sample() {\n  return 1;\n}\n"
+  );
+  serverProcess = spawn(process.execPath, [serverEntry], {
+    stdio: ["pipe", "pipe", "inherit"],
+    env: { ...process.env, HDTW_GENERATOR: "fake" },
+  });
+  connection = createMessageConnection(
+    new StreamMessageReader(serverProcess.stdout!),
+    new StreamMessageWriter(serverProcess.stdin!)
+  );
+  connection.listen();
+
+  const result = await connection.sendRequest<GenerateTourResult>(GENERATE_TOUR_METHOD, {
+    workspaceRoot,
+    topic: "symbol:sample.ts:sample",
+    save: false,
+  });
+
+  const step = result.tour.steps[0];
+  expect(step.anchor.symbol).toBe("sample");
+  expect(step.anchor.startLine).toBeTypeOf("number");
+  expect(step.anchor.endLine).toBeTypeOf("number");
+  expect(step.anchor.snippetHash).toMatch(/^sha256:/);
+});
+
 test("generateTour over stdio with the fake generator: progress + saved tour", async () => {
   serverProcess = spawn(process.execPath, [serverEntry], {
     stdio: ["pipe", "pipe", "inherit"],

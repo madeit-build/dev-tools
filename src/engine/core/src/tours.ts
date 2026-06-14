@@ -120,6 +120,12 @@ function validateAnchor(anchor: unknown, stepLabel: string): string[] {
   ) {
     errors.push(`${label}.snippetHash must be a string starting with "sha256:"`);
   }
+  if (
+    candidate.symbol !== undefined &&
+    (typeof candidate.symbol !== "string" || candidate.symbol.trim().length === 0)
+  ) {
+    errors.push(`${label}.symbol must be a non-empty string when present`);
+  }
   return errors;
 }
 

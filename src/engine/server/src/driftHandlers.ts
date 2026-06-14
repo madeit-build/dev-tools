@@ -1,6 +1,6 @@
 import { readFile, rename, writeFile } from "node:fs/promises";
 import path from "node:path";
-import { checkAnchorFreshness, findReanchor } from "@made-i-t/hdtw-engine-core";
+import { checkAnchorFreshness, checkSymbolAnchorFreshness, findReanchor } from "@made-i-t/hdtw-engine-core";
 import type {
   CheckTourDriftParams,
   CheckTourDriftResult,
@@ -8,7 +8,8 @@ import type {
   ReanchorStepResult,
   StepDriftStatus,
 } from "@made-i-t/hdtw-protocol";
-import { getTour, TourNotFoundError } from "./tourHandlers.js";
+import { loadRawTour, TourNotFoundError } from "./tourHandlers.js";
+import { resolveSymbol } from "./symbolResolver.js";
 
 /** Read an anchored file, confined to the workspace; undefined when missing or escaping. */
 async function readAnchoredFile(workspaceRoot: string, file: string): Promise<string | undefined> {
@@ -25,15 +26,34 @@ async function readAnchoredFile(workspaceRoot: string, file: string): Promise<st
 }
 
 export async function checkTourDrift(params: CheckTourDriftParams): Promise<CheckTourDriftResult> {
-  const { tour } = await getTour({ workspaceRoot: params.workspaceRoot, tourId: params.tourId });
+  const { tour } = await loadRawTour(params.workspaceRoot, params.tourId);
   const statuses: StepDriftStatus[] = [];
   for (let index = 0; index < tour.steps.length; index += 1) {
     const step = tour.steps[index];
     const content = await readAnchoredFile(params.workspaceRoot, step.anchor.file);
-    statuses.push({
-      index,
-      status: content === undefined ? "file-missing" : checkAnchorFreshness(step.anchor, content),
-    });
+    let status: StepDriftStatus["status"];
+    if (step.anchor.symbol) {
+      if (content === undefined) {
+        status = "file-missing";
+      } else {
+        const resolved = await resolveSymbol(params.workspaceRoot, step.anchor.file, step.anchor.symbol, {
+          startLine: step.anchor.startLine,
+          endLine: step.anchor.endLine,
+        });
+        if (resolved.kind === "file-missing") {
+          status = "file-missing";
+        } else {
+          const resolvedRange =
+            resolved.kind === "resolved"
+              ? { startLine: resolved.startLine, endLine: resolved.endLine }
+              : undefined;
+          status = checkSymbolAnchorFreshness(step.anchor, resolvedRange, content).state;
+        }
+      }
+    } else {
+      status = content === undefined ? "file-missing" : checkAnchorFreshness(step.anchor, content);
+    }
+    statuses.push({ index, status });
   }
   return { statuses };
 }
@@ -42,7 +62,7 @@ const TOUR_FILE_SUFFIX = ".tour.json";
 const SAFE_TOUR_ID = /^[\w.-]+$/;
 
 export async function reanchorStep(params: ReanchorStepParams): Promise<ReanchorStepResult> {
-  const { tour } = await getTour({ workspaceRoot: params.workspaceRoot, tourId: params.tourId });
+  const { tour } = await loadRawTour(params.workspaceRoot, params.tourId);
   const step = tour.steps[params.stepIndex];
   if (!step) {
     throw new TourNotFoundError(`tour "${params.tourId}" has no step ${params.stepIndex}`);

@@ -8,8 +8,8 @@
       "title": "The contract",
       "anchor": {
         "file": "src/protocol/src/tours.ts",
-        "startLine": 36,
-        "endLine": 42,
+        "startLine": 42,
+        "endLine": 48,
         "snippetHash": "sha256:1194f5a0c413f09a4bfe45fbe0c979ce9de419acf34f96edf0888e7f09861a1f"
       },
       "narration": "The protocol package is the only thing engine and clients share. A *tour* is the product's core artifact: steps anchored to real code, narration in markdown. Both sides depend on this contract — neither owns it."

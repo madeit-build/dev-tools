@@ -3,3 +3,4 @@ packages:
   - "src/observability"
   - "src/engine/*"
   - "src/clients/*"
+  - "src/codemap"

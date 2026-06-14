@@ -1,4 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { createCodemapMcpServer } from "./codemapTools.js";
 import {
   AuthRequiredError,
   GenerationCancelledError,
@@ -25,11 +26,18 @@ Rules for anchors:
 - Anchor the smallest range that contains the construct you are explaining (a function, a block, a declaration) — typically 3 to 25 lines.
 - File paths must be relative to the workspace root, using forward slashes.
 
+Prefer a SYMBOL-ANCHOR when the code you are anchoring is a whole named declaration
+(function, class, method, exported const): call findSymbol to confirm it exists, then
+emit the anchor as { "file": "relative/path.ts", "symbol": "Name" } (or "Class.method")
+WITHOUT line numbers — the engine resolves and tracks it as code evolves. Use a
+line-anchor { "file", "startLine", "endLine" } only for a sub-region that is not a
+single named symbol.
+
 Rules for narration:
 - 2 to 4 sentences per step, in Markdown.
 - Explain WHY the code is the way it is — patterns, architecture, intent — not just what it does. Speak like a senior engineer walking someone through the system.
 
-Your FINAL message must be ONLY a fenced JSON block in exactly this shape, with no other prose. The "relatedTours" array is OPTIONAL and only allowed when the workspace lists tours you may link to:
+Your FINAL message must be ONLY a fenced JSON block in exactly this shape, with no other prose. The "relatedTours" array is OPTIONAL and only allowed when the workspace lists tours you may link to. For symbol-anchors omit startLine/endLine; for line-anchors omit symbol:
 
 \`\`\`json
 {
@@ -39,8 +47,13 @@ Your FINAL message must be ONLY a fenced JSON block in exactly this shape, with 
     {
       "title": "Step title",
       "narration": "Markdown narration.",
-      "anchor": { "file": "relative/path.ts", "startLine": 10, "endLine": 24 },
+      "anchor": { "file": "relative/path.ts", "symbol": "functionName" },
       "relatedTours": [{ "tourId": "existing-tour-id", "label": "Optional link text" }]
+    },
+    {
+      "title": "Step title (line-anchor example)",
+      "narration": "Markdown narration.",
+      "anchor": { "file": "relative/path.ts", "startLine": 10, "endLine": 24 }
     }
   ]
 }
@@ -97,6 +110,7 @@ Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or c
     let resultText: string | undefined;
 
     try {
+      const codemap = createCodemapMcpServer(workspaceRoot);
       const response = query({
         prompt,
         options: {
@@ -105,7 +119,8 @@ Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or c
           maxTurns,
           // Use `tools` to restrict the agent to read-only exploration tools.
           // `allowedTools` only controls auto-approval; `tools` controls availability.
-          tools: ["Read", "Grep", "Glob"],
+          tools: ["Read", "Grep", "Glob", "mcp__codemap__fileOutline", "mcp__codemap__findSymbol"],
+          mcpServers: { codemap },
           systemPrompt: SYSTEM_PROMPT,
           abortController,
         },
@@ -224,12 +239,17 @@ function validateDraft(value: unknown): string[] {
     if (typeof candidate.narration !== "string" || candidate.narration.length === 0)
       errors.push(`steps[${index}].narration missing`);
     const anchor = candidate.anchor as Record<string, unknown> | undefined;
-    if (
-      anchor === undefined ||
-      typeof anchor.file !== "string" ||
-      !Number.isInteger(anchor.startLine) ||
-      !Number.isInteger(anchor.endLine)
-    ) {
+    const isSymbolAnchor =
+      anchor !== undefined &&
+      typeof anchor.file === "string" &&
+      typeof anchor.symbol === "string" &&
+      anchor.symbol.length > 0;
+    const isLineAnchor =
+      anchor !== undefined &&
+      typeof anchor.file === "string" &&
+      Number.isInteger(anchor.startLine) &&
+      Number.isInteger(anchor.endLine);
+    if (!isSymbolAnchor && !isLineAnchor) {
       errors.push(`steps[${index}].anchor incomplete`);
     }
     if (candidate.relatedTours !== undefined) {

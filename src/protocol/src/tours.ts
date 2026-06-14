@@ -10,12 +10,18 @@ export const TOUR_NOT_FOUND_ERROR_CODE = -32001;
 export interface TourAnchor {
   /** Workspace-root-relative path, POSIX separators. */
   file: string;
-  /** 1-based, inclusive. */
+  /** 1-based, inclusive. For a symbol-anchor this is the engine-maintained cache. */
   startLine: number;
   /** 1-based, inclusive; >= startLine. */
   endLine: number;
-  /** "sha256:<hex>" of the anchored text at authoring time (drift detection in Chunk 4). */
+  /** "sha256:<hex>" of the anchored text at last resolution (drift detection). */
   snippetHash: string;
+  /**
+   * When present, this is a SYMBOL-ANCHOR: `symbol` is the durable identity
+   * (qualifiedName or bare name) and the line fields above are a cache the engine
+   * refreshes by re-resolving the symbol. Absent = classic line-anchor. Additive.
+   */
+  symbol?: string;
 }
 
 export interface RelatedTour {

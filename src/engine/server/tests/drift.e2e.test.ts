@@ -77,6 +77,98 @@ test("checkTourDrift reports fresh then drifted after the file shifts", async ()
   expect(drifted.statuses).toEqual([{ index: 0, status: "drifted" }]);
 });
 
+test("checkTourDrift reports relocated for a symbol-anchor whose function moved", async () => {
+  await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
+  const { computeSnippetHash } = await import("@made-i-t/hdtw-engine-core");
+
+  // Write target.ts with a 3-line function at lines 1-3
+  const originalContent = "export function target() {\n  return 42;\n}\n";
+  await writeFile(path.join(workspaceRoot, "target.ts"), originalContent);
+  const hash = computeSnippetHash("export function target() {\n  return 42;\n}");
+
+  await writeFile(
+    path.join(workspaceRoot, ".hdtw/tours/sym.tour.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      id: "sym",
+      title: "Sym",
+      summary: "",
+      steps: [
+        {
+          title: "s",
+          narration: "n",
+          anchor: {
+            file: "target.ts",
+            symbol: "target",
+            startLine: 1,
+            endLine: 3,
+            snippetHash: hash,
+          },
+        },
+      ],
+    })
+  );
+
+  // Prepend two blank lines so the function is now at lines 3-5
+  await writeFile(
+    path.join(workspaceRoot, "target.ts"),
+    "\n\nexport function target() {\n  return 42;\n}\n"
+  );
+
+  const conn = startServer();
+  const relocated = await conn.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
+    workspaceRoot,
+    tourId: "sym",
+  });
+  expect(relocated.statuses).toEqual([{ index: 0, status: "relocated" }]);
+});
+
+test("checkTourDrift reports symbol-missing when the symbol no longer exists", async () => {
+  await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
+  const { computeSnippetHash } = await import("@made-i-t/hdtw-engine-core");
+
+  // Write target.ts with a 3-line function at lines 1-3
+  const originalContent = "export function target() {\n  return 42;\n}\n";
+  await writeFile(path.join(workspaceRoot, "target.ts"), originalContent);
+  const hash = computeSnippetHash("export function target() {\n  return 42;\n}");
+
+  await writeFile(
+    path.join(workspaceRoot, ".hdtw/tours/sym2.tour.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      id: "sym2",
+      title: "Sym2",
+      summary: "",
+      steps: [
+        {
+          title: "s",
+          narration: "n",
+          anchor: {
+            file: "target.ts",
+            symbol: "target",
+            startLine: 1,
+            endLine: 3,
+            snippetHash: hash,
+          },
+        },
+      ],
+    })
+  );
+
+  // Overwrite target.ts with a file that does NOT contain `target`
+  await writeFile(
+    path.join(workspaceRoot, "target.ts"),
+    "export function other() { return 0; }\n"
+  );
+
+  const conn = startServer();
+  const missing = await conn.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
+    workspaceRoot,
+    tourId: "sym2",
+  });
+  expect(missing.statuses).toEqual([{ index: 0, status: "symbol-missing" }]);
+});
+
 test("reanchorStep relocates a drifted step and rewrites the tour", async () => {
   await writeFile(path.join(workspaceRoot, "src.ts"), "line1\nline2\nline3\nline4\n");
   await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });

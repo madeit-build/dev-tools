@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { computeSnippetHash, extractAnchoredText, verifyAnchor } from "./anchors.js";
+import { checkSymbolAnchorFreshness, computeSnippetHash, extractAnchoredText, verifyAnchor } from "./anchors.js";
 
 describe("computeSnippetHash", () => {
   test("hashes text with the canonical sha256 prefix", () => {
@@ -62,4 +62,33 @@ describe("verifyAnchor", () => {
       expect(result.errors).toHaveLength(2);
     }
   });
+});
+
+test("checkSymbolAnchorFreshness: unchanged = fresh, moved-verbatim or content-changed = relocated, no range = symbol-missing", () => {
+  const file = ["function a() {", "  return 1;", "}"].join("\n");
+  const hash = computeSnippetHash("function a() {\n  return 1;\n}");
+  const anchor = { startLine: 1, endLine: 3, snippetHash: hash };
+
+  // same range, same content -> fresh
+  expect(checkSymbolAnchorFreshness(anchor, { startLine: 1, endLine: 3 }, file)).toEqual({
+    state: "fresh",
+    startLine: 1,
+    endLine: 3,
+    snippetHash: hash,
+  });
+
+  // moved verbatim (content identical, new lines) -> relocated, cache refreshed to new range
+  const moved = ["", "", "function a() {", "  return 1;", "}"].join("\n");
+  const movedResult = checkSymbolAnchorFreshness(anchor, { startLine: 3, endLine: 5 }, moved);
+  expect(movedResult.state).toBe("relocated");
+  expect(movedResult).toMatchObject({ startLine: 3, endLine: 5, snippetHash: hash });
+
+  // same range, content changed -> relocated with a new hash
+  const edited = ["function a() {", "  return 2;", "}"].join("\n");
+  const editedResult = checkSymbolAnchorFreshness(anchor, { startLine: 1, endLine: 3 }, edited);
+  expect(editedResult.state).toBe("relocated");
+  expect(editedResult.snippetHash).not.toBe(hash);
+
+  // unresolved -> symbol-missing
+  expect(checkSymbolAnchorFreshness(anchor, undefined, file)).toEqual({ state: "symbol-missing" });
 });

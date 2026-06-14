@@ -6,7 +6,16 @@ export const CHECK_TOUR_DRIFT_METHOD = "hdtw/checkTourDrift";
 /** JSON-RPC method: client→engine, re-anchor one drifted step (atomic rewrite of the tour file). */
 export const REANCHOR_STEP_METHOD = "hdtw/reanchorStep";
 
-export type StepDriftState = "fresh" | "drifted" | "out-of-range" | "file-missing";
+export type StepDriftState =
+  | "fresh"
+  | "drifted"
+  | "out-of-range"
+  | "file-missing"
+  // Symbol-anchor states (Chunk 4b): the symbol resolved to a new range and the
+  // cache was refreshed ("relocated", self-healed), or the symbol no longer
+  // exists in the file ("symbol-missing").
+  | "relocated"
+  | "symbol-missing";
 
 export interface StepDriftStatus {
   index: number;
