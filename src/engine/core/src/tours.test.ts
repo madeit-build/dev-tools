@@ -115,6 +115,40 @@ describe("parseTour", () => {
     if (!result.ok) expect(result.errors).toContain("steps[0].anchor.endLine must be >= startLine");
   });
 
+  test("rejects an anchor with an empty symbol string", () => {
+    const step = {
+      title: "Bad symbol",
+      anchor: { file: "a.ts", startLine: 1, endLine: 3, snippetHash: "sha256:aa", symbol: "" },
+      narration: "x",
+    };
+    const result = parseTour(validTourJson({ steps: [step] }), "demo");
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors).toContain("steps[0].anchor.symbol must be a non-empty string when present");
+  });
+
+  test("rejects an anchor with a non-string symbol", () => {
+    const step = {
+      title: "Bad symbol type",
+      anchor: { file: "a.ts", startLine: 1, endLine: 3, snippetHash: "sha256:aa", symbol: 123 },
+      narration: "x",
+    };
+    const result = parseTour(validTourJson({ steps: [step] }), "demo");
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.errors).toContain("steps[0].anchor.symbol must be a non-empty string when present");
+  });
+
+  test("accepts a valid symbol-anchor with all required cache fields", () => {
+    const step = {
+      title: "Symbol step",
+      anchor: { file: "a.ts", startLine: 1, endLine: 10, snippetHash: "sha256:abc", symbol: "alpha" },
+      narration: "x",
+    };
+    const result = parseTour(validTourJson({ steps: [step] }), "demo");
+    expect(result.ok).toBe(true);
+  });
+
   test("accepts a step with valid relatedTours", () => {
     const step = {
       title: "Linked",
