@@ -9,6 +9,10 @@ export function driftBadge(status: StepDriftState): string {
       return "⚠️ _This step's anchor is out of range — the file is shorter than the tour expects._";
     case "file-missing":
       return "🚫 _This step's anchored file is missing._";
+    case "symbol-missing":
+      return "🚫 _This step's anchored symbol no longer exists._";
+    case "relocated":
+      return "";
     case "fresh":
       return "";
   }
