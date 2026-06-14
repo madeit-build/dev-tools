@@ -82,7 +82,8 @@
       { "command": "hdtw.reanchorStep", "title": "HDTW: Re-anchor Step" },
       { "command": "hdtw.checkTourDrift", "title": "HDTW: Check Tour for Drift", "icon": "$(search)" },
       { "command": "hdtw.ask", "title": "HDTW: Ask…", "icon": "$(comment-discussion)" },
-      { "command": "hdtw.saveWalk", "title": "HDTW: Save Current Walk to Catalog" }
+      { "command": "hdtw.saveWalk", "title": "HDTW: Save Current Walk to Catalog" },
+      { "command": "hdtw.askWhy", "title": "HDTW: Ask About This Step" }
     ],
     "menus": {
       "view/title": [
@@ -117,6 +118,9 @@
           "when": "commentController == hdtw-tour",
           "group": "inline@3"
         }
+      ],
+      "comments/commentThread/context": [
+        { "command": "hdtw.askWhy", "when": "commentController == hdtw-tour", "group": "inline" }
       ]
     },
     "configuration": {
