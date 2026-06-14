@@ -1,0 +1,22 @@
+{
+  "name": "@made-i-t/hdtw-codemap",
+  "version": "0.0.1",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "web-tree-sitter": "^0.25.0",
+    "tree-sitter-wasms": "^0.1.11"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.8.3",
+    "vitest": "^2.1.0"
+  }
+}
