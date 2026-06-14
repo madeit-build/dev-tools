@@ -6,6 +6,7 @@ import {
   type CancellationToken,
 } from "vscode-jsonrpc/node.js";
 import {
+  ASK_ABOUT_STEP_METHOD,
   CHECK_TOUR_DRIFT_METHOD,
   GENERATE_TOUR_METHOD,
   GENERATION_AUTH_REQUIRED_ERROR_CODE,
@@ -19,6 +20,7 @@ import {
   SAVE_TOUR_METHOD,
   SAVE_TOUR_FAILED_ERROR_CODE,
   TOUR_NOT_FOUND_ERROR_CODE,
+  type AskAboutStepParams,
   type CheckTourDriftParams,
   type GenerateTourParams,
   type GetTourParams,
@@ -34,6 +36,7 @@ import { saveTour } from "./saveTourHandler.js";
 import { TourSaveError } from "./tourStorage.js";
 import { checkTourDrift, reanchorStep } from "./driftHandlers.js";
 import { runGeneration } from "./generationPipeline.js";
+import { createStepAnswerer, runStepAnswer } from "./stepAnswerPipeline.js";
 import { FakeTourGenerator } from "./fakeTourGenerator.js";
 import { ClaudeAgentTourGenerator } from "./claudeTourGenerator.js";
 import { StderrSink } from "./stderrSink.js";
@@ -93,6 +96,39 @@ connection.onRequest(
     } catch (error) {
       if (error instanceof GenerationCancelledError) {
         throw new ResponseError(REQUEST_CANCELLED_ERROR_CODE, "generation cancelled");
+      }
+      if (error instanceof AuthRequiredError) {
+        throw new ResponseError(GENERATION_AUTH_REQUIRED_ERROR_CODE, error.message);
+      }
+      if (error instanceof BudgetExceededError) {
+        throw new ResponseError(GENERATION_BUDGET_EXCEEDED_ERROR_CODE, error.message);
+      }
+      if (error instanceof GenerationFailedError) {
+        throw new ResponseError(GENERATION_FAILED_ERROR_CODE, error.message);
+      }
+      throw error;
+    } finally {
+      cancelSubscription.dispose();
+    }
+  }
+);
+
+connection.onRequest(
+  ASK_ABOUT_STEP_METHOD,
+  async (params: AskAboutStepParams, token: CancellationToken) => {
+    const abort = new AbortController();
+    const cancelSubscription = token.onCancellationRequested(() => abort.abort());
+    try {
+      return await runStepAnswer(
+        params,
+        createStepAnswerer(),
+        observer,
+        (progress) => connection.sendNotification(GENERATION_PROGRESS_NOTIFICATION, progress),
+        abort.signal
+      );
+    } catch (error) {
+      if (error instanceof GenerationCancelledError) {
+        throw new ResponseError(REQUEST_CANCELLED_ERROR_CODE, "answer cancelled");
       }
       if (error instanceof AuthRequiredError) {
         throw new ResponseError(GENERATION_AUTH_REQUIRED_ERROR_CODE, error.message);
