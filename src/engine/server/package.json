@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.176",
+    "@made-i-t/hdtw-codemap": "workspace:*",
     "@made-i-t/hdtw-engine-core": "workspace:*",
     "@made-i-t/hdtw-observability": "workspace:*",
     "@made-i-t/hdtw-protocol": "workspace:*",

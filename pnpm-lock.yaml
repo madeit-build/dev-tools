@@ -92,6 +92,9 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.3.176
         version: 0.3.176(@anthropic-ai/sdk@0.104.1(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(zod@4.4.3))(zod@4.4.3)
+      '@made-i-t/hdtw-codemap':
+        specifier: workspace:*
+        version: link:../../codemap
       '@made-i-t/hdtw-engine-core':
         specifier: workspace:*
         version: link:../core
