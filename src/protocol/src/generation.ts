@@ -20,7 +20,8 @@ export type GenerationPhase =
   | "drafting"
   | "verifying"
   | "repairing"
-  | "saving";
+  | "saving"
+  | "answering";
 
 export interface GenerateTourParams {
   workspaceRoot: string;
@@ -61,4 +62,27 @@ export interface SaveTourParams {
 
 export interface SaveTourResult {
   savedPath: string;
+}
+
+/** JSON-RPC method: client→engine, answer a follow-up question about the current tour step. */
+export const ASK_ABOUT_STEP_METHOD = "hdtw/askAboutStep";
+
+export interface StepQaContext {
+  file: string;
+  startLine: number;
+  endLine: number;
+  narration: string;
+  tourTitle?: string;
+}
+
+export interface AskAboutStepParams {
+  workspaceRoot: string;
+  question: string;
+  context: StepQaContext;
+  model?: string;
+  maxBudgetUsd?: number;
+}
+
+export interface AskAboutStepResult {
+  answer: string;
 }

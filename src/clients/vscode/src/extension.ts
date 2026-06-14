@@ -115,6 +115,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand("hdtw.setApiKey", () => setApiKey(context)),
     vscode.commands.registerCommand("hdtw.ask", () => askWalk()),
     vscode.commands.registerCommand("hdtw.saveWalk", () => saveWalk()),
+    vscode.commands.registerCommand("hdtw.askWhy", (reply: vscode.CommentReply) => askWhy(reply)),
     vscode.commands.registerCommand("hdtw.checkTourDrift", async (item?: { id?: string }) => {
       const root = workspaceRoot();
       const tourId = typeof item?.id === "string" ? item.id : undefined;
@@ -201,6 +202,36 @@ async function reanchorStep(tourId: string, stepIndex: number): Promise<void> {
     const message = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`HDTW: re-anchor failed: ${message}`);
   }
+}
+
+async function askWhy(reply: vscode.CommentReply): Promise<void> {
+  const root = workspaceRoot();
+  const question = reply.text.trim();
+  if (!root || !client || !walk || question.length === 0) {
+    return;
+  }
+  observer?.logger.info("qa.asked", { question });
+  const config = vscode.workspace.getConfiguration("hdtw.generation");
+  const model = config.get<string>("model", "");
+  const maxBudgetUsd = config.get<number>("maxBudgetUsd", 2);
+  await walk.askWhy(question, (ctx) =>
+    Promise.resolve(
+      vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: "HDTW: answering", cancellable: true },
+        async (progress, token) => {
+          const { answer } = await client!.askAboutStep(
+            { workspaceRoot: root, question, context: ctx, model: model || undefined, maxBudgetUsd },
+            (update) =>
+              progress.report({
+                message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
+              }),
+            token
+          );
+          return answer;
+        }
+      )
+    )
+  );
 }
 
 async function followRelated(tourId: string): Promise<void> {

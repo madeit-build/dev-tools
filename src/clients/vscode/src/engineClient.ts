@@ -7,6 +7,7 @@ import {
   StreamMessageWriter,
 } from "vscode-jsonrpc/node";
 import {
+  ASK_ABOUT_STEP_METHOD,
   CHECK_TOUR_DRIFT_METHOD,
   GENERATE_TOUR_METHOD,
   GENERATION_PROGRESS_NOTIFICATION,
@@ -16,6 +17,8 @@ import {
   PROTOCOL_VERSION,
   REANCHOR_STEP_METHOD,
   SAVE_TOUR_METHOD,
+  type AskAboutStepParams,
+  type AskAboutStepResult,
   type CheckTourDriftResult,
   type GenerateTourParams,
   type GenerateTourResult,
@@ -173,6 +176,33 @@ export class EngineClient {
     try {
       return await this.connection.sendRequest<GenerateTourResult>(
         GENERATE_TOUR_METHOD,
+        params,
+        source.token
+      );
+    } finally {
+      progressSubscription.dispose();
+      cancelSubscription.dispose();
+      source.dispose();
+    }
+  }
+
+  async askAboutStep(
+    params: AskAboutStepParams,
+    onProgress: (progress: GenerationProgressParams) => void,
+    cancellation: { onCancellationRequested(listener: () => void): { dispose(): void } }
+  ): Promise<AskAboutStepResult> {
+    if (!this.connection) {
+      throw new Error("engine not connected");
+    }
+    const progressSubscription = this.connection.onNotification(
+      GENERATION_PROGRESS_NOTIFICATION,
+      onProgress
+    );
+    const source = new CancellationTokenSource();
+    const cancelSubscription = cancellation.onCancellationRequested(() => source.cancel());
+    try {
+      return await this.connection.sendRequest<AskAboutStepResult>(
+        ASK_ABOUT_STEP_METHOD,
         params,
         source.token
       );
