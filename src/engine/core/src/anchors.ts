@@ -71,6 +71,37 @@ export function checkAnchorFreshness(
   return current === anchor.snippetHash ? "fresh" : "drifted";
 }
 
+/** A range the server resolved for a symbol-anchor; undefined when the symbol is gone. */
+export interface ResolvedRange {
+  startLine: number;
+  endLine: number;
+}
+
+export type SymbolFreshness =
+  | { state: "fresh"; startLine: number; endLine: number; snippetHash: string }
+  | { state: "relocated"; startLine: number; endLine: number; snippetHash: string }
+  | { state: "symbol-missing" };
+
+/**
+ * Freshness for a symbol-anchor, given the range the server resolved from the
+ * code-map. Pure — never touches tree-sitter or fs. `resolved === undefined`
+ * means the symbol no longer exists in the file.
+ */
+export function checkSymbolAnchorFreshness(
+  anchor: { snippetHash: string },
+  resolved: ResolvedRange | undefined,
+  fileContent: string
+): SymbolFreshness {
+  if (!resolved) {
+    return { state: "symbol-missing" };
+  }
+  const snippetHash = computeSnippetHash(
+    extractAnchoredText(fileContent, resolved.startLine, resolved.endLine)
+  );
+  const state = snippetHash === anchor.snippetHash ? "fresh" : "relocated";
+  return { state, startLine: resolved.startLine, endLine: resolved.endLine, snippetHash };
+}
+
 export type ReanchorResult =
   | { outcome: "reanchored"; startLine: number; endLine: number; snippetHash: string }
   | { outcome: "not-found" }

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { computeSnippetHash, extractAnchoredText, verifyAnchor } from "./anchors.js";
+import { checkSymbolAnchorFreshness, computeSnippetHash, extractAnchoredText, verifyAnchor } from "./anchors.js";
 
 describe("computeSnippetHash", () => {
   test("hashes text with the canonical sha256 prefix", () => {
@@ -62,4 +62,26 @@ describe("verifyAnchor", () => {
       expect(result.errors).toHaveLength(2);
     }
   });
+});
+
+test("checkSymbolAnchorFreshness: hash match = fresh, mismatch = relocated, no resolved range = symbol-missing", () => {
+  const file = ["function a() {", "  return 1;", "}"].join("\n");
+  const hash = computeSnippetHash("function a() {\n  return 1;\n}");
+
+  // resolved to the same lines, hash matches -> fresh
+  expect(checkSymbolAnchorFreshness({ snippetHash: hash }, { startLine: 1, endLine: 3 }, file)).toEqual({
+    state: "fresh",
+    startLine: 1,
+    endLine: 3,
+    snippetHash: hash,
+  });
+
+  // resolved to a new range; cached hash no longer matches the content there -> relocated (refreshed)
+  const moved = ["", "", "function a() {", "  return 2;", "}"].join("\n");
+  const result = checkSymbolAnchorFreshness({ snippetHash: hash }, { startLine: 3, endLine: 5 }, moved);
+  expect(result.state).toBe("relocated");
+  expect(result).toMatchObject({ startLine: 3, endLine: 5 });
+
+  // symbol did not resolve -> symbol-missing
+  expect(checkSymbolAnchorFreshness({ snippetHash: hash }, undefined, file)).toEqual({ state: "symbol-missing" });
 });
