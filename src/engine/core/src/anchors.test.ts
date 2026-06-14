@@ -64,24 +64,31 @@ describe("verifyAnchor", () => {
   });
 });
 
-test("checkSymbolAnchorFreshness: hash match = fresh, mismatch = relocated, no resolved range = symbol-missing", () => {
+test("checkSymbolAnchorFreshness: unchanged = fresh, moved-verbatim or content-changed = relocated, no range = symbol-missing", () => {
   const file = ["function a() {", "  return 1;", "}"].join("\n");
   const hash = computeSnippetHash("function a() {\n  return 1;\n}");
+  const anchor = { startLine: 1, endLine: 3, snippetHash: hash };
 
-  // resolved to the same lines, hash matches -> fresh
-  expect(checkSymbolAnchorFreshness({ snippetHash: hash }, { startLine: 1, endLine: 3 }, file)).toEqual({
+  // same range, same content -> fresh
+  expect(checkSymbolAnchorFreshness(anchor, { startLine: 1, endLine: 3 }, file)).toEqual({
     state: "fresh",
     startLine: 1,
     endLine: 3,
     snippetHash: hash,
   });
 
-  // resolved to a new range; cached hash no longer matches the content there -> relocated (refreshed)
-  const moved = ["", "", "function a() {", "  return 2;", "}"].join("\n");
-  const result = checkSymbolAnchorFreshness({ snippetHash: hash }, { startLine: 3, endLine: 5 }, moved);
-  expect(result.state).toBe("relocated");
-  expect(result).toMatchObject({ startLine: 3, endLine: 5 });
+  // moved verbatim (content identical, new lines) -> relocated, cache refreshed to new range
+  const moved = ["", "", "function a() {", "  return 1;", "}"].join("\n");
+  const movedResult = checkSymbolAnchorFreshness(anchor, { startLine: 3, endLine: 5 }, moved);
+  expect(movedResult.state).toBe("relocated");
+  expect(movedResult).toMatchObject({ startLine: 3, endLine: 5, snippetHash: hash });
 
-  // symbol did not resolve -> symbol-missing
-  expect(checkSymbolAnchorFreshness({ snippetHash: hash }, undefined, file)).toEqual({ state: "symbol-missing" });
+  // same range, content changed -> relocated with a new hash
+  const edited = ["function a() {", "  return 2;", "}"].join("\n");
+  const editedResult = checkSymbolAnchorFreshness(anchor, { startLine: 1, endLine: 3 }, edited);
+  expect(editedResult.state).toBe("relocated");
+  expect(editedResult.snippetHash).not.toBe(hash);
+
+  // unresolved -> symbol-missing
+  expect(checkSymbolAnchorFreshness(anchor, undefined, file)).toEqual({ state: "symbol-missing" });
 });
