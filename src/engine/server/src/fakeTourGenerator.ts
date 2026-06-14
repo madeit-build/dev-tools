@@ -42,6 +42,21 @@ export class FakeTourGenerator implements TourGenerator {
     this.throwIfAborted(hooks);
     this.emit(hooks, "drafting", "Drafting tour", 2000, 800);
     this.throwIfAborted(hooks);
+    const symbolMatch = topic.match(/^symbol:([^:]+):(.+)$/);
+    if (symbolMatch) {
+      const [, file, name] = symbolMatch;
+      return {
+        title: `Fake tour (symbol ${name})`,
+        summary: `A deterministic symbol-anchor tour for tests`,
+        steps: [
+          {
+            title: `Symbol: ${name}`,
+            narration: `This step is anchored to the symbol \`${name}\` in \`${file}\`.`,
+            anchor: { file, symbol: name },
+          },
+        ],
+      };
+    }
     return this.options.draft ?? DEFAULT_DRAFT;
   }
 

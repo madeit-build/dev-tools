@@ -107,6 +107,9 @@ importers:
       vscode-jsonrpc:
         specifier: ^8.2.1
         version: 8.2.1
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/node':
         specifier: ^20.17.0
