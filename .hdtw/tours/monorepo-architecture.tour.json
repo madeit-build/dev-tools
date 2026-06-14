@@ -28,8 +28,8 @@
       "title": "The process boundary",
       "anchor": {
         "file": "src/engine/server/src/main.ts",
-        "startLine": 130,
-        "endLine": 133,
+        "startLine": 182,
+        "endLine": 185,
         "snippetHash": "sha256:9e703117a3828ce0a6b32faafa4e3ba4b0ae7a8a167d732669b934a55cf472d0"
       },
       "narration": "The engine ships as a *process*, not a library. stdio JSON-RPC means any IDE on any runtime can drive it — this is what makes the JetBrains client possible later. Note the shutdown contract comment: stdin EOF is the cleanup mechanism.",
@@ -41,8 +41,8 @@
       "title": "The thin client",
       "anchor": {
         "file": "src/clients/vscode/src/engineClient.ts",
-        "startLine": 46,
-        "endLine": 58,
+        "startLine": 52,
+        "endLine": 64,
         "snippetHash": "sha256:7a55080e18bdcaaf50278ee8d1bd9589eadee4960fea04895fec4661bd8102fd"
       },
       "narration": "The VS Code extension never imports engine code — it resolves the binary's path and spawns it. Clients depend only on the protocol; if a client needs engine data, the answer is a protocol addition, not an import."
@@ -51,8 +51,8 @@
       "title": "The rails you are on",
       "anchor": {
         "file": "src/clients/vscode/src/walkController.ts",
-        "startLine": 148,
-        "endLine": 155,
+        "startLine": 226,
+        "endLine": 233,
         "snippetHash": "sha256:1791b40b5766ca2c4bd867031427186b056b9c55ba3b8025eebc18f59bd899f5"
       },
       "narration": "This very narration thread is rendered by the code you are looking at. Each step opens a file, highlights the anchor, and pins the guide's voice under it — deterministic playback of a committed artifact, no agent required."

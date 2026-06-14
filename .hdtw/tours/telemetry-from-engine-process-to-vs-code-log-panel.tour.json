@@ -19,8 +19,8 @@
       "narration": "On the server, `main.ts` deliberately binds JSON-RPC to stdin/stdout, then builds the observer on top of a `StderrSink`. The minimum log level is read from the `HDTW_LOG_LEVEL` env var (passed down by the client), so verbosity is controlled from the IDE rather than hardcoded. Splitting the data channel (stdout) from the telemetry channel (stderr) is the architectural decision that makes everything downstream work.",
       "anchor": {
         "file": "src/engine/server/src/main.ts",
-        "startLine": 41,
-        "endLine": 47,
+        "startLine": 54,
+        "endLine": 60,
         "snippetHash": "sha256:1ef5cc7c115b79d620673cac0b61be00f956ccd21beb2d02b729a7b5565bc492"
       }
     },
@@ -59,8 +59,8 @@
       "narration": "When `EngineClient` spawns the engine it pipes all three stdio streams, then accumulates stderr into a buffer and splits on newlines — because a single `data` chunk may contain partial or multiple NDJSON lines. Each complete line is run through `parseRecord`: structured records go to the sink, while anything unrecognized is preserved verbatim via `appendRaw` so no diagnostic output is silently lost.",
       "anchor": {
         "file": "src/clients/vscode/src/engineClient.ts",
-        "startLine": 56,
-        "endLine": 71,
+        "startLine": 66,
+        "endLine": 81,
         "snippetHash": "sha256:d10d0c5ed114d3eaef6f204f9493d19d67c4e6ad5af9821769e38fa304f6b319"
       }
     },
