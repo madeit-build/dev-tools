@@ -107,6 +107,13 @@ Anchor gains an optional `symbol` field — additive, so `schemaVersion` stays `
 - Repo-wide map / index tools for the agent (V1 ships per-file `fileOutline`/`findSymbol` only).
 - Symbol-relative *sub-ranges* (a symbol + line offset) — sub-regions use line-anchors in V1.
 
+## Known V1 limitations (parse layer)
+
+These are acceptable because symbol-anchors target ordinary single, named declarations; anything else uses a line-anchor.
+
+- **Multi-declarator statements** (`const a = 1, b = 2;`) resolve every name to the same shared `lexical_declaration` range. Distinct by `name`, but same range — don't symbol-anchor these.
+- **Object-literal methods** (`const obj = { meth() {} }`) are captured as `kind: "method"` with an unqualified `qualifiedName` (the qualifier walk only recognizes `class`/`interface` ancestors). Slightly misleading; restrict or qualify later.
+
 ## Conventions carried forward
 
 `@made-i-t/hdtw-*` scope; `.js` relative imports; engine-core stays pure (operates on resolved ranges handed in — never imports tree-sitter); the engine never trusts agent-supplied line numbers (it resolves symbols itself); observability via the injected observer; clients import code only from the protocol package; additive schema (no `schemaVersion` bump), so all existing tours and clients keep working.
