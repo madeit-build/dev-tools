@@ -104,13 +104,18 @@ Split out from the original "Chunk 4 — Grounding & drift": drift is playback-s
 | Hash-window re-anchor (`hdtw/reanchorStep`): slide a window of the anchor's length, match the stored hash, rewrite the step atomically | Deterministic, no-agent relocation of verbatim-moved code; author reviews the git diff |
 | Walk badges + "Re-anchor this step" link; sidebar `⚠ N drifted` on demand | Drift surfaced where you walk; re-anchor is one click |
 
-### Chunk 4b — Code-map grounding ⬜ candidate (split from Chunk 4)
+### Chunk 4b — Code-map grounding ✅ shipped 2026-06-14
+
+Spec: `docs/superpowers/specs/2026-06-14-codemap-grounding-design.md`
 
 | Feature | Capability |
 |---|---|
-| Code-map tools (tree-sitter/LSP): entrypoints, call graphs the generation agent queries | Agent cites verified structure instead of guessing — less hallucination, fewer tokens |
+| `@made-i-t/hdtw-codemap` — tree-sitter (web-tree-sitter WASM) structural index for TS/JS; pure `parseSymbols` + `fileOutline`/`findSymbol` facade | A verified, syntactic map of a file's named declarations — no language server, runs anywhere the engine runs |
+| Two read-only agent tools (`fileOutline`, `findSymbol`) exposed via the Agent SDK's in-process MCP, path-guarded | The agent confirms a symbol exists and gets its real line range instead of guessing — fewer hallucinated anchors, cheaper than re-reading whole files |
+| Self-healing **symbol-relative anchors** — additive `symbol` field; the engine resolves symbol→range at generate/verify/getTour/drift (cache stays for engine-free playback) | An anchor names a durable symbol identity; when code moves, the engine re-resolves and refreshes the cached range instead of warning — drift becomes a silent self-heal |
+| New drift states `relocated` (self-healed) + `symbol-missing`; line-anchors keep the 4a hash-window path | Symbol-anchors and classic line-anchors coexist; each step is whichever fits |
 
-Bigger, generation-side, multi-language — its own design pass. Sequenced after drift (4a).
+Foundation-first slice: syntactic (tree-sitter) only. The semantic call-graph / entrypoint layer (LSP-grade) remains deferred to its own chunk.
 
 ### Tour Graph — related-tour links + walk stack ✅ shipped 2026-06-13
 Spec: `docs/superpowers/specs/2026-06-13-tour-graph-design.md`
