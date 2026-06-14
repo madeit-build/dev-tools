@@ -23,6 +23,7 @@ import {
   type DraftTour,
   type TourGenerator,
 } from "./tourGenerator.js";
+import { resolveSymbol } from "./symbolResolver.js";
 import { slugify, writeTourToCatalog } from "./tourStorage.js";
 
 const DEFAULT_MAX_BUDGET_USD = 2;
@@ -194,7 +195,7 @@ function resolveRelatedTours(
   return kept;
 }
 
-async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourStep | string> {
+export async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourStep | string> {
   const resolvedRoot = path.resolve(workspaceRoot);
   const resolved = path.resolve(resolvedRoot, ...step.anchor.file.split("/"));
   if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
@@ -206,14 +207,58 @@ async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourS
   } catch {
     return `${step.anchor.file}: file does not exist in the workspace`;
   }
-  const verification = verifyAnchor(step.anchor, fileContent);
+
+  if (step.anchor.symbol) {
+    const resolveResult = await resolveSymbol(workspaceRoot, step.anchor.file, step.anchor.symbol, undefined);
+    if (resolveResult.kind === "missing") {
+      return `${step.anchor.file}: symbol "${step.anchor.symbol}" not found`;
+    }
+    if (resolveResult.kind === "file-missing") {
+      return `${step.anchor.file}: file does not exist in the workspace`;
+    }
+    if (resolveResult.kind === "ambiguous") {
+      const names = resolveResult.candidates.map((c) => c.qualifiedName).join(", ");
+      return `${step.anchor.file}: symbol "${step.anchor.symbol}" is ambiguous (use one of: ${names})`;
+    }
+    const symbolVerification = verifyAnchor(
+      { file: step.anchor.file, startLine: resolveResult.startLine, endLine: resolveResult.endLine },
+      fileContent
+    );
+    if (!symbolVerification.ok) {
+      return symbolVerification.errors.join("; ");
+    }
+    return {
+      title: step.title,
+      narration: step.narration,
+      anchor: {
+        file: step.anchor.file,
+        symbol: step.anchor.symbol,
+        startLine: resolveResult.startLine,
+        endLine: resolveResult.endLine,
+        snippetHash: symbolVerification.snippetHash,
+      },
+    };
+  }
+
+  if (step.anchor.startLine === undefined || step.anchor.endLine === undefined) {
+    return `${step.anchor.file}: line-anchor missing startLine/endLine`;
+  }
+  const verification = verifyAnchor(
+    { file: step.anchor.file, startLine: step.anchor.startLine, endLine: step.anchor.endLine },
+    fileContent
+  );
   if (!verification.ok) {
     return verification.errors.join("; ");
   }
   return {
     title: step.title,
     narration: step.narration,
-    anchor: { ...step.anchor, snippetHash: verification.snippetHash },
+    anchor: {
+      file: step.anchor.file,
+      startLine: step.anchor.startLine,
+      endLine: step.anchor.endLine,
+      snippetHash: verification.snippetHash,
+    },
   };
 }
 

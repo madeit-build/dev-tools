@@ -3,8 +3,9 @@ import type { Observer } from "@made-i-t/hdtw-observability";
 
 export interface DraftAnchor {
   file: string;
-  startLine: number;
-  endLine: number;
+  startLine?: number;
+  endLine?: number;
+  symbol?: string;
 }
 
 export interface DraftStep {
