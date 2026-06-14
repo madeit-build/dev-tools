@@ -16,7 +16,11 @@ import { ClaudeStepAnswerer } from "./claudeStepAnswerer.js";
 const DEFAULT_MAX_BUDGET_USD = 2;
 
 export function createStepAnswerer(): StepAnswerer {
-  return process.env.HDTW_GENERATOR === "fake" ? new FakeStepAnswerer() : new ClaudeStepAnswerer();
+  if (process.env.HDTW_GENERATOR === "fake") {
+    // HDTW_FAKE_AUTH_ERROR lets e2e tests exercise the auth → error-code mapping.
+    return new FakeStepAnswerer({ throwAuth: process.env.HDTW_FAKE_AUTH_ERROR === "1" });
+  }
+  return new ClaudeStepAnswerer();
 }
 
 export async function runStepAnswer(

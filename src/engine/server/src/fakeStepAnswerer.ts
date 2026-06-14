@@ -1,11 +1,13 @@
 import type { StepQaContext } from "@made-i-t/hdtw-protocol";
-import { GenerationCancelledError } from "./tourGenerator.js";
+import { AuthRequiredError, GenerationCancelledError } from "./tourGenerator.js";
 import type { GenerationHooks } from "./tourGenerator.js";
 import type { StepAnswerer } from "./stepAnswerer.js";
 
 export interface FakeStepAnswererOptions {
   answer?: string;
   costPerEvent?: number;
+  /** When set, the fake throws an auth error before answering (exercises error mapping). */
+  throwAuth?: boolean;
 }
 
 export class FakeStepAnswerer implements StepAnswerer {
@@ -18,6 +20,9 @@ export class FakeStepAnswerer implements StepAnswerer {
     _model: string | undefined,
     hooks: GenerationHooks
   ): Promise<string> {
+    if (this.options.throwAuth) {
+      throw new AuthRequiredError("set your Anthropic API key to ask follow-ups");
+    }
     hooks.onProgress({
       phase: "answering",
       message: "Answering",
