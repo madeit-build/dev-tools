@@ -1,6 +1,7 @@
 import path from "node:path";
 import * as vscode from "vscode";
 import type { StepDriftState, StepQaContext, Tour } from "@made-i-t/hdtw-protocol";
+import { GENERATION_AUTH_REQUIRED_ERROR_CODE } from "@made-i-t/hdtw-protocol";
 import { currentStep, progressLabel, startWalk } from "./walkState.js";
 import {
   activeWalk,
@@ -134,9 +135,8 @@ export class WalkController implements vscode.Disposable {
         author: { name: "🧠 HDTW" },
       };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
       answerComment = {
-        body: new vscode.MarkdownString(`⚠️ ${message}`),
+        body: this.errorBody(error),
         mode: vscode.CommentMode.Preview,
         author: { name: "🧠 HDTW" },
       };
@@ -145,6 +145,23 @@ export class WalkController implements vscode.Disposable {
     if (this.thread === thread) {
       thread.comments = [...thread.comments.slice(0, -1), answerComment];
     }
+  }
+
+  /**
+   * Builds the failure comment body. The auth case offers the "Set API Key" action via a
+   * MarkdownString trusted for that one command only — every other failure renders the raw
+   * engine message as untrusted prose (an answer must never carry executable command links).
+   */
+  private errorBody(error: unknown): vscode.MarkdownString {
+    if ((error as { code?: number }).code === GENERATION_AUTH_REQUIRED_ERROR_CODE) {
+      const body = new vscode.MarkdownString(
+        "Set your Anthropic API key to ask follow-ups. [Set API Key](command:hdtw.setApiKey)"
+      );
+      body.isTrusted = { enabledCommands: ["hdtw.setApiKey"] };
+      return body;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    return new vscode.MarkdownString(`⚠️ ${message}`);
   }
 
   dispose(): void {
