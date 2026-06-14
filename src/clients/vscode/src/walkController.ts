@@ -1,6 +1,6 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import type { StepDriftState, Tour } from "@made-i-t/hdtw-protocol";
+import type { StepDriftState, StepQaContext, Tour } from "@made-i-t/hdtw-protocol";
 import { currentStep, progressLabel, startWalk } from "./walkState.js";
 import {
   activeWalk,
@@ -28,6 +28,10 @@ export class WalkController implements vscode.Disposable {
     private readonly lookupTourTitle: (tourId: string) => string | undefined
   ) {
     this.commentController = vscode.comments.createCommentController("hdtw-tour", "HDTW Tour Guide");
+    this.commentController.options = {
+      prompt: "Ask a follow-up about this step…",
+      placeHolder: "e.g. why is it done this way?",
+    };
     this.decoration = vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
       backgroundColor: new vscode.ThemeColor("editor.findMatchHighlightBackground"),
@@ -84,6 +88,63 @@ export class WalkController implements vscode.Disposable {
     this.stack = [];
     this.clearStepArtifacts();
     this.statusBarItem.hide();
+  }
+
+  activeStepContext(): StepQaContext | undefined {
+    if (this.stack.length === 0) {
+      return undefined;
+    }
+    const active = activeWalk(this.stack);
+    const step = currentStep(active);
+    return {
+      file: step.anchor.file,
+      startLine: step.anchor.startLine,
+      endLine: step.anchor.endLine,
+      narration: step.narration,
+      tourTitle: active.tour.title,
+    };
+  }
+
+  /** Append the question + a thinking placeholder to the active thread, then swap in the answer. */
+  async askWhy(question: string, answer: (ctx: StepQaContext) => Promise<string>): Promise<void> {
+    const thread = this.thread;
+    const ctx = this.activeStepContext();
+    if (!thread || !ctx) {
+      return;
+    }
+    const youComment: vscode.Comment = {
+      body: new vscode.MarkdownString(question),
+      mode: vscode.CommentMode.Preview,
+      author: { name: "You" },
+    };
+    const thinking: vscode.Comment = {
+      body: new vscode.MarkdownString("🧠 _thinking…_"),
+      mode: vscode.CommentMode.Preview,
+      author: { name: "🧠 HDTW" },
+    };
+    thread.comments = [...thread.comments, youComment, thinking];
+
+    let answerComment: vscode.Comment;
+    try {
+      const text = await answer(ctx);
+      // Plain (non-trusted) markdown — an answer must never carry executable command links.
+      answerComment = {
+        body: new vscode.MarkdownString(text),
+        mode: vscode.CommentMode.Preview,
+        author: { name: "🧠 HDTW" },
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      answerComment = {
+        body: new vscode.MarkdownString(`⚠️ ${message}`),
+        mode: vscode.CommentMode.Preview,
+        author: { name: "🧠 HDTW" },
+      };
+    }
+    // Only apply if the user hasn't navigated away (the thread is still the active one).
+    if (this.thread === thread) {
+      thread.comments = [...thread.comments.slice(0, -1), answerComment];
+    }
   }
 
   dispose(): void {
@@ -154,7 +215,7 @@ export class WalkController implements vscode.Disposable {
     ];
     this.thread = this.commentController.createCommentThread(fileUri, range, comments);
     this.thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
-    this.thread.canReply = false;
+    this.thread.canReply = true;
     this.thread.label = breadcrumbLabel(this.stack);
 
     this.updateStatusBar();
