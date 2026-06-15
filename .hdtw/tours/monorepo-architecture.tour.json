@@ -28,8 +28,8 @@
       "title": "The process boundary",
       "anchor": {
         "file": "src/engine/server/src/main.ts",
-        "startLine": 182,
-        "endLine": 185,
+        "startLine": 193,
+        "endLine": 196,
         "snippetHash": "sha256:9e703117a3828ce0a6b32faafa4e3ba4b0ae7a8a167d732669b934a55cf472d0"
       },
       "narration": "The engine ships as a *process*, not a library. stdio JSON-RPC means any IDE on any runtime can drive it — this is what makes the JetBrains client possible later. Note the shutdown contract comment: stdin EOF is the cleanup mechanism.",
