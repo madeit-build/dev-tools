@@ -32,6 +32,14 @@ export interface GenerateTourParams {
   maxBudgetUsd?: number;
   /** When false, generate without writing the tour to the catalog (ephemeral). Defaults to true. */
   save?: boolean;
+  /** Generation backend. Defaults to "anthropic" (the Claude Agent SDK). */
+  provider?: "anthropic" | "openai";
+  /** OpenAI-compatible base URL (only when provider is "openai"). */
+  baseUrl?: string;
+  /** Optional budget pricing for non-Anthropic providers (USD per 1k tokens). */
+  usdPer1kInput?: number;
+  /** Optional budget pricing for non-Anthropic providers (USD per 1k tokens). */
+  usdPer1kOutput?: number;
 }
 
 export interface GenerateTourResult {
