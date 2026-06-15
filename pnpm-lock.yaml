@@ -104,6 +104,9 @@ importers:
       '@made-i-t/hdtw-protocol':
         specifier: workspace:*
         version: link:../../protocol
+      tinyglobby:
+        specifier: ^0.2.0
+        version: 0.2.17
       vscode-jsonrpc:
         specifier: ^8.2.1
         version: 8.2.1
