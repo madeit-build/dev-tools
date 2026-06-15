@@ -117,6 +117,20 @@ Spec: `docs/superpowers/specs/2026-06-14-codemap-grounding-design.md`
 
 Foundation-first slice: syntactic (tree-sitter) only. The semantic call-graph / entrypoint layer (LSP-grade) remains deferred to its own chunk.
 
+### Chunk 4c — OpenAI-compatible generation backend (BYOM) ✅ shipped 2026-06-15
+
+Spec: `docs/superpowers/specs/2026-06-15-openai-byom-design.md`
+
+| Feature | Capability |
+|---|---|
+| `OpenAiAgentTourGenerator` — second `TourGenerator` implementation; manual tool-calling explore loop over any OpenAI-compatible endpoint | Authors may drive generation with OpenAI, OpenRouter, Gemini-compat, or a local Ollama model — no Anthropic account required |
+| Shared provider-agnostic read-only tool layer (`read_file` / `grep` / `glob` + codemap `fileOutline` / `findSymbol`) | Both backends use the same tool surface; the engine's anchor verification, repair, and symbol-resolution pipeline is fully backend-blind |
+| `hdtw.generation.provider` (`"anthropic"` \| `"openai"`), `hdtw.generation.baseUrl`, `hdtw.generation.usdPer1kInput/Output` | One setting switches backends; custom base URL enables any OpenAI-wire-compatible host; per-model pricing surfaced accurately in progress |
+| Provider-aware key — `OPENAI_API_KEY` from SecretStorage injected at engine spawn (Anthropic path unchanged) | Same zero-setup BYOK model as Chunk 2; consumers still need no auth |
+| `TourGenerator` port paid off — engine pipeline (verification / repair / anchor resolution / symbol-relative anchors) untouched | The seam introduced in Chunk 2 absorbed a full backend swap with zero protocol or client changes |
+
+**Pending v1 items:** Q&A BYOM (`StepAnswerer` / "Why?" detours) and marketplace packaging (wasm bundling for OpenRouter/Ollama distribution) are not yet included.
+
 ### Tour Graph — related-tour links + walk stack ✅ shipped 2026-06-13
 Spec: `docs/superpowers/specs/2026-06-13-tour-graph-design.md`
 
