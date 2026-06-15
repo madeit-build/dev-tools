@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 import type { GenerateTourParams } from "./generation.js";
+import type { AskAboutStepParams } from "./generation.js";
 import {
   GENERATE_TOUR_METHOD,
   GENERATION_AUTH_REQUIRED_ERROR_CODE,
@@ -21,4 +22,9 @@ test("GenerateTourParams accepts an openai provider + baseUrl additively", () =>
   expect(p.provider).toBe("openai");
   const claudeDefault: GenerateTourParams = { workspaceRoot: "/w", topic: "t" };
   expect(claudeDefault.provider).toBeUndefined();
+});
+
+test("AskAboutStepParams accepts provider + baseUrl additively", () => {
+  const p: AskAboutStepParams = { workspaceRoot: "/w", question: "q", context: { file: "a.ts", startLine: 1, endLine: 1, narration: "n" }, provider: "openai", baseUrl: "http://localhost:11434/v1" };
+  expect(p.provider).toBe("openai");
 });

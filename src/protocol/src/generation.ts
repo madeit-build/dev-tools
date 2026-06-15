@@ -89,6 +89,12 @@ export interface AskAboutStepParams {
   context: StepQaContext;
   model?: string;
   maxBudgetUsd?: number;
+  /** Generation backend. Defaults to "anthropic". */
+  provider?: "anthropic" | "openai";
+  /** OpenAI-compatible base URL (only when provider is "openai"). */
+  baseUrl?: string;
+  usdPer1kInput?: number;
+  usdPer1kOutput?: number;
 }
 
 export interface AskAboutStepResult {

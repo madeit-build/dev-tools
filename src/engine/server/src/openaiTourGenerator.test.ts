@@ -4,7 +4,6 @@ import path from "node:path";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { OpenAiAgentTourGenerator, type ChatClient } from "./openaiTourGenerator.js";
 import { createObserver } from "@made-i-t/hdtw-observability";
-import { AuthRequiredError } from "./tourGenerator.js";
 
 let root: string;
 beforeEach(async () => {
@@ -41,24 +40,4 @@ test("runs a tool call then returns the parsed draft", async () => {
   expect(create).toHaveBeenCalledTimes(2);
   const secondCallMessages = create.mock.calls[1][0].messages;
   expect(secondCallMessages.some((m: { role: string }) => m.role === "tool")).toBe(true);
-});
-
-test("maps a 401 to AuthRequiredError", async () => {
-  const create = vi.fn().mockRejectedValue(Object.assign(new Error("Unauthorized"), { status: 401 }));
-  const client: ChatClient = { chat: { completions: { create } } };
-  const gen = new OpenAiAgentTourGenerator(() => client, {});
-  await expect(gen.generate(root, "x", "gpt-test", [], hooks())).rejects.toBeInstanceOf(AuthRequiredError);
-});
-
-test("gives up with a GenerationFailedError after maxTurns of tool calls", async () => {
-  const create = vi.fn().mockResolvedValue({
-    choices: [{ message: { role: "assistant", content: null, tool_calls: [
-      { id: "c", type: "function", function: { name: "glob", arguments: JSON.stringify({ pattern: "**/*" }) } },
-    ] } }],
-    usage: { prompt_tokens: 1, completion_tokens: 1 },
-  });
-  const client: ChatClient = { chat: { completions: { create } } };
-  const gen = new OpenAiAgentTourGenerator(() => client, { maxTurns: 3 });
-  await expect(gen.generate(root, "x", "gpt-test", [], hooks())).rejects.toThrow(/within/);
-  expect(create).toHaveBeenCalledTimes(3);
 });

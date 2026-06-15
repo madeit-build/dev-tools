@@ -219,13 +219,27 @@ async function askWhy(reply: vscode.CommentReply): Promise<void> {
   const config = vscode.workspace.getConfiguration("hdtw.generation");
   const model = config.get<string>("model", "");
   const maxBudgetUsd = config.get<number>("maxBudgetUsd", 2);
+  const provider = config.get<string>("provider", "anthropic");
+  const baseUrl = config.get<string>("baseUrl", "");
+  const usdPer1kInput = config.get<number>("usdPer1kInput", 0);
+  const usdPer1kOutput = config.get<number>("usdPer1kOutput", 0);
   await walk.askWhy(question, (ctx) =>
     Promise.resolve(
       vscode.window.withProgress(
         { location: vscode.ProgressLocation.Notification, title: "HDTW: answering", cancellable: true },
         async (progress, token) => {
           const { answer } = await client!.askAboutStep(
-            { workspaceRoot: root, question, context: ctx, model: model || undefined, maxBudgetUsd },
+            {
+              workspaceRoot: root,
+              question,
+              context: ctx,
+              model: model || undefined,
+              maxBudgetUsd,
+              provider: provider === "openai" ? "openai" : undefined,
+              baseUrl: provider === "openai" && baseUrl ? baseUrl : undefined,
+              usdPer1kInput: provider === "openai" ? usdPer1kInput : undefined,
+              usdPer1kOutput: provider === "openai" ? usdPer1kOutput : undefined,
+            },
             (update) =>
               progress.report({
                 message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
