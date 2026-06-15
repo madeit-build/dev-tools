@@ -11,7 +11,7 @@
     },
     {
       "title": "Verifying against the file",
-      "anchor": { "file": "src/engine/core/src/anchors.ts", "startLine": 30, "endLine": 55, "snippetHash": "sha256:ce09328af6699a79602ab47ee9315381b05f4dc7477eebb26c163356c89e56a3" },
+      "anchor": { "file": "src/engine/core/src/anchors.ts", "startLine": 30, "endLine": 69, "snippetHash": "sha256:afd7022b6c989ff608dd5f6884cb3988c150546147ab44a7c12ee3d0c8607891" },
       "narration": "The engine never trusts an anchor's line range — it independently checks the range against the real file and recomputes the hash. The agent proposes; the engine verifies. That is the core trust rule of generation."
     }
   ]

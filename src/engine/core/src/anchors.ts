@@ -9,7 +9,7 @@ export function computeSnippetHash(anchoredText: string): string {
 export function extractAnchoredText(
   fileContent: string,
   startLine: number,
-  endLine: number
+  endLine: number,
 ): string {
   return fileContent
     .split(/\r?\n/)
@@ -27,20 +27,34 @@ export type AnchorVerification =
   | { ok: true; snippetHash: string }
   | { ok: false; errors: [string, ...string[]] };
 
-export function verifyAnchor(anchor: AnchorRange, fileContent: string): AnchorVerification {
+export function verifyAnchor(
+  anchor: AnchorRange,
+  fileContent: string,
+): AnchorVerification {
   const lineCount = fileContent.split(/\r?\n/).length;
   const errors: string[] = [];
 
   if (!Number.isInteger(anchor.startLine) || anchor.startLine < 1) {
-    errors.push(`${anchor.file}: startLine must be an integer >= 1 (got ${anchor.startLine})`);
+    errors.push(
+      `${anchor.file}: startLine must be an integer >= 1 (got ${anchor.startLine})`,
+    );
   }
   if (!Number.isInteger(anchor.endLine) || anchor.endLine < 1) {
-    errors.push(`${anchor.file}: endLine must be an integer >= 1 (got ${anchor.endLine})`);
-  } else if (Number.isInteger(anchor.startLine) && anchor.endLine < anchor.startLine) {
-    errors.push(`${anchor.file}: endLine ${anchor.endLine} is before startLine ${anchor.startLine}`);
+    errors.push(
+      `${anchor.file}: endLine must be an integer >= 1 (got ${anchor.endLine})`,
+    );
+  } else if (
+    Number.isInteger(anchor.startLine) &&
+    anchor.endLine < anchor.startLine
+  ) {
+    errors.push(
+      `${anchor.file}: endLine ${anchor.endLine} is before startLine ${anchor.startLine}`,
+    );
   }
   if (Number.isInteger(anchor.endLine) && anchor.endLine > lineCount) {
-    errors.push(`${anchor.file}: endLine ${anchor.endLine} exceeds file length ${lineCount}`);
+    errors.push(
+      `${anchor.file}: endLine ${anchor.endLine} exceeds file length ${lineCount}`,
+    );
   }
 
   if (errors.length > 0) {
@@ -49,7 +63,7 @@ export function verifyAnchor(anchor: AnchorRange, fileContent: string): AnchorVe
   return {
     ok: true,
     snippetHash: computeSnippetHash(
-      extractAnchoredText(fileContent, anchor.startLine, anchor.endLine)
+      extractAnchoredText(fileContent, anchor.startLine, anchor.endLine),
     ),
   };
 }
@@ -59,14 +73,14 @@ export type AnchorFreshness = "fresh" | "drifted" | "out-of-range";
 /** Recompute the anchored snippet's hash and compare to the stored one. Assumes a valid anchor range (parseTour gates that). */
 export function checkAnchorFreshness(
   anchor: AnchorRange & { snippetHash: string },
-  fileContent: string
+  fileContent: string,
 ): AnchorFreshness {
   const lineCount = fileContent.split(/\r?\n/).length;
   if (anchor.endLine > lineCount) {
     return "out-of-range";
   }
   const current = computeSnippetHash(
-    extractAnchoredText(fileContent, anchor.startLine, anchor.endLine)
+    extractAnchoredText(fileContent, anchor.startLine, anchor.endLine),
   );
   return current === anchor.snippetHash ? "fresh" : "drifted";
 }
@@ -107,14 +121,19 @@ export function checkSymbolAnchorFreshness(
 }
 
 export type ReanchorResult =
-  | { outcome: "reanchored"; startLine: number; endLine: number; snippetHash: string }
+  | {
+      outcome: "reanchored";
+      startLine: number;
+      endLine: number;
+      snippetHash: string;
+    }
   | { outcome: "not-found" }
   | { outcome: "ambiguous" };
 
 /** Search the file for the window (of the anchor's original length) whose hash equals the stored hash. */
 export function findReanchor(
   anchor: AnchorRange & { snippetHash: string },
-  fileContent: string
+  fileContent: string,
 ): ReanchorResult {
   const lines = fileContent.split(/\r?\n/);
   const windowLength = anchor.endLine - anchor.startLine + 1;
@@ -124,7 +143,10 @@ export function findReanchor(
   const matches: { startLine: number; endLine: number }[] = [];
   for (let start = 1; start + windowLength - 1 <= lines.length; start += 1) {
     const end = start + windowLength - 1;
-    if (computeSnippetHash(lines.slice(start - 1, end).join("\n")) === anchor.snippetHash) {
+    if (
+      computeSnippetHash(lines.slice(start - 1, end).join("\n")) ===
+      anchor.snippetHash
+    ) {
       matches.push({ startLine: start, endLine: end });
     }
   }
