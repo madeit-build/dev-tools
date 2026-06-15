@@ -60,10 +60,17 @@ export async function runGrepTool(workspaceRoot: string, pattern: string, file?:
 }
 
 export async function runGlobTool(workspaceRoot: string, pattern: string): Promise<string> {
-  const matches = (await glob([pattern], {
-    cwd: path.resolve(workspaceRoot),
-    ignore: ["**/node_modules/**", "**/dist/**"],
-  })).slice(0, MAX_GLOB_RESULTS);
+  if (path.isAbsolute(pattern) || pattern.split("/").includes("..")) {
+    return `Error: glob pattern "${pattern}" must stay within the workspace.`;
+  }
+  const matches = (
+    await glob([pattern], {
+      cwd: path.resolve(workspaceRoot),
+      ignore: ["**/node_modules/**", "**/dist/**"],
+    })
+  )
+    .filter((m) => safeResolve(workspaceRoot, m) !== undefined) // defense-in-depth: drop any escape
+    .slice(0, MAX_GLOB_RESULTS);
   return matches.length ? matches.join("\n") : `No files match "${pattern}".`;
 }
 

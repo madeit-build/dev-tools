@@ -34,6 +34,13 @@ test("glob lists matching files relative to root", async () => {
   expect(out).not.toContain("y.md");
 });
 
+test("glob refuses patterns that escape the workspace", async () => {
+  const abs = await runGlobTool(root, "/etc/**");
+  expect(abs.toLowerCase()).toContain("within the workspace");
+  const up = await runGlobTool(root, "../../**/*.json");
+  expect(up.toLowerCase()).toContain("within the workspace");
+});
+
 test("EXPLORE_TOOL_DEFS lists the five tools and dispatch routes by name", async () => {
   expect(EXPLORE_TOOL_DEFS.map((t) => t.function.name).sort()).toEqual(
     ["findSymbol", "fileOutline", "glob", "grep", "read_file"].sort()
