@@ -37,8 +37,10 @@ import { TourSaveError } from "./tourStorage.js";
 import { checkTourDrift, reanchorStep } from "./driftHandlers.js";
 import { runGeneration } from "./generationPipeline.js";
 import { createStepAnswerer, runStepAnswer } from "./stepAnswerPipeline.js";
+import OpenAI from "openai";
 import { FakeTourGenerator } from "./fakeTourGenerator.js";
 import { ClaudeAgentTourGenerator } from "./claudeTourGenerator.js";
+import { OpenAiAgentTourGenerator, type ChatClient } from "./openaiTourGenerator.js";
 import { StderrSink } from "./stderrSink.js";
 import {
   AuthRequiredError,
@@ -59,10 +61,19 @@ const connection = createMessageConnection(
 const minLevel = parseLogLevel(process.env.HDTW_LOG_LEVEL, "info");
 const observer = createObserver({ sink: new StderrSink(), minLevel });
 
-function createGenerator(): TourGenerator {
-  return process.env.HDTW_GENERATOR === "fake"
-    ? new FakeTourGenerator()
-    : new ClaudeAgentTourGenerator();
+function createGenerator(params: GenerateTourParams): TourGenerator {
+  if (process.env.HDTW_GENERATOR === "fake") return new FakeTourGenerator();
+  if (params.provider === "openai") {
+    return new OpenAiAgentTourGenerator(
+      () =>
+        new OpenAI({
+          apiKey: process.env.OPENAI_API_KEY ?? "ollama",
+          baseURL: params.baseUrl,
+        }) as unknown as ChatClient,
+      { usdPer1kInput: params.usdPer1kInput, usdPer1kOutput: params.usdPer1kOutput }
+    );
+  }
+  return new ClaudeAgentTourGenerator();
 }
 
 connection.onRequest(PING_METHOD, (params: PingParams) => handlePing(params));
@@ -88,7 +99,7 @@ connection.onRequest(
     try {
       return await runGeneration(
         params,
-        createGenerator(),
+        createGenerator(params),
         observer,
         (progress) => connection.sendNotification(GENERATION_PROGRESS_NOTIFICATION, progress),
         abort.signal

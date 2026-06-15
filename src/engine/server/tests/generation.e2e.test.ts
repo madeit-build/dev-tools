@@ -64,6 +64,27 @@ test("generateTour with fake generator: symbol-anchor topic produces resolved st
   expect(step.anchor.snippetHash).toMatch(/^sha256:/);
 });
 
+test("generateTour with provider=openai still returns fake tour when HDTW_GENERATOR=fake", async () => {
+  serverProcess = spawn(process.execPath, [serverEntry], {
+    stdio: ["pipe", "pipe", "inherit"],
+    env: { ...process.env, HDTW_GENERATOR: "fake" },
+  });
+  connection = createMessageConnection(
+    new StreamMessageReader(serverProcess.stdout!),
+    new StreamMessageWriter(serverProcess.stdin!)
+  );
+  connection.listen();
+
+  const result = await connection.sendRequest<GenerateTourResult>(GENERATE_TOUR_METHOD, {
+    workspaceRoot,
+    topic: "how does the readme work",
+    provider: "openai",
+    save: false,
+  });
+
+  expect(result.tour.id).toBe("fake-tour");
+});
+
 test("generateTour over stdio with the fake generator: progress + saved tour", async () => {
   serverProcess = spawn(process.execPath, [serverEntry], {
     stdio: ["pipe", "pipe", "inherit"],
