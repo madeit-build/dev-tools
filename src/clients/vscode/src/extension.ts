@@ -14,7 +14,8 @@ import { TourTreeProvider } from "./tourTree.js";
 import { WalkController } from "./walkController.js";
 import { createSaveState } from "./saveState.js";
 
-const API_KEY_SECRET = "hdtw.anthropicApiKey";
+const ANTHROPIC_API_KEY_SECRET = "hdtw.anthropicApiKey";
+const OPENAI_API_KEY_SECRET = "hdtw.openaiApiKey";
 const REQUEST_CANCELLED_ERROR_CODE = -32800;
 
 let client: EngineClient | undefined;
@@ -67,10 +68,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   }
   client = new EngineClient(sink);
   try {
-    const apiKey = await context.secrets.get(API_KEY_SECRET);
+    const anthropicApiKey = await context.secrets.get(ANTHROPIC_API_KEY_SECRET);
+    const openaiApiKey = await context.secrets.get(OPENAI_API_KEY_SECRET);
     const env: Record<string, string> = { HDTW_LOG_LEVEL: logLevel };
-    if (apiKey) {
-      env.ANTHROPIC_API_KEY = apiKey;
+    if (anthropicApiKey) {
+      env.ANTHROPIC_API_KEY = anthropicApiKey;
+    }
+    if (openaiApiKey) {
+      env.OPENAI_API_KEY = openaiApiKey;
     }
     const result = await client.connect(env);
     observer.logger.info("engine.connected", {
@@ -274,6 +279,10 @@ async function generateTour(): Promise<void> {
   const config = vscode.workspace.getConfiguration("hdtw.generation");
   const model = config.get<string>("model", "");
   const maxBudgetUsd = config.get<number>("maxBudgetUsd", 2);
+  const provider = config.get<string>("provider", "anthropic");
+  const baseUrl = config.get<string>("baseUrl", "");
+  const usdPer1kInput = config.get<number>("usdPer1kInput", 0);
+  const usdPer1kOutput = config.get<number>("usdPer1kOutput", 0);
 
   generating = true;
   try {
@@ -285,7 +294,16 @@ async function generateTour(): Promise<void> {
       },
       (progress, token) =>
         client!.generateTour(
-          { workspaceRoot: root, topic, model: model || undefined, maxBudgetUsd },
+          {
+            workspaceRoot: root,
+            topic,
+            model: model || undefined,
+            maxBudgetUsd,
+            provider: provider === "openai" ? "openai" : undefined,
+            baseUrl: provider === "openai" && baseUrl ? baseUrl : undefined,
+            usdPer1kInput: provider === "openai" ? usdPer1kInput : undefined,
+            usdPer1kOutput: provider === "openai" ? usdPer1kOutput : undefined,
+          },
           (update) =>
             progress.report({
               message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
@@ -332,13 +350,27 @@ async function askWalk(): Promise<void> {
   const config = vscode.workspace.getConfiguration("hdtw.generation");
   const model = config.get<string>("model", "");
   const maxBudgetUsd = config.get<number>("maxBudgetUsd", 2);
+  const provider = config.get<string>("provider", "anthropic");
+  const baseUrl = config.get<string>("baseUrl", "");
+  const usdPer1kInput = config.get<number>("usdPer1kInput", 0);
+  const usdPer1kOutput = config.get<number>("usdPer1kOutput", 0);
   generating = true;
   try {
     const result = await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: "HDTW: exploring", cancellable: true },
       (progress, token) =>
         client!.generateTour(
-          { workspaceRoot: root, topic: question, model: model || undefined, maxBudgetUsd, save: false },
+          {
+            workspaceRoot: root,
+            topic: question,
+            model: model || undefined,
+            maxBudgetUsd,
+            save: false,
+            provider: provider === "openai" ? "openai" : undefined,
+            baseUrl: provider === "openai" && baseUrl ? baseUrl : undefined,
+            usdPer1kInput: provider === "openai" ? usdPer1kInput : undefined,
+            usdPer1kOutput: provider === "openai" ? usdPer1kOutput : undefined,
+          },
           (update) =>
             progress.report({
               message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
@@ -409,8 +441,13 @@ function handleGenerationError(error: unknown): void {
 }
 
 async function setApiKey(context: vscode.ExtensionContext): Promise<void> {
+  const providerConfig = vscode.workspace.getConfiguration("hdtw.generation").get<string>("provider", "anthropic");
+  const isOpenAi = providerConfig === "openai";
+  const secretKey = isOpenAi ? OPENAI_API_KEY_SECRET : ANTHROPIC_API_KEY_SECRET;
+  const providerLabel = isOpenAi ? "OpenAI-compatible" : "Anthropic";
+
   const key = await vscode.window.showInputBox({
-    title: "Set Anthropic API Key",
+    title: `Set ${providerLabel} API Key`,
     prompt: "Stored in VS Code SecretStorage; passed to the engine on next start.",
     password: true,
     ignoreFocusOut: true,
@@ -419,10 +456,10 @@ async function setApiKey(context: vscode.ExtensionContext): Promise<void> {
     return;
   }
   if (key === "") {
-    await context.secrets.delete(API_KEY_SECRET);
+    await context.secrets.delete(secretKey);
     void vscode.window.showInformationMessage("HDTW: API key cleared. Reload to apply.");
   } else {
-    await context.secrets.store(API_KEY_SECRET, key);
+    await context.secrets.store(secretKey, key);
     void vscode.window.showInformationMessage("HDTW: API key saved. Reload to apply.");
   }
   const action = await vscode.window.showInformationMessage(
