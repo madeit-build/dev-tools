@@ -136,6 +136,27 @@
           "default": 2,
           "description": "Abort tour generation when the estimated cost exceeds this many USD."
         },
+        "hdtw.generation.provider": {
+          "type": "string",
+          "enum": ["anthropic", "openai"],
+          "default": "anthropic",
+          "markdownDescription": "Tour generation backend. `openai` uses any OpenAI-compatible endpoint (OpenAI, OpenRouter, Ollama, …)."
+        },
+        "hdtw.generation.baseUrl": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "OpenAI-compatible base URL when provider is `openai` (e.g. `https://api.openai.com/v1`, `http://localhost:11434/v1`)."
+        },
+        "hdtw.generation.usdPer1kInput": {
+          "type": "number",
+          "default": 0,
+          "description": "Optional input-token price (USD per 1k) for budget estimates with non-Anthropic providers."
+        },
+        "hdtw.generation.usdPer1kOutput": {
+          "type": "number",
+          "default": 0,
+          "description": "Optional output-token price (USD per 1k)."
+        },
         "hdtw.logLevel": {
           "type": "string",
           "enum": [
