@@ -129,7 +129,9 @@ Spec: `docs/superpowers/specs/2026-06-15-openai-byom-design.md`
 | Provider-aware key — `OPENAI_API_KEY` from SecretStorage injected at engine spawn (Anthropic path unchanged) | Same zero-setup BYOK model as Chunk 2; consumers still need no auth |
 | `TourGenerator` port paid off — engine pipeline (verification / repair / anchor resolution / symbol-relative anchors) untouched | The seam introduced in Chunk 2 absorbed a full backend swap with zero protocol or client changes |
 
-**Pending v1 items:** Q&A BYOM (`StepAnswerer` / "Why?" detours) and marketplace packaging (wasm bundling for OpenRouter/Ollama distribution) are not yet included.
+**Q&A BYOM shipped 2026-06-15** (spec: `docs/superpowers/specs/2026-06-15-qa-byom-design.md`): the `StepAnswerer` port now has an OpenAI backend — `ClauseStepAnswerer` and its OpenAI counterpart share the same `runOpenAiToolLoop` used for generation. The `hdtw.generation.provider` setting now governs **both** generation and "Why?" detours uniformly; switching to `"openai"` routes every agent call — tour generation and in-step Q&A — through the OpenAI-compatible endpoint.
+
+**BYOM is now complete.** Marketplace packaging (wasm bundling for OpenRouter/Ollama distribution) remains the v1 gate.
 
 ### Tour Graph — related-tour links + walk stack ✅ shipped 2026-06-13
 Spec: `docs/superpowers/specs/2026-06-13-tour-graph-design.md`
