@@ -96,3 +96,15 @@ test("askAboutStep maps a budget breach to GENERATION_BUDGET_EXCEEDED", async ()
     )
   ).rejects.toMatchObject({ code: GENERATION_BUDGET_EXCEEDED_ERROR_CODE });
 });
+
+test("askAboutStep with provider: openai still returns fake answer when HDTW_GENERATOR=fake", async () => {
+  connection = startServer();
+
+  const result = await connection.sendRequest<AskAboutStepResult>(
+    ASK_ABOUT_STEP_METHOD,
+    askParams({ provider: "openai", baseUrl: "http://localhost:11434/v1" })
+  );
+
+  expect(result.answer).toBe("Fake answer to: why stdio?");
+  expect(progress.map((p) => p.phase)).toContain("answering");
+});

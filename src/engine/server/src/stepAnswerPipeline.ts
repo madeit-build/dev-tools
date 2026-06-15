@@ -12,13 +12,22 @@ import {
 import type { StepAnswerer } from "./stepAnswerer.js";
 import { FakeStepAnswerer } from "./fakeStepAnswerer.js";
 import { ClaudeStepAnswerer } from "./claudeStepAnswerer.js";
+import OpenAI from "openai";
+import { OpenAiStepAnswerer } from "./openaiStepAnswerer.js";
+import type { ChatClient } from "./openaiToolLoop.js";
 
 const DEFAULT_MAX_BUDGET_USD = 2;
 
-export function createStepAnswerer(): StepAnswerer {
+export function createStepAnswerer(params: AskAboutStepParams): StepAnswerer {
   if (process.env.HDTW_GENERATOR === "fake") {
     // HDTW_FAKE_AUTH_ERROR lets e2e tests exercise the auth → error-code mapping.
     return new FakeStepAnswerer({ throwAuth: process.env.HDTW_FAKE_AUTH_ERROR === "1" });
+  }
+  if (params.provider === "openai") {
+    return new OpenAiStepAnswerer(
+      () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? "ollama", baseURL: params.baseUrl }) as unknown as ChatClient,
+      { usdPer1kInput: params.usdPer1kInput, usdPer1kOutput: params.usdPer1kOutput }
+    );
   }
   return new ClaudeStepAnswerer();
 }

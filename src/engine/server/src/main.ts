@@ -132,7 +132,7 @@ connection.onRequest(
     try {
       return await runStepAnswer(
         params,
-        createStepAnswerer(),
+        createStepAnswerer(params),
         observer,
         (progress) => connection.sendNotification(GENERATION_PROGRESS_NOTIFICATION, progress),
         abort.signal
