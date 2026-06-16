@@ -2,14 +2,14 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run Extension",
+      "name": "HDTW: Run",
       "type": "extensionHost",
       "request": "launch",
       "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}/src/clients/vscode",
+        "--extensionDevelopmentPath=${workspaceFolder}/src/how-does-this-work/src/clients/vscode",
         "${workspaceFolder}/dogfood.code-workspace"
       ],
-      "preLaunchTask": "build"
+      "preLaunchTask": "HDTW: Build"
     }
   ]
 }

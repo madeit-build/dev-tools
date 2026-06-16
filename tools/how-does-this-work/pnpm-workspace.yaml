@@ -1,6 +1,0 @@
-packages:
-  - "src/protocol"
-  - "src/observability"
-  - "src/engine/*"
-  - "src/clients/*"
-  - "src/codemap"

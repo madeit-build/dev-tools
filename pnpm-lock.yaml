@@ -24,7 +24,7 @@ importers:
         specifier: ^8.32.0
         version: 8.61.0(eslint@9.39.4)(typescript@5.9.3)
 
-  src/clients/vscode:
+  src/how-does-this-work/src/clients/vscode:
     dependencies:
       '@made-i-t/hdtw-engine-server':
         specifier: workspace:*
@@ -52,7 +52,7 @@ importers:
         specifier: ^3.1.0
         version: 3.2.6(@types/node@20.19.43)
 
-  src/codemap:
+  src/how-does-this-work/src/codemap:
     dependencies:
       tree-sitter-wasms:
         specifier: ^0.1.11
@@ -71,7 +71,7 @@ importers:
         specifier: ^3.1.0
         version: 3.2.6(@types/node@20.19.43)
 
-  src/engine/core:
+  src/how-does-this-work/src/engine/core:
     dependencies:
       '@made-i-t/hdtw-protocol':
         specifier: workspace:*
@@ -87,7 +87,7 @@ importers:
         specifier: ^3.1.0
         version: 3.2.6(@types/node@20.19.43)
 
-  src/engine/server:
+  src/how-does-this-work/src/engine/server:
     dependencies:
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.3.176
@@ -127,7 +127,7 @@ importers:
         specifier: ^3.1.0
         version: 3.2.6(@types/node@20.19.43)
 
-  src/observability:
+  src/how-does-this-work/src/observability:
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -136,7 +136,7 @@ importers:
         specifier: ^3.1.0
         version: 3.2.6(@types/node@20.19.43)
 
-  src/protocol:
+  src/how-does-this-work/src/protocol:
     devDependencies:
       typescript:
         specifier: ^5.8.3

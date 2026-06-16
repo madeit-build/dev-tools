@@ -1,0 +1,6 @@
+# Each tool lives at src/<tool>/ and keeps its packages under its own src/.
+# Globs are tool-agnostic so new tools join the workspace automatically.
+packages:
+  - "src/*/src/*"
+  - "src/*/src/engine/*"
+  - "src/*/src/clients/*"

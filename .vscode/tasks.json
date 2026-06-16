@@ -1,0 +1,14 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "HDTW: Build",
+      "type": "shell",
+      "command": "pnpm build --dir ${workspaceFolder}/src/how-does-this-work",
+      "group": "build",
+      "problemMatcher": [
+        "$tsc"
+      ]
+    }
+  ]
+}

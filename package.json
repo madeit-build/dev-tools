@@ -1,5 +1,5 @@
 {
-  "name": "hdtw-monorepo",
+  "name": "dev-tools",
   "private": true,
   "packageManager": "pnpm@10.11.0",
   "scripts": {
