@@ -18,21 +18,31 @@ Dependency rules (architectural, not conventional):
 
 ## Repository layout
 
+This tool lives inside the **`dev-tools` root monorepo** (`Made-I-T/dev-tools`). The repo root owns the shared Turborepo/pnpm machinery; each tool is a directory under `src/`, and keeps its own packages under its own `src/`.
+
 ```
-src/
-├── engine/
-│   ├── core/        # @made-i-t/hdtw-engine-core — analysis + rails/tour domain model (pure TS lib)
-│   └── server/      # @made-i-t/hdtw-engine-server — standalone process, JSON-RPC over stdio
-├── protocol/        # @made-i-t/hdtw-protocol — engine↔client contract (types + schema)
-└── clients/
-    └── vscode/      # hdtw-vscode — thin VS Code extension (ID: madeit.hdtw-vscode)
-tools/               # repo-level scripts (release, codegen) — not product code
-docs/
-├── adr/             # architecture decision records
-└── superpowers/specs/  # design documents — read these before large changes
+dev-tools/                       # REPO ROOT = Turborepo monorepo (Made-I-T/dev-tools)
+├── package.json                 # "dev-tools" — turbo orchestrates every tool
+├── pnpm-workspace.yaml          # tool-agnostic globs: src/*/src/*  (new tools auto-join)
+├── turbo.json · tsconfig.base.json · eslint.config.mjs · .prettier*   # shared by ALL tools
+├── dogfood.code-workspace       # opens src/how-does-this-work for F5 dogfooding
+└── src/                         # one directory per tool
+    └── how-does-this-work/      # ← THIS tool
+        ├── AGENTS.md · CLAUDE.md · LICENSE · docs/ · .hdtw/   # tool-specific
+        └── src/                 # this tool's workspace packages
+            ├── engine/
+            │   ├── core/        # @made-i-t/hdtw-engine-core — analysis + rails/tour domain model (pure TS lib)
+            │   └── server/      # @made-i-t/hdtw-engine-server — standalone process, JSON-RPC over stdio
+            ├── protocol/        # @made-i-t/hdtw-protocol — engine↔client contract (types + schema)
+            ├── codemap/         # @made-i-t/hdtw-codemap — tree-sitter structural index (symbol anchors)
+            ├── observability/   # @made-i-t/hdtw-observability — injected Logger/Metrics + sink seam
+            └── clients/
+                └── vscode/      # hdtw-vscode — thin VS Code extension (ID: madeit.hdtw-vscode)
 ```
 
-Monorepo intended for multiple teams: each workspace package is an independently ownable unit (engine team, protocol stewards, per-IDE client teams).
+Paths in this doc (`docs/…`, `.hdtw/…`, `src/engine/…`) are **relative to this tool's directory** (`src/how-does-this-work/`), which is also what `dogfood.code-workspace` opens — so dogfood tour anchors resolve unchanged.
+
+Monorepo intended for multiple teams: each workspace package is an independently ownable unit (engine team, protocol stewards, per-IDE client teams). New tools are added as sibling directories under the repo's `src/`.
 
 ## Platform & tooling
 
@@ -43,8 +53,10 @@ Monorepo intended for multiple teams: each workspace package is an independently
 
 ### Commands
 
+**Run pnpm/turbo from the repo root** (`dev-tools/`) — that's where the workspace + `turbo.json` live. `--filter` targets a single tool's package regardless of nesting.
+
 ```bash
-pnpm install                              # install all workspace deps
+pnpm install                              # install all workspace deps (root)
 pnpm build                                # turbo build, dependency order
 pnpm test                                 # turbo test (builds first)
 pnpm lint                                 # turbo lint
@@ -52,7 +64,7 @@ pnpm turbo test --filter=@made-i-t/hdtw-engine-core            # test one packag
 pnpm --filter @made-i-t/hdtw-engine-server exec vitest run tests/server.e2e.test.ts  # single test file
 ```
 
-Launching the extension: open the repo in VS Code and press F5 (Run Extension). The extension spawns the engine as a child process; success shows "HDTW engine connected" in the UI. Engine spawn/handshake failures must surface as visible error notifications — fail fast and visibly.
+Launching the extension: open **`dogfood.code-workspace`** (at the repo root) in VS Code and press F5 (Run Extension) — it loads the extension from `src/how-does-this-work/src/clients/vscode` and opens this tool's folder so dogfood tours resolve. The extension spawns the engine as a child process; success shows "HDTW engine connected" in the UI. Engine spawn/handshake failures must surface as visible error notifications — fail fast and visibly.
 
 ## Current state (update this section as the repo evolves)
 
