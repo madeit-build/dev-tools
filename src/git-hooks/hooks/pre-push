@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Refuse to push a branch whose pull request has already been merged.
+# Refuse to add commits to a branch whose pull request has already been merged.
 #
 # Commits added to a merged PR's head branch are accepted by both git and
 # GitHub without complaint, but they never reach main: the PR is closed and
@@ -15,13 +15,6 @@
 if [ -n "$ALLOW_MERGED_PR_PUSH" ]; then
 	exit 0
 fi
-
-branch=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
-[ -n "$branch" ] || exit 0
-
-case "$branch" in
-main | master) exit 0 ;;
-esac
 
 # git passes the remote name as $1 and its URL as $2. Prefer $2 to avoid
 # spawning a process, but fall back for direct invocation and older git.
@@ -40,11 +33,38 @@ esac
 
 command -v gh >/dev/null 2>&1 || exit 0
 
-merged_pr=$(gh pr list --head "$branch" --state merged --limit 1 \
-	--json number --jq '.[0].number' 2>/dev/null) || exit 0
-[ -n "$merged_pr" ] || exit 0
+# git names the refs actually being pushed on stdin, one per line:
+#
+#     <local ref> <local sha> <remote ref> <remote sha>
+#
+# Read them rather than asking for HEAD. A push does not have to involve the
+# checked-out branch at all -- `git push origin foo`, a refspec, and `--all`
+# all push something HEAD has no opinion about -- so HEAD answers a question
+# nobody asked, and answers it confidently.
+while read -r _local_ref local_sha remote_ref _remote_sha; do
+	# A deletion arrives with an all-zero local sha. Deleting a merged
+	# branch is the cleanup this hook exists to argue for, not the mistake
+	# it guards against, and refusing it leaves the branch list to rot.
+	case "$local_sha" in
+	*[!0]*) ;;
+	*) continue ;;
+	esac
 
-cat >&2 <<EOF
+	# Tags and anything else that is not a branch cannot have a head PR.
+	case "$remote_ref" in
+	refs/heads/*) branch=${remote_ref#refs/heads/} ;;
+	*) continue ;;
+	esac
+
+	case "$branch" in
+	main | master) continue ;;
+	esac
+
+	merged_pr=$(gh pr list --head "$branch" --state merged --limit 1 \
+		--json number --jq '.[0].number' 2>/dev/null) || continue
+	[ -n "$merged_pr" ] || continue
+
+	cat >&2 <<EOF
 
   Refusing to push: PR #${merged_pr} for '${branch}' is already MERGED.
 
@@ -62,4 +82,7 @@ cat >&2 <<EOF
       ALLOW_MERGED_PR_PUSH=1 git push
 
 EOF
-exit 1
+	exit 1
+done
+
+exit 0
