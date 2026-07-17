@@ -11,9 +11,11 @@ dev-tools/                       # repo root = Turborepo + pnpm workspace
 ├── turbo.json · tsconfig.base.json · eslint.config.mjs · .prettier*   # shared by ALL tools
 ├── dogfood.code-workspace       # opens a tool's folder for F5 dogfooding
 └── src/                         # one directory per tool
-    └── how-does-this-work/      # guided, rails-driven codebase tours (VS Code first)
-        ├── AGENTS.md            # ← read this before working on the tool
-        └── src/                 # the tool's own workspace packages
+    ├── how-does-this-work/      # guided, rails-driven codebase tours (VS Code first)
+    │   ├── AGENTS.md            # ← read this before working on the tool
+    │   └── src/                 # the tool's own workspace packages
+    └── git-hooks/               # POSIX sh git hooks, no build, outside the workspace
+        └── hooks/               # core.hooksPath points here
 ```
 
 The repo root owns the **shared machinery** (pnpm workspace, Turborepo, base TS config, ESLint, Prettier). Each tool keeps its packages under its own `src/`, so per-tool internals stay isolated. Adding a new tool = create `src/<new-tool>/src/<pkg>/package.json`; the `src/*/src/*` workspace globs pick it up automatically.
@@ -23,6 +25,9 @@ The repo root owns the **shared machinery** (pnpm workspace, Turborepo, base TS 
 | Tool | Directory | Docs |
 | --- | --- | --- |
 | How Does This Work | `src/how-does-this-work/` | [`AGENTS.md`](./src/how-does-this-work/AGENTS.md) · [`CLAUDE.md`](./src/how-does-this-work/CLAUDE.md) |
+| Git Hooks | `src/git-hooks/` | [`README.md`](./src/git-hooks/README.md) |
+
+Not every tool is a workspace package. `git-hooks` is plain POSIX `sh` with no build, so the `src/*/src/*` globs skip it and `pnpm`/`turbo` never see it.
 
 ## Commands (run from the repo root)
 
