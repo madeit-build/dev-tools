@@ -1,0 +1,65 @@
+#!/bin/sh
+#
+# Refuse to push a branch whose pull request has already been merged.
+#
+# Commits added to a merged PR's head branch are accepted by both git and
+# GitHub without complaint, but they never reach main: the PR is closed and
+# will not pick them up. The work strands silently and is only noticed by eye,
+# by which point a branch cut from main is missing it.
+#
+# Every failure mode here exits 0. This is installed for every repo under the
+# made-it work area via core.hooksPath, so it runs in repos with no GitHub
+# remote, no network, and no gh, and it must be invisible in all of them.
+
+# Escape hatch, for the rare deliberate push to a merged branch.
+if [ -n "$ALLOW_MERGED_PR_PUSH" ]; then
+	exit 0
+fi
+
+branch=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0
+[ -n "$branch" ] || exit 0
+
+case "$branch" in
+main | master) exit 0 ;;
+esac
+
+# git passes the remote name as $1 and its URL as $2. Prefer $2 to avoid
+# spawning a process, but fall back for direct invocation and older git.
+remote_url=$2
+if [ -z "$remote_url" ]; then
+	remote_url=$(git remote get-url "${1:-origin}" 2>/dev/null) || exit 0
+fi
+
+# Bail before paying for gh, which costs about 600ms per push. A url rewritten
+# by insteadOf to a host that does not look like GitHub is not recognised and
+# simply skips the check, which is the safe direction to be wrong in.
+case "$remote_url" in
+*github.com/* | *github.com:*) ;;
+*) exit 0 ;;
+esac
+
+command -v gh >/dev/null 2>&1 || exit 0
+
+merged_pr=$(gh pr list --head "$branch" --state merged --limit 1 \
+	--json number --jq '.[0].number' 2>/dev/null) || exit 0
+[ -n "$merged_pr" ] || exit 0
+
+cat >&2 <<EOF
+
+  Refusing to push: PR #${merged_pr} for '${branch}' is already MERGED.
+
+  Commits pushed here will not reach the base branch. The merged PR will
+  not pick them up, and this work will be silently left behind.
+
+  Cut a fresh branch off an up-to-date main and move the work over:
+
+      git fetch origin
+      git switch -c <new-branch> origin/main
+      git cherry-pick <commit>...
+
+  To push anyway:
+
+      ALLOW_MERGED_PR_PUSH=1 git push
+
+EOF
+exit 1
