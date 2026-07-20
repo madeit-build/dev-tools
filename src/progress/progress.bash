@@ -33,12 +33,54 @@ _progress_mode() {
   fi
 }
 
+_progress_cursor_show() { [ "${_PROGRESS_MODE:-}" = rich ] && printf '\033[?25h'; }
+
+_progress_spin_frame() {
+  # Frames in an ARRAY: bash 3.2 substring indexing is byte-based and would slice
+  # these 3-byte Braille glyphs; array element access does not.
+  local frames
+  frames=( '⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏' )
+  _PROGRESS_SPIN=$(( (${_PROGRESS_SPIN:-0} + 1) % 10 ))
+  printf '%s' "${frames[$_PROGRESS_SPIN]}"
+}
+
+# Repaint the block: completed phase lines plus the active spinner line. Rich only.
+_progress_repaint() {
+  [ "${_PROGRESS_MODE:-}" = rich ] || return 0
+  if [ "${_PROGRESS_PAINTED:-0}" -gt 0 ]; then
+    tput cuu "$_PROGRESS_PAINTED" 2>/dev/null
+    tput ed 2>/dev/null
+  fi
+  _PROGRESS_PAINTED=0
+  local line
+  if [ "${#_PROGRESS_DONE_LINES[@]}" -gt 0 ]; then
+    for line in "${_PROGRESS_DONE_LINES[@]}"; do
+      printf '%s\n' "$line"
+      _PROGRESS_PAINTED=$(( _PROGRESS_PAINTED + 1 ))
+    done
+  fi
+  if [ -n "${_PROGRESS_PHASE_LABEL:-}" ]; then
+    local now el
+    now="$(_progress_now_ms)"
+    el="$(_progress_fmt_elapsed $(( now - _PROGRESS_PHASE_START_MS )))"
+    printf '%s %s  %s\n' "$(_progress_spin_frame)" "$_PROGRESS_PHASE_LABEL" "$el"
+    _PROGRESS_PAINTED=$(( _PROGRESS_PAINTED + 1 ))
+  fi
+}
+
 progress_begin() {
   _PROGRESS_TITLE="${1:-}"
   _PROGRESS_MODE="$(_progress_mode)"
   _PROGRESS_START_MS="$(_progress_now_ms)"
   _PROGRESS_PHASE_LABEL=""
   _PROGRESS_PHASE_START_MS=""
+  _PROGRESS_DONE_LINES=()
+  _PROGRESS_PAINTED=0
+  _PROGRESS_SPIN=0
+  if [ "$_PROGRESS_MODE" = rich ]; then
+    printf '\033[?25l'                       # hide cursor
+    trap '_progress_cursor_show' EXIT INT TERM
+  fi
 }
 
 # Close the open phase, if any. $1=ok|fail  $2=reason(optional)
@@ -48,14 +90,26 @@ _progress_close_phase() {
   now="$(_progress_now_ms)"
   el="$(_progress_fmt_elapsed $(( now - _PROGRESS_PHASE_START_MS )))"
   [ -n "${2:-}" ] && extra=" - $2"
-  printf '[%s] %s: %s%s (%s)\n' "$_PROGRESS_TITLE" "$_PROGRESS_PHASE_LABEL" "$1" "$extra" "$el"
-  _PROGRESS_PHASE_LABEL=""
+  if [ "$_PROGRESS_MODE" = rich ]; then
+    local sym color reset
+    reset="$(tput sgr0 2>/dev/null)"
+    if [ "$1" = ok ]; then sym='✓'; color="$(tput setaf 2 2>/dev/null)"
+    else sym='✗'; color="$(tput setaf 1 2>/dev/null)"; fi
+    _PROGRESS_DONE_LINES+=( "${color}${sym}${reset} ${_PROGRESS_PHASE_LABEL}${extra}  ${el}" )
+    _PROGRESS_PHASE_LABEL=""
+    _progress_repaint
+  else
+    printf '[%s] %s: %s%s (%s)\n' "$_PROGRESS_TITLE" "$_PROGRESS_PHASE_LABEL" "$1" "$extra" "$el"
+    _PROGRESS_PHASE_LABEL=""
+  fi
 }
 
 progress_phase() {
   _progress_close_phase ok
   _PROGRESS_PHASE_LABEL="$1"
   _PROGRESS_PHASE_START_MS="$(_progress_now_ms)"
+  [ "$_PROGRESS_MODE" = rich ] && _progress_repaint
+  return 0
 }
 
 progress_fail() { _progress_close_phase fail "${1:-}"; }
@@ -102,9 +156,17 @@ progress_end() {
   local now el
   now="$(_progress_now_ms)"
   el="$(_progress_fmt_elapsed $(( now - _PROGRESS_START_MS )))"
-  if [ -n "${1:-}" ]; then
-    printf '%s: %s (%s)\n' "$_PROGRESS_TITLE" "$1" "$el"
+  if [ "$_PROGRESS_MODE" = rich ]; then
+    local msg="done"; [ -n "${1:-}" ] && msg="$1"
+    printf '%s  %s (%s)\n' "$_PROGRESS_TITLE" "$msg" "$el"
+    _PROGRESS_PAINTED=0
+    _progress_cursor_show
+    trap - EXIT INT TERM
   else
-    printf '%s: done (%s)\n' "$_PROGRESS_TITLE" "$el"
+    if [ -n "${1:-}" ]; then
+      printf '%s: %s (%s)\n' "$_PROGRESS_TITLE" "$1" "$el"
+    else
+      printf '%s: done (%s)\n' "$_PROGRESS_TITLE" "$el"
+    fi
   fi
 }
