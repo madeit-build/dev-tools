@@ -60,6 +60,43 @@ progress_phase() {
 
 progress_fail() { _progress_close_phase fail "${1:-}"; }
 
+# progress_run "label" -- cmd [args...]
+# Runs an opaque child, tees its output to a log, and returns the child's exit
+# code (via PIPESTATUS, never the tee's). Plain mode streams output through; the
+# rich live-tail is layered on in a later change.
+progress_run() {
+  local label="$1"; shift
+  if [ "${1:-}" != "--" ]; then
+    printf 'progress_run: expected -- before the command\n' >&2
+    return 2
+  fi
+  shift
+  _progress_close_phase ok
+  _PROGRESS_PHASE_LABEL="$label"
+  _PROGRESS_PHASE_START_MS="$(_progress_now_ms)"
+
+  local log
+  log="$(mktemp "${TMPDIR:-/tmp}/progress.XXXXXX")"
+  printf '[%s] %s: start\n' "$_PROGRESS_TITLE" "$label"
+
+  "$@" 2>&1 | tee "$log"
+  local rc=${PIPESTATUS[0]}
+
+  _PROGRESS_PHASE_LABEL=""
+  local now el
+  now="$(_progress_now_ms)"
+  el="$(_progress_fmt_elapsed $(( now - _PROGRESS_PHASE_START_MS )))"
+  if [ "$rc" -eq 0 ]; then
+    printf '[%s] %s: ok (%s)\n' "$_PROGRESS_TITLE" "$label" "$el"
+    rm -f "$log"
+  else
+    printf '[%s] %s: FAILED rc=%s (%s)\n' "$_PROGRESS_TITLE" "$label" "$rc" "$el"
+    printf '  last output (%s):\n' "$log"
+    tail -n 20 "$log" | sed 's/^/  | /'
+  fi
+  return "$rc"
+}
+
 progress_end() {
   _progress_close_phase ok
   local now el

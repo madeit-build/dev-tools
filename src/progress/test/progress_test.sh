@@ -29,5 +29,21 @@ expected='[demo] first: ok
 demo: done'
 assert_eq "plain begin/phase/end shape" "$expected" "$norm"
 
+# progress_run passes on success, returns 0, streams child output through.
+run_out="$(
+  progress_begin "d"
+  progress_run "step" -- sh -c 'echo hello; echo world'
+  progress_end
+)"; run_rc=$?
+assert_eq "run success rc" "0" "$run_rc"
+case "$run_out" in
+  *"[d] step: start"*"hello"*"world"*"[d] step: ok"*) echo "ok: run streams + markers";;
+  *) echo "FAIL: run streams + markers"; printf '%s\n' "$run_out"; fails=$((fails+1));;
+esac
+
+# progress_run propagates a non-zero child exit code.
+( progress_begin "d"; progress_run "boom" -- sh -c 'exit 7'; ) >/dev/null 2>&1
+assert_eq "run failure rc propagates" "7" "$?"
+
 [ "$fails" -eq 0 ] || exit 1
 echo "ALL PASS"
