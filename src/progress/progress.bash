@@ -65,6 +65,13 @@ _progress_repaint() {
     el="$(_progress_fmt_elapsed $(( now - _PROGRESS_PHASE_START_MS )))"
     printf '%s %s  %s\n' "$(_progress_spin_frame)" "$_PROGRESS_PHASE_LABEL" "$el"
     _PROGRESS_PAINTED=$(( _PROGRESS_PAINTED + 1 ))
+    if [ -n "${_PROGRESS_TAIL:-}" ]; then
+      local cols w
+      cols="$(tput cols 2>/dev/null || echo 80)"
+      w=$(( cols - 6 )); [ "$w" -lt 10 ] && w=10
+      printf '    | %s\n' "$(printf '%s' "$_PROGRESS_TAIL" | cut -c1-"$w")"
+      _PROGRESS_PAINTED=$(( _PROGRESS_PAINTED + 1 ))
+    fi
   fi
 }
 
@@ -77,6 +84,7 @@ progress_begin() {
   _PROGRESS_DONE_LINES=()
   _PROGRESS_PAINTED=0
   _PROGRESS_SPIN=0
+  _PROGRESS_TAIL=""
   if [ "$_PROGRESS_MODE" = rich ]; then
     printf '\033[?25l'                       # hide cursor
     trap '_progress_cursor_show' EXIT INT TERM
@@ -129,24 +137,60 @@ progress_run() {
   _PROGRESS_PHASE_LABEL="$label"
   _PROGRESS_PHASE_START_MS="$(_progress_now_ms)"
 
-  local log
+  local log rc
   log="$(mktemp "${TMPDIR:-/tmp}/progress.XXXXXX")"
-  printf '[%s] %s: start\n' "$_PROGRESS_TITLE" "$label"
 
-  "$@" 2>&1 | tee "$log"
-  local rc=${PIPESTATUS[0]}
+  if [ "$_PROGRESS_MODE" = rich ]; then
+    _PROGRESS_TAIL=""
+    _progress_repaint
+    "$@" >"$log" 2>&1 &
+    local child=$!
+    while kill -0 "$child" 2>/dev/null; do
+      _PROGRESS_TAIL="$(tr '\r' '\n' < "$log" 2>/dev/null | grep -v '^[[:space:]]*$' | tail -n 1)"
+      _progress_repaint
+      sleep 0.1
+    done
+    # if-guard keeps a nonzero child from tripping the caller's set -e here.
+    if wait "$child"; then rc=0; else rc=$?; fi
+    _PROGRESS_TAIL=""
+  else
+    printf '[%s] %s: start\n' "$_PROGRESS_TITLE" "$label"
+    # Suspend errexit around the pipeline so PIPESTATUS[0] (the child's real code,
+    # regardless of pipefail) is captured instead of aborting or reading tee's 0.
+    local ee=""
+    case $- in *e*) ee=1; set +e ;; esac
+    "$@" 2>&1 | tee "$log"
+    rc=${PIPESTATUS[0]}
+    [ -n "$ee" ] && set -e
+  fi
 
   _PROGRESS_PHASE_LABEL=""
   local now el
   now="$(_progress_now_ms)"
   el="$(_progress_fmt_elapsed $(( now - _PROGRESS_PHASE_START_MS )))"
-  if [ "$rc" -eq 0 ]; then
-    printf '[%s] %s: ok (%s)\n' "$_PROGRESS_TITLE" "$label" "$el"
-    rm -f "$log"
+
+  if [ "$_PROGRESS_MODE" = rich ]; then
+    local sym color reset
+    reset="$(tput sgr0 2>/dev/null)"
+    if [ "$rc" -eq 0 ]; then sym='✓'; color="$(tput setaf 2 2>/dev/null)"
+    else sym='✗'; color="$(tput setaf 1 2>/dev/null)"; fi
+    _PROGRESS_DONE_LINES+=( "${color}${sym}${reset} ${label}  ${el}" )
+    _progress_repaint
+    if [ "$rc" -ne 0 ]; then
+      printf 'last output (%s):\n' "$log"
+      tail -n 20 "$log" | sed 's/^/  | /'
+    else
+      rm -f "$log"
+    fi
   else
-    printf '[%s] %s: FAILED rc=%s (%s)\n' "$_PROGRESS_TITLE" "$label" "$rc" "$el"
-    printf '  last output (%s):\n' "$log"
-    tail -n 20 "$log" | sed 's/^/  | /'
+    if [ "$rc" -eq 0 ]; then
+      printf '[%s] %s: ok (%s)\n' "$_PROGRESS_TITLE" "$label" "$el"
+      rm -f "$log"
+    else
+      printf '[%s] %s: FAILED rc=%s (%s)\n' "$_PROGRESS_TITLE" "$label" "$rc" "$el"
+      printf '  last output (%s):\n' "$log"
+      tail -n 20 "$log" | sed 's/^/  | /'
+    fi
   fi
   return "$rc"
 }

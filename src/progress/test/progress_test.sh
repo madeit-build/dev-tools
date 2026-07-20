@@ -45,5 +45,35 @@ esac
 ( progress_begin "d"; progress_run "boom" -- sh -c 'exit 7'; ) >/dev/null 2>&1
 assert_eq "run failure rc propagates" "7" "$?"
 
+# Under set -e, progress_run runs its failure handler AND returns the child code
+# (does not abort mid-function, does not swallow the failure).
+se_out="$(PROGRESS_LIB="$HERE/../progress.bash" bash -c '
+  set -e
+  export PROGRESS_PLAIN=1
+  source "$PROGRESS_LIB"
+  progress_begin d
+  progress_run boom -- sh -c "echo about-to-fail; exit 3"
+  echo SHOULD_NOT_PRINT
+' 2>&1)"; se_rc=$?
+assert_eq "set -e run rc" "3" "$se_rc"
+case "$se_out" in
+  *"about-to-fail"*"FAILED rc=3"*) echo "ok: set -e failure handler ran";;
+  *) echo "FAIL: set -e failure handler ran"; printf '%s\n' "$se_out"; fails=$((fails+1));;
+esac
+case "$se_out" in
+  *SHOULD_NOT_PRINT*) echo "FAIL: set -e did not abort after run failure"; fails=$((fails+1));;
+  *) echo "ok: set -e aborts after run failure";;
+esac
+
+# Rich exit path: forced rich mode, a failing child still returns its code.
+rich_rc=0
+PROGRESS_LIB="$HERE/../progress.bash" bash -c '
+  set -uo pipefail
+  source "$PROGRESS_LIB"
+  progress_begin d; _PROGRESS_MODE=rich
+  progress_run boom -- sh -c "exit 5"
+' >/dev/null 2>&1 || rich_rc=$?
+assert_eq "rich run rc propagates" "5" "$rich_rc"
+
 [ "$fails" -eq 0 ] || exit 1
 echo "ALL PASS"
