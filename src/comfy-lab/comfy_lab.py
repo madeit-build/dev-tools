@@ -58,6 +58,11 @@ def port_is_open(port, host="127.0.0.1"):
         return probe.connect_ex((host, port)) == 0
 
 
+def _print_manual_fallback(port, cfg):
+    print("open it manually with:", file=sys.stderr)
+    print(f"  ssh -N -L {port}:{cfg['remote']} {cfg['host']}", file=sys.stderr)
+
+
 def ensure_tunnel(cfg):
     """Ensure the local end of the tunnel is reachable. Opens the ssh master
     when it is not. Returns True on success; prints the manual command and
@@ -70,14 +75,14 @@ def ensure_tunnel(cfg):
         subprocess.run(command, check=True, timeout=20)
     except (subprocess.SubprocessError, OSError) as error:
         print(f"could not open ssh tunnel: {error}", file=sys.stderr)
-        print("open it manually with:", file=sys.stderr)
-        print(f"  ssh -N -L {port}:{cfg['remote']} {cfg['host']}", file=sys.stderr)
+        _print_manual_fallback(port, cfg)
         return False
     for _ in range(20):
         if port_is_open(port):
             return True
         time.sleep(0.25)
     print(f"tunnel opened but port {port} never became reachable", file=sys.stderr)
+    _print_manual_fallback(port, cfg)
     return False
 
 
