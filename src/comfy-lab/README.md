@@ -12,6 +12,7 @@ parameters via a node map, and surfaces ComfyUI errors verbatim.
         --image scene.png --image teapot.png     # two images = composite
 
 Additional workflow parameters: `--negative` (negative prompt), `--steps` (inference steps).
+With qwen-edit, pass two `--image` inputs for a composite; a single image fills one slot while the other holds a placeholder.
 If the ssh tunnel fails to open, the tool prints the manual `ssh -N -L ...` command and exits non-zero.
 
 ## Lab file format

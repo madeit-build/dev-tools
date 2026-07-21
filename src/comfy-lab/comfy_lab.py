@@ -16,10 +16,6 @@ from urllib.parse import urlparse
 
 _HTTP_TIMEOUT = 30
 
-MAPPABLE_TYPES = {
-    "model", "prompt", "negative_prompt", "width", "height", "steps", "seed", "image",
-}
-
 _SEED_MAX = 1125899906842624
 
 _CONFIG_DEFAULTS = {
@@ -48,6 +44,7 @@ def ssh_master_command(host, local_port, remote):
         "-o", "ControlMaster=auto",
         "-o", f"ControlPath={_CONTROL_PATH}",
         "-o", "ControlPersist=15m",
+        "-o", "BatchMode=yes",
         "-L", f"{local_port}:{remote}",
         host,
     ]
@@ -362,7 +359,7 @@ def main(argv=None, env=None):
     if args.command == "run":
         try:
             return run(args, env)
-        except (RuntimeError, FileNotFoundError, ValueError, KeyError) as error:
+        except (RuntimeError, FileNotFoundError, ValueError, KeyError, OSError) as error:
             print(str(error), file=sys.stderr)
             return 1
     return 1
