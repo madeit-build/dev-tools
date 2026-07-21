@@ -1,0 +1,24 @@
+{
+  "workflow": {
+    "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "qwen_image_edit_2509_fp8_e4m3fn.safetensors", "weight_dtype": "default"}},
+    "2": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["1", 0], "lora_name": "Qwen-Image-Edit-2509-Lightning-4steps-V1.0-bf16.safetensors", "strength_model": 1.0}},
+    "3": {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["2", 0], "shift": 3.0}},
+    "4": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image"}},
+    "5": {"class_type": "VAELoader", "inputs": {"vae_name": "qwen_image_vae.safetensors"}},
+    "6": {"class_type": "LoadImage", "inputs": {"image": "example.png"}},
+    "14": {"class_type": "LoadImage", "inputs": {"image": "example.png"}},
+    "7": {"class_type": "TextEncodeQwenImageEditPlus", "inputs": {"clip": ["4", 0], "prompt": "", "vae": ["5", 0], "image1": ["6", 0], "image2": ["14", 0]}},
+    "8": {"class_type": "TextEncodeQwenImageEditPlus", "inputs": {"clip": ["4", 0], "prompt": "", "vae": ["5", 0], "image1": ["6", 0], "image2": ["14", 0]}},
+    "9": {"class_type": "VAEEncode", "inputs": {"pixels": ["6", 0], "vae": ["5", 0]}},
+    "10": {"class_type": "ReferenceLatent", "inputs": {"conditioning": ["7", 0], "latent": ["9", 0]}},
+    "11": {"class_type": "KSampler", "inputs": {"model": ["3", 0], "positive": ["10", 0], "negative": ["8", 0], "latent_image": ["9", 0], "seed": 0, "steps": 4, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
+    "12": {"class_type": "VAEDecode", "inputs": {"samples": ["11", 0], "vae": ["5", 0]}},
+    "13": {"class_type": "SaveImage", "inputs": {"images": ["12", 0], "filename_prefix": "comfylab-edit"}}
+  },
+  "map": [
+    {"type": "model", "key": "unet_name", "node_ids": ["1"]},
+    {"type": "prompt", "key": "prompt", "node_ids": ["7"]},
+    {"type": "image", "key": "image", "node_ids": ["6", "14"]},
+    {"type": "seed", "key": "seed", "node_ids": ["11"]}
+  ]
+}

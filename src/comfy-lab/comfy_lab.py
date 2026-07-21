@@ -1,5 +1,7 @@
 """comfy-lab: submit ComfyUI workflow graphs to the box over an ssh tunnel."""
 import copy
+import json
+import os
 import random
 
 MAPPABLE_TYPES = {
@@ -52,3 +54,24 @@ def apply_map(workflow, node_map, params):
                 for node_id in node_ids:
                     result[node_id]["inputs"][key] = params[ptype]
     return result
+
+
+def load_lab_file(name, workflows_dir):
+    """Resolve *name* (explicit path, or bare name under *workflows_dir*) and
+    return (workflow, map). A lab file is {"workflow": {...}, "map": [...]},
+    the same pairing the box seeds as COMFYUI_WORKFLOW / COMFYUI_WORKFLOW_NODES.
+    """
+    path = name
+    if not os.path.isfile(path):
+        candidate = os.path.join(workflows_dir, name)
+        if not candidate.endswith(".json"):
+            candidate += ".json"
+        path = candidate
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"no lab workflow found for '{name}' (looked at {path})")
+
+    with open(path) as handle:
+        data = json.load(handle)
+    if "workflow" not in data or "map" not in data:
+        raise ValueError(f"{path} is not a lab file (needs 'workflow' and 'map' keys)")
+    return data["workflow"], data["map"]
