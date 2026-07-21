@@ -362,7 +362,7 @@ def main(argv=None, env=None):
     if args.command == "run":
         try:
             return run(args, env)
-        except (RuntimeError, FileNotFoundError, ValueError) as error:
+        except (RuntimeError, FileNotFoundError, ValueError, KeyError) as error:
             print(str(error), file=sys.stderr)
             return 1
     return 1
