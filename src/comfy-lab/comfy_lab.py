@@ -231,5 +231,5 @@ def wait_for_images(base_url, prompt_id, poll_seconds=1.0, timeout_seconds=600):
 
 
 def fetch_bytes(url):
-    with urllib.request.urlopen(url) as response:
+    with urllib.request.urlopen(url, timeout=_HTTP_TIMEOUT) as response:
         return response.read()
