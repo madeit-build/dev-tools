@@ -3,6 +3,9 @@ import copy
 import json
 import os
 import random
+import socket
+import subprocess
+import sys
 import time
 import uuid
 import urllib.request
@@ -32,6 +35,50 @@ _ENV_KEYS = {
     "out": "COMFY_LAB_OUT",
     "workflows": "COMFY_LAB_WORKFLOWS",
 }
+
+_CONTROL_PATH = "~/.ssh/comfy-lab-%h-%p-%r"
+
+
+def ssh_master_command(host, local_port, remote):
+    """ssh argv that opens a persistent multiplexed local forward, then exits
+    (the master lives on in the background via ControlPersist)."""
+    return [
+        "ssh", "-f", "-N",
+        "-o", "ControlMaster=auto",
+        "-o", f"ControlPath={_CONTROL_PATH}",
+        "-o", "ControlPersist=15m",
+        "-L", f"{local_port}:{remote}",
+        host,
+    ]
+
+
+def port_is_open(port, host="127.0.0.1"):
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.settimeout(1.0)
+        return probe.connect_ex((host, port)) == 0
+
+
+def ensure_tunnel(cfg):
+    """Ensure the local end of the tunnel is reachable. Opens the ssh master
+    when it is not. Returns True on success; prints the manual command and
+    returns False on failure."""
+    port = cfg["local_port"]
+    if port_is_open(port):
+        return True
+    command = ssh_master_command(cfg["host"], port, cfg["remote"])
+    try:
+        subprocess.run(command, check=True, timeout=20)
+    except (subprocess.SubprocessError, OSError) as error:
+        print(f"could not open ssh tunnel: {error}", file=sys.stderr)
+        print("open it manually with:", file=sys.stderr)
+        print(f"  ssh -N -L {port}:{cfg['remote']} {cfg['host']}", file=sys.stderr)
+        return False
+    for _ in range(20):
+        if port_is_open(port):
+            return True
+        time.sleep(0.25)
+    print(f"tunnel opened but port {port} never became reachable", file=sys.stderr)
+    return False
 
 
 def resolve_config(cli, env, default_workflows_dir):
