@@ -10,6 +10,8 @@ import urllib.parse
 import urllib.error
 from urllib.parse import urlparse
 
+_HTTP_TIMEOUT = 30
+
 MAPPABLE_TYPES = {
     "model", "prompt", "negative_prompt", "width", "height", "steps", "seed", "image",
 }
@@ -146,6 +148,21 @@ def node_errors_from_history(history_entry):
     return history_entry.get("node_errors") or {}
 
 
+def history_failure(entry):
+    """Return a verbatim failure message if a /history entry indicates the run
+    failed -- validation node_errors OR an execution-time error reported via
+    status -- else None. Execution crashes surface through status, not
+    node_errors, so checking only node_errors would treat a failed run as an
+    empty success."""
+    errors = node_errors_from_history(entry)
+    if errors:
+        return json.dumps(errors, indent=2)
+    status = entry.get("status", {})
+    if status.get("status_str") == "error":
+        return json.dumps(status, indent=2)
+    return None
+
+
 def view_url(base_url, image):
     query = urllib.parse.urlencode({
         "filename": image.get("filename", ""),
@@ -158,12 +175,12 @@ def view_url(base_url, image):
 def _post_json(url, payload):
     body = json.dumps(payload).encode()
     request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(request) as response:
+    with urllib.request.urlopen(request, timeout=_HTTP_TIMEOUT) as response:
         return json.load(response)
 
 
 def _get_json(url):
-    with urllib.request.urlopen(url) as response:
+    with urllib.request.urlopen(url, timeout=_HTTP_TIMEOUT) as response:
         return json.load(response)
 
 
@@ -175,8 +192,12 @@ def upload_image(base_url, path):
                                    "image", os.path.basename(path), data)
     request = urllib.request.Request(f"{base_url}/upload/image", data=body,
                                      headers={"Content-Type": ctype})
-    with urllib.request.urlopen(request) as response:
-        return json.load(response)["name"]
+    try:
+        with urllib.request.urlopen(request, timeout=_HTTP_TIMEOUT) as response:
+            return json.load(response)["name"]
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode(errors="replace")
+        raise RuntimeError(f"ComfyUI rejected the image upload (HTTP {error.code}):\n{detail}")
 
 
 def submit_prompt(base_url, workflow, client_id):
@@ -198,9 +219,9 @@ def wait_for_images(base_url, prompt_id, poll_seconds=1.0, timeout_seconds=600):
         history = _get_json(f"{base_url}/history/{prompt_id}")
         entry = history.get(prompt_id)
         if entry:
-            errors = node_errors_from_history(entry)
-            if errors:
-                raise RuntimeError(f"ComfyUI run failed:\n{json.dumps(errors, indent=2)}")
+            failure = history_failure(entry)
+            if failure:
+                raise RuntimeError(f"ComfyUI run failed:\n{failure}")
             images = []
             for node_output in entry.get("outputs", {}).values():
                 images.extend(node_output.get("images", []))
