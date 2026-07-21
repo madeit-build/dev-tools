@@ -3,12 +3,46 @@ import copy
 import json
 import os
 import random
+from urllib.parse import urlparse
 
 MAPPABLE_TYPES = {
     "model", "prompt", "negative_prompt", "width", "height", "steps", "seed", "image",
 }
 
 _SEED_MAX = 1125899906842624
+
+_CONFIG_DEFAULTS = {
+    "host": "box",
+    "url": "http://127.0.0.1:8188",
+    "remote": "127.0.0.1:8188",
+    "out": "./out",
+    "workflows": None,
+}
+_ENV_KEYS = {
+    "host": "COMFY_LAB_HOST",
+    "url": "COMFY_LAB_URL",
+    "remote": "COMFY_LAB_REMOTE",
+    "out": "COMFY_LAB_OUT",
+    "workflows": "COMFY_LAB_WORKFLOWS",
+}
+
+
+def resolve_config(cli, env, default_workflows_dir):
+    """Resolve every knob with precedence CLI flag > env var > default."""
+    cfg = {}
+    for key, default in _CONFIG_DEFAULTS.items():
+        cli_value = cli.get(key)
+        env_value = env.get(_ENV_KEYS[key])
+        if cli_value is not None:
+            cfg[key] = cli_value
+        elif env_value is not None:
+            cfg[key] = env_value
+        else:
+            cfg[key] = default
+    if cfg["workflows"] is None:
+        cfg["workflows"] = default_workflows_dir
+    cfg["local_port"] = urlparse(cfg["url"]).port or 8188
+    return cfg
 
 
 def apply_map(workflow, node_map, params):
