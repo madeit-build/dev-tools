@@ -1,4 +1,5 @@
 """comfy-lab: submit ComfyUI workflow graphs to the box over an ssh tunnel."""
+import argparse
 import copy
 import json
 import os
@@ -285,3 +286,87 @@ def wait_for_images(base_url, prompt_id, poll_seconds=1.0, timeout_seconds=600):
 def fetch_bytes(url):
     with urllib.request.urlopen(url, timeout=_HTTP_TIMEOUT) as response:
         return response.read()
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(prog="comfy-lab", description=__doc__)
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    run = sub.add_parser("run", help="submit a workflow and save the result")
+    run.add_argument("workflow", help="lab file name (under --workflows) or path")
+    run.add_argument("--prompt")
+    run.add_argument("--negative", dest="negative_prompt")
+    run.add_argument("--seed", type=int)
+    run.add_argument("--steps", type=int)
+    run.add_argument("--image", action="append", help="input image (repeat for composite)")
+    # config knobs: default None so env/default resolution can win
+    run.add_argument("--host", default=None)
+    run.add_argument("--url", default=None)
+    run.add_argument("--remote", default=None)
+    run.add_argument("--out", default=None)
+    run.add_argument("--workflows", default=None)
+    return parser
+
+
+def _params_from_args(args):
+    params = {}
+    for name in ("prompt", "negative_prompt", "steps"):
+        value = getattr(args, name)
+        if value is not None:
+            params[name] = value
+    if args.seed is not None:
+        params["seed"] = args.seed
+    return params
+
+
+def run(args, env):
+    tool_dir = os.path.dirname(os.path.abspath(__file__))
+    default_workflows = os.path.join(tool_dir, "workflows")
+    cli = {k: getattr(args, k) for k in ("host", "url", "remote", "out", "workflows")}
+    cfg = resolve_config(cli, env, default_workflows)
+
+    if not ensure_tunnel(cfg):
+        return 1
+
+    workflow, node_map = load_lab_file(args.workflow, cfg["workflows"])
+    params = _params_from_args(args)
+
+    if args.image:
+        params["image"] = [upload_image(cfg["url"], path) for path in args.image]
+
+    graph = apply_map(workflow, node_map, params)
+
+    client_id = uuid.uuid4().hex
+    started = time.monotonic()
+    prompt_id = submit_prompt(cfg["url"], graph, client_id)
+    print(f"submitted {prompt_id}, waiting...")
+    images = wait_for_images(cfg["url"], prompt_id)
+    elapsed = time.monotonic() - started
+
+    os.makedirs(cfg["out"], exist_ok=True)
+    saved = []
+    for image in images:
+        data = fetch_bytes(view_url(cfg["url"], image))
+        dest = os.path.join(cfg["out"], image["filename"])
+        with open(dest, "wb") as handle:
+            handle.write(data)
+        saved.append(dest)
+        print(f"saved {dest}")
+    print(f"done in {elapsed:.1f}s ({len(saved)} image(s))")
+    return 0
+
+
+def main(argv=None, env=None):
+    env = os.environ if env is None else env
+    args = build_parser().parse_args(argv)
+    if args.command == "run":
+        try:
+            return run(args, env)
+        except (RuntimeError, FileNotFoundError, ValueError) as error:
+            print(str(error), file=sys.stderr)
+            return 1
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
