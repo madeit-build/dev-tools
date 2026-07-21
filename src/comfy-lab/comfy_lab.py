@@ -41,7 +41,13 @@ def resolve_config(cli, env, default_workflows_dir):
             cfg[key] = default
     if cfg["workflows"] is None:
         cfg["workflows"] = default_workflows_dir
-    cfg["local_port"] = urlparse(cfg["url"]).port or 8188
+    parsed = urlparse(cfg["url"])
+    if not parsed.scheme or parsed.port is None:
+        raise ValueError(
+            f"url must be an http(s) URL with an explicit port, got {cfg['url']!r} "
+            f"(e.g. http://127.0.0.1:8188)"
+        )
+    cfg["local_port"] = parsed.port
     return cfg
 
 
