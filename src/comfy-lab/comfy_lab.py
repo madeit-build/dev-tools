@@ -3,6 +3,11 @@ import copy
 import json
 import os
 import random
+import time
+import uuid
+import urllib.request
+import urllib.parse
+import urllib.error
 from urllib.parse import urlparse
 
 MAPPABLE_TYPES = {
@@ -115,3 +120,95 @@ def load_lab_file(name, workflows_dir):
     if "workflow" not in data or "map" not in data:
         raise ValueError(f"{path} is not a lab file (needs 'workflow' and 'map' keys)")
     return data["workflow"], data["map"]
+
+
+def encode_multipart(fields, file_field, filename, data):
+    """Build a multipart/form-data body: scalar *fields* plus one file part."""
+    boundary = uuid.uuid4().hex
+    parts = []
+    for name, value in fields.items():
+        parts.append(f"--{boundary}\r\n".encode())
+        parts.append(f'Content-Disposition: form-data; name="{name}"\r\n\r\n'.encode())
+        parts.append(f"{value}\r\n".encode())
+    parts.append(f"--{boundary}\r\n".encode())
+    parts.append(
+        f'Content-Disposition: form-data; name="{file_field}"; filename="{filename}"\r\n'.encode()
+    )
+    parts.append(b"Content-Type: application/octet-stream\r\n\r\n")
+    parts.append(data)
+    parts.append(b"\r\n")
+    parts.append(f"--{boundary}--\r\n".encode())
+    return f"multipart/form-data; boundary={boundary}", b"".join(parts)
+
+
+def node_errors_from_history(history_entry):
+    """Return the node_errors mapping when a graph failed validation, else {}."""
+    return history_entry.get("node_errors") or {}
+
+
+def view_url(base_url, image):
+    query = urllib.parse.urlencode({
+        "filename": image.get("filename", ""),
+        "subfolder": image.get("subfolder", ""),
+        "type": image.get("type", "output"),
+    })
+    return f"{base_url}/view?{query}"
+
+
+def _post_json(url, payload):
+    body = json.dumps(payload).encode()
+    request = urllib.request.Request(url, data=body, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(request) as response:
+        return json.load(response)
+
+
+def _get_json(url):
+    with urllib.request.urlopen(url) as response:
+        return json.load(response)
+
+
+def upload_image(base_url, path):
+    """Upload a local image to ComfyUI's input store, return the stored name."""
+    with open(path, "rb") as handle:
+        data = handle.read()
+    ctype, body = encode_multipart({"type": "input", "overwrite": "true"},
+                                   "image", os.path.basename(path), data)
+    request = urllib.request.Request(f"{base_url}/upload/image", data=body,
+                                     headers={"Content-Type": ctype})
+    with urllib.request.urlopen(request) as response:
+        return json.load(response)["name"]
+
+
+def submit_prompt(base_url, workflow, client_id):
+    """Queue a workflow. Returns prompt_id. Raises RuntimeError with ComfyUI's
+    verbatim node_errors when the graph is rejected (HTTP 400)."""
+    try:
+        result = _post_json(f"{base_url}/prompt", {"prompt": workflow, "client_id": client_id})
+    except urllib.error.HTTPError as error:
+        detail = error.read().decode(errors="replace")
+        raise RuntimeError(f"ComfyUI rejected the graph (HTTP {error.code}):\n{detail}")
+    return result["prompt_id"]
+
+
+def wait_for_images(base_url, prompt_id, poll_seconds=1.0, timeout_seconds=600):
+    """Poll /history until the prompt completes; return its output image records.
+    Raises RuntimeError with node_errors verbatim if the run failed."""
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        history = _get_json(f"{base_url}/history/{prompt_id}")
+        entry = history.get(prompt_id)
+        if entry:
+            errors = node_errors_from_history(entry)
+            if errors:
+                raise RuntimeError(f"ComfyUI run failed:\n{json.dumps(errors, indent=2)}")
+            images = []
+            for node_output in entry.get("outputs", {}).values():
+                images.extend(node_output.get("images", []))
+            return images
+        time.sleep(poll_seconds)
+    raise RuntimeError(f"timed out after {timeout_seconds}s waiting for {prompt_id}")
+
+
+def fetch_bytes(url):
+    with urllib.request.urlopen(url) as response:
+        return response.read()
