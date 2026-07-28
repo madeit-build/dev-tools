@@ -9,7 +9,7 @@
 **Tech Stack:** TypeScript 5.x, pnpm workspaces, Turborepo 2.x, vscode-jsonrpc 8.x, Vitest 3.x, ESLint 9 (flat config) + typescript-eslint, Prettier.
 
 **Conventions used throughout:**
-- All commands run from the repo root: `/Users/mattdeclercq/code/made-it/ide-how-does-this-work`
+- All commands run from the repository root.
 - The spec names the extension package `@hdtw/vscode`, but VS Code extension manifests cannot use npm scopes (the extension ID is `publisher.name`). The package is therefore named `hdtw-vscode` with publisher `madeit` (Made I.T.), giving the full extension ID `madeit.hdtw-vscode`. This is the only intentional deviation from the spec.
 - Unit tests are co-located with source (`src/foo.test.ts`) and excluded from `tsc` builds.
 

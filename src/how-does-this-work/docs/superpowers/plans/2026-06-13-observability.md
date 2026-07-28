@@ -8,7 +8,7 @@
 
 **Tech Stack:** existing monorepo stack. New: VS Code `LogOutputChannel`, configuration. No new third-party deps.
 
-**Conventions (follow exactly):** scope `@made-i-t/hdtw-*`; `.js` extensions on ALL relative imports; the observability package is **CJS** (no `"type":"module"`) with an `exports` map (`types` condition first); tests co-located in `src/`, excluded from `tsc` build; commands run from repo root `/Users/mattdeclercq/code/made-it/ide-how-does-this-work`.
+**Conventions (follow exactly):** scope `@made-i-t/hdtw-*`; `.js` extensions on ALL relative imports; the observability package is **CJS** (no `"type":"module"`) with an `exports` map (`types` condition first); tests co-located in `src/`, excluded from `tsc` build; commands run from the repository root.
 
 ---
 

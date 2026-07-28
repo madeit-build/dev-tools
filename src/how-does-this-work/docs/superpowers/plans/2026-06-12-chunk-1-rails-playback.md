@@ -8,7 +8,7 @@
 
 **Tech Stack:** Existing monorepo stack (TypeScript Node16/CJS, pnpm, Turborepo, Vitest, vscode-jsonrpc). New VS Code APIs: TreeView, Comments, decorations, status bar.
 
-**Conventions (established, follow exactly):** package scope `@made-i-t/hdtw-*`; `exports` maps with `types` condition first; `.js` extensions on ALL relative imports; engine-core has no fs/transport; clients import code only from the protocol package; commands run from repo root `/Users/mattdeclercq/code/made-it/ide-how-does-this-work`.
+**Conventions (established, follow exactly):** package scope `@made-i-t/hdtw-*`; `exports` maps with `types` condition first; `.js` extensions on ALL relative imports; engine-core has no fs/transport; clients import code only from the protocol package; commands run from the repository root.
 
 ---
 
