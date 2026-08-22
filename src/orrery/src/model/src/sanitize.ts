@@ -61,7 +61,12 @@ export function isSecretName(name: string): boolean {
 // Anywhere in the value, not anchored: systemd's optional-file syntax puts a
 // leading dash before the path, and a value may name a secret file as one
 // argument among several.
-const SECRET_VALUE_PATH = /\/run\/secrets\//;
+//
+// Two conventions, both present in the real fleet: /run/secrets is sops-nix,
+// /run/credentials is systemd's own LoadCredential. Neither holds a secret at
+// evaluation time, but a path into either says "a secret lands here", and the
+// filename alone often names the credential.
+const SECRET_VALUE_PATH = /\/run\/(?:secrets|credentials)\//;
 
 function looksSecret(key: string, value: unknown): boolean {
   if (isSecretName(key)) return true;

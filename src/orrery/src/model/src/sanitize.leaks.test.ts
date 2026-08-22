@@ -98,6 +98,14 @@ describe("secret-file values in any position", () => {
     expect(sanitizeGraph(withAttr("--env-file /run/secrets/x.env")).nodes[0].attrs.EnvironmentFile)
       .toBe(REDACTED);
   });
+
+  // systemd's own LoadCredential convention, found in the real fleet at
+  // /run/credentials/fleet-subscribe.service/nats_fleetsub_password. The
+  // filename names the credential even though the value is not the secret.
+  it("redacts a systemd LoadCredential path, not only a sops-nix one", () => {
+    expect(sanitizeGraph(withAttr("/run/credentials/x.service/db_password")).nodes[0].attrs.EnvironmentFile)
+      .toBe(REDACTED);
+  });
 });
 
 describe("edges and the ledger get sanitized, not only nodes", () => {
