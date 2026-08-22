@@ -153,6 +153,28 @@ describe("edges and the ledger get sanitized, not only nodes", () => {
   });
 });
 
+describe("the flake ref, the one field not derived from nix output", () => {
+  const withRef = (ref: string): Graph => ({
+    version: 1, generatedAt: "", flakeRef: ref, nodes: [], edges: [], ledger: [],
+  });
+
+  // Caught by running the real CLI, not by the fixture suite: those tests pass
+  // a relative "." and so never exercise an absolute ref.
+  it("strips the username from an absolute flake ref", () => {
+    const out = sanitizeGraph(withRef("/Users/someone/code/thing/nix"));
+    expect(out.flakeRef).toBe("~/code/thing/nix");
+  });
+
+  it("leaves a relative ref alone", () => {
+    expect(sanitizeGraph(withRef(".")).flakeRef).toBe(".");
+  });
+
+  it("leaves a remote flake ref alone", () => {
+    const ref = "github:NixOS/nixpkgs/nixos-26.05";
+    expect(sanitizeGraph(withRef(ref)).flakeRef).toBe(ref);
+  });
+});
+
 describe("the whole-artifact invariant", () => {
   it("leaves no store path and no username anywhere in a serialized graph", () => {
     const g: Graph = {

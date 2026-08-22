@@ -112,6 +112,11 @@ function sanitizeDrop(r: DropRecord): DropRecord {
 export function sanitizeGraph(g: Graph): Graph {
   return {
     ...g,
+    // The flake ref is whatever the caller typed, so on a real run it is an
+    // absolute path into somebody's home. It is the one field that is not
+    // derived from Nix output, and so the one a fixture test with a relative
+    // ref will never catch.
+    flakeRef: scrubText(g.flakeRef),
     nodes: g.nodes.map(sanitizeNode),
     edges: g.edges.map(sanitizeEdge),
     ledger: g.ledger.map(sanitizeDrop),

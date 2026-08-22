@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { servicesRule, type RawService } from "./services";
+import { servicesRule, normalizeExec, type RawService } from "./services";
 import raw from "../fixtures/box-services.json";
 
 const fixture = raw as unknown as Record<string, RawService>;
@@ -9,6 +9,41 @@ const only = (unit: string, over: Partial<RawService> = {}): Record<string, RawS
     description: "d", wantedBy: [], after: [], exec: "/nix/store/aaa/bin/x",
     user: null, type: "simple", ...over,
   },
+});
+
+describe("normalizeExec", () => {
+  it("passes a plain string through", () => {
+    expect(normalizeExec("/bin/x --flag")).toBe("/bin/x --flag");
+  });
+
+  it("returns null for null", () => {
+    expect(normalizeExec(null)).toBe(null);
+  });
+
+  // systemd's reset idiom: an empty entry clears the ExecStart list before it,
+  // and NixOS passes it through. caddy on the real box arrives exactly so.
+  it("drops the empty reset entry a list-form ExecStart leads with", () => {
+    expect(normalizeExec(["", "/nix/store/aaa-caddy/bin/caddy run --config /etc/caddy/x"]))
+      .toBe("/nix/store/aaa-caddy/bin/caddy run --config /etc/caddy/x");
+  });
+
+  it("joins several real entries, since systemd runs them in order", () => {
+    expect(normalizeExec(["/bin/a", "/bin/b"])).toBe("/bin/a ; /bin/b");
+  });
+
+  // An empty array is truthy in JavaScript, so testing the raw value would
+  // have let a unit with no command at all onto the diagram.
+  it("returns null for an empty list rather than a truthy empty value", () => {
+    expect(normalizeExec([])).toBe(null);
+  });
+
+  it("returns null for a list holding only the reset entry", () => {
+    expect(normalizeExec([""])).toBe(null);
+  });
+
+  it("returns null for an unexpected type rather than throwing", () => {
+    expect(normalizeExec(42)).toBe(null);
+  });
 });
 
 describe("servicesRule", () => {
@@ -115,6 +150,23 @@ describe("servicesRule", () => {
       const byId = new Map(r.nodes.map((n) => [n.id, n]));
       for (const unit of ["caddy", "ollama", "postgresql", "nats"]) {
         expect(byId.get(`service:box/${unit}`)?.attrs.lifecycle, unit).toBe("running");
+      }
+    });
+
+    it("keeps caddy, whose ExecStart is a list rather than a string", () => {
+      const r = servicesRule("box", fixture);
+      const caddy = r.nodes.find((n) => n.id === "service:box/caddy");
+      expect(caddy).toBeDefined();
+      expect(typeof caddy!.attrs.exec).toBe("string");
+      expect(caddy!.attrs.exec).toMatch(/caddy/);
+    });
+
+    it("never emits a non-scalar attribute, which the schema would reject", () => {
+      for (const n of servicesRule("box", fixture).nodes) {
+        for (const [k, v] of Object.entries(n.attrs)) {
+          const ok = v === null || ["string", "number", "boolean"].includes(typeof v);
+          expect(ok, `${n.id}.${k} is ${typeof v}`).toBe(true);
+        }
       }
     });
 

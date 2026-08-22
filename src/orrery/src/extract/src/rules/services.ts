@@ -16,9 +16,33 @@ export interface RawService {
   description: string;
   wantedBy: string[];
   after: string[];
-  exec: string | null;
+  // Loosely typed on purpose: measured on the real box, ExecStart comes back
+  // as a string 72 times, null 40 times, and a list 9 times, and caddy is one
+  // of the lists. Normalizing is normalizeExec's job, not the caller's.
+  exec: unknown;
   user: string | null;
   type: string | null;
+}
+
+// systemd lets ExecStart be repeated, and an empty entry resets the list that
+// came before it. NixOS passes that convention straight through, so caddy
+// arrives as ["", "/nix/store/...-caddy/bin/caddy run --config ..."].
+//
+// Returns null rather than an empty string when nothing real is left, so the
+// no-exec check below sees it. An empty array is truthy in JavaScript, which
+// is how a unit with no command at all would otherwise sneak onto the diagram.
+export function normalizeExec(exec: unknown): string | null {
+  if (typeof exec === "string") return exec.trim() || null;
+  if (!Array.isArray(exec)) return null;
+
+  const real = exec
+    .filter((e): e is string => typeof e === "string")
+    .map((e) => e.trim())
+    .filter(Boolean);
+
+  // Several real entries means several ExecStart lines, which systemd runs in
+  // order. Joining keeps that visible instead of silently showing only one.
+  return real.length ? real.join(" ; ") : null;
 }
 
 export interface RuleResult {
@@ -59,7 +83,10 @@ export function servicesRule(host: string, raw: Record<string, RawService>): Rul
       continue;
     }
 
-    if (!svc.exec) {
+    // Normalize before testing: an empty array is truthy, so checking the raw
+    // value would keep a unit that has no command at all.
+    const exec = normalizeExec(svc.exec);
+    if (!exec) {
       ledger.push({ candidate: unit, host, rule: RULE, reason: "no-exec", detail: "no ExecStart" });
       continue;
     }
@@ -72,7 +99,7 @@ export function servicesRule(host: string, raw: Record<string, RawService>): Rul
       host,
       attrs: {
         description: svc.description || null,
-        exec: svc.exec,
+        exec,
         user: svc.user,
         lifecycle: lifecycleOf(svc.type),
         wantedBy: svc.wantedBy.join(", ") || null,
