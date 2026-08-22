@@ -5,7 +5,7 @@ import {
 import { nixEvalOptional, flakeMetadata, type FlakeMetadata } from "./nix";
 import { discoverHosts, type HostRef } from "./discover";
 import { servicesRule, SERVICES_APPLY, type RawService } from "./rules/services";
-import { buildPortIndex, linksRule, CONTAINERS_APPLY, ENV_APPLY } from "./rules/ports";
+import { buildPortIndex, linksRule, servicePortsApply, CONTAINERS_APPLY, ENV_APPLY } from "./rules/ports";
 import { vhostsRule, VHOSTS_APPLY, type RawVHost } from "./rules/vhosts";
 import { provenanceRule, PROVENANCE_APPLY, type RawDefinition } from "./rules/provenance";
 import { inputsRule } from "./rules/inputs";
@@ -93,7 +93,13 @@ export async function buildGraph(flakeRef: string, deps: Deps = realDeps): Promi
     const rawEnv = (await guard("env", host.name, ledger, () =>
       deps.evaluate(flakeRef, `${cfg}.systemd.services`, ENV_APPLY) as Promise<Record<string, Record<string, string>> | null>)) ?? {};
 
-    const portIndex = buildPortIndex(rawContainers ?? {}, {}, rawEnv ?? {});
+    // Probed only for units that survived the services filter: naming the list
+    // is what keeps an unrelated renamed nixpkgs service from aborting the
+    // evaluation. Skipped entirely when no unit survived.
+    const rawServicePorts = units.size === 0 ? {} : (await guard("service-ports", host.name, ledger, () =>
+      deps.evaluate(flakeRef, `${cfg}.services`, servicePortsApply([...units].sort())) as Promise<Record<string, number> | null>)) ?? {};
+
+    const portIndex = buildPortIndex(rawContainers ?? {}, rawServicePorts ?? {}, rawEnv ?? {});
     log("ports.indexed", { host: host.name, count: portIndex.size });
 
     const links = linksRule(host.name, rawEnv ?? {}, portIndex, units);

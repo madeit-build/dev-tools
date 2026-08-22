@@ -6,6 +6,7 @@ import vhosts from "./fixtures/box-vhosts.json";
 import containers from "./fixtures/box-containers.json";
 import env from "./fixtures/box-env.json";
 import provenance from "./fixtures/box-provenance.json";
+import servicePorts from "./fixtures/box-service-ports.json";
 
 // A fake evaluator that answers from the committed fixtures. The whole
 // assembly is therefore testable with no nix on the machine.
@@ -15,6 +16,7 @@ const deps = {
   evaluate: async (_ref: string, attr: string, apply?: string) => {
     if (attr.includes("options.services.caddy.virtualHosts")) return provenance;
     if (attr.endsWith("config.services.caddy.virtualHosts")) return vhosts;
+    if (attr.endsWith("config.services")) return servicePorts;
     if (attr.endsWith("config.virtualisation.oci-containers.containers")) return containers;
     if (attr.endsWith("config.systemd.services")) {
       if (apply?.includes("environment")) return env;
@@ -75,6 +77,18 @@ describe("buildGraph", () => {
     const a = await buildGraph(".", deps);
     const b = await buildGraph(".", deps);
     expect(JSON.stringify({ ...a, generatedAt: "" })).toBe(JSON.stringify({ ...b, generatedAt: "" }));
+  });
+
+  // The drop ledger surfaced this against the real fleet: tier 2 of the port
+  // index was built but never wired, so every vhost fronting a native service
+  // (chat -> open-webui:31080) resolved to nothing and drew no edge.
+  it("resolves a vhost upstream that only services.<n>.port can explain", async () => {
+    const g = await buildGraph(".", deps);
+    const edge = g.edges.find(
+      (e) => e.type === "proxies-to" && e.from === "vhost:box/chat.keep.madeit.build",
+    );
+    expect(edge?.to).toBe("service:box/open-webui");
+    expect(edge?.source).toBe("inferred");
   });
 
   it("attributes a vhost to the module that declared it, end to end", async () => {

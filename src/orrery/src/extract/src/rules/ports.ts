@@ -7,6 +7,23 @@ import type { RuleResult } from "./services";
 export const CONTAINERS_APPLY = `c: builtins.mapAttrs (n: v: v.ports or []) c`;
 export const ENV_APPLY = `s: builtins.mapAttrs (n: v: v.environment or {}) s`;
 
+// Tier 2: services.<name>.port, for the units that have one.
+//
+// Probes a NAMED list rather than walking config.services. Walking it detonates
+// on nixpkgs' obsolete-option machinery, which calls abort rather than throw,
+// and abort is not catchable by tryEval: one unrelated renamed service
+// (glitchtip, on a fleet that does not run it) kills the whole evaluation.
+// Verified 2026-08-21.
+//
+// Unit name and service option name coincide for native NixOS services, which
+// is what makes the mapping back to a unit sound.
+export function servicePortsApply(units: readonly string[]): string {
+  const list = units.map((u) => JSON.stringify(u)).join(" ");
+  return `s: builtins.listToAttrs (builtins.filter (x: x.value != null) (map (n:
+  { name = n; value = if s ? \${n} && s.\${n} ? port then s.\${n}.port else null; })
+  [ ${list} ]))`;
+}
+
 // One env var on the real box holds 1.5KB of ComfyUI workflow JSON. Dropped
 // into graph.json it bloats the artifact and blows out the attribute panel.
 // Oversized values are dropped rather than truncated: half a JSON blob is
