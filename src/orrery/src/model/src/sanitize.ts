@@ -1,53 +1,114 @@
-import type { Graph, OrreryNode } from "./types";
+import type { DropRecord, Graph, OrreryEdge, OrreryNode } from "./types";
 
 export const REDACTED = "<redacted>";
 
-// A nix store path looks like /nix/store/<32 base32 chars>-<name>/<rest>.
-// The rest is the path inside the flake source, which is what a reader wants.
-const STORE_PATH = /^\/nix\/store\/[0-9a-df-np-sv-z]{32}-[^/]+\/(.*)$/;
+// Nix base32 excludes e, o, t, and u. Matching the real alphabet is what keeps
+// a path that merely starts with /nix/store from being mangled.
+const STORE_HASH = "[0-9a-df-np-sv-z]{32}";
 
-// Any absolute path under a user's home. Two shapes cover macOS and Linux.
-// We keep only the tail from the last recognizable repo boundary, because a
-// committed artifact must never reveal local filesystem structure.
-const HOME_PATH = /^\/(?:Users|home)\/[^/]+\/(?:.*\/)?([^/]+\/(?:nix|src|docs)\/.*)$/;
+// A store path anchored at the start, used for source-file provenance where
+// the useful answer is the path inside the flake.
+const STORE_PATH_PREFIX = new RegExp(`^/nix/store/${STORE_HASH}-[^/]+/(.*)$`);
 
+// The same shape found anywhere in a string, used for values like ExecStart.
+// The name is kept and the hash dropped: the name says what runs, the hash is
+// machine-specific churn and a local filesystem detail.
+const STORE_PATH_ANYWHERE = new RegExp(`/nix/store/${STORE_HASH}-([^/\\s]+)`, "g");
+
+// Any absolute path under any user's home, on macOS or Linux. Deliberately not
+// requiring a repo-shaped tail: the original version only stripped paths whose
+// tail contained nix/, src/, or docs/, which let every other home path through
+// with the username attached.
+const HOME_PATH_ANYWHERE = /\/(?:Users|home)\/[^/\s]+(?=\/)/g;
+
+// A home path whose tail looks like it sits inside a repo. Used only for
+// provenance, where a repo-relative path is both possible and more useful
+// than a tilde.
+const HOME_REPO_PATH = /^\/(?:Users|home)\/[^/]+\/(?:.*\/)?[^/]+\/((?:nix|src|docs)\/.*)$/;
+
+// For source-file provenance: the path inside the repo, or inside the flake.
 export function toRepoPath(p: string): string {
-  const store = STORE_PATH.exec(p);
+  const store = STORE_PATH_PREFIX.exec(p);
   if (store) return store[1];
 
-  const home = HOME_PATH.exec(p);
-  if (home) {
-    const tail = home[1];
-    const slash = tail.indexOf("/");
-    return slash < 0 ? tail : tail.slice(slash + 1);
-  }
+  const home = HOME_REPO_PATH.exec(p);
+  if (home) return home[1];
 
   return p;
 }
 
+// For any free-form string that may embed paths: attribute values, edge
+// evidence, ledger details. Keeps the string readable while removing store
+// hashes and usernames, both of which are local filesystem structure.
+export function scrubText(s: string): string {
+  return s
+    .replace(STORE_PATH_ANYWHERE, "<store>/$1")
+    .replace(HOME_PATH_ANYWHERE, "~");
+}
+
 // Matches on the NAME, never the value. A name is an architectural fact worth
 // drawing ("this service reads a secret called X"); the value never is.
-const SECRET_NAME = /(secret|password|passwd|token|api[_-]?key|apikey|credential|private[_-]?key|auth)/i;
+//
+// url/dsn/connection are here because a connection string routinely embeds a
+// password in its userinfo, which no value-shaped check would catch.
+const SECRET_NAME =
+  /(secret|password|passwd|_pw\b|pw_|token|api[_-]?key|apikey|access[_-]?key|credential|private[_-]?key|ssh[_-]?key|signing|salt|cert|pem|auth|bearer|session|cookie|dsn|connection[_-]?string|database[_-]?url)/i;
 
 export function isSecretName(name: string): boolean {
   return SECRET_NAME.test(name);
 }
 
-const SECRET_VALUE_PATH = /^\/run\/secrets\//;
+// Anywhere in the value, not anchored: systemd's optional-file syntax puts a
+// leading dash before the path, and a value may name a secret file as one
+// argument among several.
+const SECRET_VALUE_PATH = /\/run\/secrets\//;
+
+function looksSecret(key: string, value: unknown): boolean {
+  if (isSecretName(key)) return true;
+  return typeof value === "string" && SECRET_VALUE_PATH.test(value);
+}
 
 function sanitizeNode(n: OrreryNode): OrreryNode {
   const attrs: OrreryNode["attrs"] = {};
   for (const [k, v] of Object.entries(n.attrs)) {
-    const leaks = isSecretName(k) || (typeof v === "string" && SECRET_VALUE_PATH.test(v));
-    attrs[k] = leaks ? REDACTED : v;
+    if (looksSecret(k, v)) {
+      attrs[k] = REDACTED;
+      continue;
+    }
+    attrs[k] = typeof v === "string" ? scrubText(v) : v;
   }
   return {
     ...n,
+    label: scrubText(n.label),
     attrs,
     provenance: { ...n.provenance, files: n.provenance.files.map(toRepoPath) },
   };
 }
 
+// Evidence is usually "KEY=value" or a matched config line. When the key half
+// is secret-shaped the whole thing goes, because the value half is the secret.
+const EVIDENCE_KEY = /^([A-Za-z0-9_.-]+)\s*=/;
+
+function sanitizeEdge(e: OrreryEdge): OrreryEdge {
+  if (e.evidence === null) return e;
+
+  const key = EVIDENCE_KEY.exec(e.evidence);
+  if ((key && isSecretName(key[1])) || SECRET_VALUE_PATH.test(e.evidence)) {
+    return { ...e, evidence: REDACTED };
+  }
+
+  return { ...e, evidence: scrubText(e.evidence) };
+}
+
+function sanitizeDrop(r: DropRecord): DropRecord {
+  return { ...r, candidate: scrubText(r.candidate), detail: scrubText(r.detail) };
+}
+
 export function sanitizeGraph(g: Graph): Graph {
-  return { ...g, nodes: g.nodes.map(sanitizeNode) };
+  return {
+    ...g,
+    nodes: g.nodes.map(sanitizeNode),
+    edges: g.edges.map(sanitizeEdge),
+    ledger: g.ledger.map(sanitizeDrop),
+  };
 }
