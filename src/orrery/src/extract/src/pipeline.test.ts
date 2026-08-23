@@ -7,6 +7,7 @@ import containers from "./fixtures/box-containers.json";
 import env from "./fixtures/box-env.json";
 import provenance from "./fixtures/box-provenance.json";
 import servicePorts from "./fixtures/box-service-ports.json";
+import parts from "./fixtures/box-parts.json";
 
 // A fake evaluator that answers from the committed fixtures. The whole
 // assembly is therefore testable with no nix on the machine.
@@ -20,6 +21,7 @@ const deps = {
     if (attr.endsWith("config.virtualisation.oci-containers.containers")) return containers;
     if (attr.endsWith("config.systemd.services")) {
       if (apply?.includes("environment")) return env;
+      if (apply?.includes("StateDirectory")) return parts;
       return services;
     }
     return null;
@@ -89,6 +91,23 @@ describe("buildGraph", () => {
     );
     expect(edge?.to).toBe("service:box/open-webui");
     expect(edge?.source).toBe("inferred");
+  });
+
+  it("reaches the fourth zoom level, so drilling into a service is not empty", async () => {
+    const g = await buildGraph(".", deps);
+    const leaves = g.nodes.filter((n) => n.type === "datastore" || n.type === "port");
+    expect(leaves.length).toBeGreaterThan(0);
+    for (const p of leaves) {
+      expect(g.edges.some((e) => e.type === "contains" && e.to === p.id), p.id).toBe(true);
+    }
+  });
+
+  it("hangs the fourth level off a service, not off the host", async () => {
+    const g = await buildGraph(".", deps);
+    const edge = g.edges.find(
+      (e) => e.type === "contains" && e.to.startsWith("datastore:box/caddy"),
+    );
+    expect(edge?.from).toBe("service:box/caddy");
   });
 
   it("attributes a vhost to the module that declared it, end to end", async () => {

@@ -8,6 +8,7 @@ import { servicesRule, SERVICES_APPLY, type RawService } from "./rules/services"
 import { buildPortIndex, linksRule, servicePortsApply, CONTAINERS_APPLY, ENV_APPLY } from "./rules/ports";
 import { vhostsRule, VHOSTS_APPLY, type RawVHost } from "./rules/vhosts";
 import { provenanceRule, PROVENANCE_APPLY, type RawDefinition } from "./rules/provenance";
+import { partsRule, PARTS_APPLY, type RawParts } from "./rules/parts";
 import { inputsRule } from "./rules/inputs";
 import { log } from "./log";
 
@@ -104,6 +105,17 @@ export async function buildGraph(flakeRef: string, deps: Deps = realDeps): Promi
 
     const links = linksRule(host.name, rawEnv ?? {}, portIndex, units);
     edges.push(...links.edges); ledger.push(...links.ledger);
+
+    // The fourth zoom level. Without it, drilling past a service lands on an
+    // empty canvas.
+    const rawParts = await guard("parts", host.name, ledger, () =>
+      deps.evaluate(flakeRef, `${cfg}.systemd.services`, PARTS_APPLY) as Promise<Record<string, RawParts> | null>);
+
+    if (rawParts) {
+      const r = partsRule(host.name, rawParts, units, portIndex);
+      nodes.push(...r.nodes); edges.push(...r.edges); ledger.push(...r.ledger);
+      log("rule.done", { rule: "parts", host: host.name, nodes: r.nodes.length });
+    }
 
     const rawVHosts = await guard("vhosts", host.name, ledger, () =>
       deps.evaluate(flakeRef, `${cfg}.services.caddy.virtualHosts`, VHOSTS_APPLY) as Promise<Record<string, RawVHost> | null>);
