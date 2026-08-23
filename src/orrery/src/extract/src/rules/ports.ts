@@ -9,11 +9,30 @@ export const ENV_APPLY = `s: builtins.mapAttrs (n: v: v.environment or {}) s`;
 
 // Tier 2: services.<name>.port, for the units that have one.
 //
-// Probes a NAMED list rather than walking config.services. Walking it detonates
-// on nixpkgs' obsolete-option machinery, which calls abort rather than throw,
-// and abort is not catchable by tryEval: one unrelated renamed service
-// (glitchtip, on a fleet that does not run it) kills the whole evaluation.
-// Verified 2026-08-21.
+// Probes a NAMED list rather than walking config.services, and the naming is
+// the entire safety mechanism. config.services carries a lazy entry for every
+// service nixpkgs knows about, not only the ones this host runs. Forcing one
+// whose port option was renamed to a target that no longer exists calls abort,
+// which is not catchable by tryEval, and takes the whole evaluation with it.
+// A list built from units that actually exist never names those, and an
+// unforced thunk costs nothing.
+//
+// Measured against box on 2026-08-22, where services.glitchtip is a service
+// the fleet does not run:
+//
+//   s ? glitchtip           -> true    safe
+//   s.glitchtip ? port      -> true    safe, a presence check does not force
+//   s.glitchtip.enable      -> false   safe
+//   s.glitchtip.port        -> ABORT
+//   tryEval s.glitchtip.port-> ABORT
+//
+// So the `? port` check below does NOT defend against this: it reports true
+// for a renamed option and the read still aborts. It is here for the ordinary
+// case of a named unit with no port option at all, such as caddy.
+//
+// Gating on `.enable` would also dodge it, since a disabled service's port is
+// never read, but that only holds while every poisoned rename sits on a
+// service you do not run. Naming is structural; enable-gating is luck.
 //
 // Unit name and service option name coincide for native NixOS services, which
 // is what makes the mapping back to a unit sound.
