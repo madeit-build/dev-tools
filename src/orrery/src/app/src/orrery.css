@@ -1,0 +1,117 @@
+/*
+  Node type is carried by fill, border weight, and shape. Never by hue: the
+  brand is monochrome by direction, and the one encoding left is spent on
+  edge confidence instead.
+*/
+
+html, body, #root { height: 100%; margin: 0; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  /* The blueprint grid, which is what a system diagram wants as a ground. */
+  background-image:
+    linear-gradient(var(--grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+button {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--surface-control);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 2px 8px;
+  cursor: pointer;
+}
+button:hover { background: var(--surface-control-hover); }
+
+.orrery-node {
+  box-sizing: border-box;
+  width: 100%; height: 100%;
+  padding: var(--space-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  display: flex; flex-direction: column; justify-content: center;
+  overflow: hidden;
+}
+
+.orrery-node__label {
+  color: var(--ink);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.orrery-node__meta {
+  color: var(--muted-soft);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Host and fleet read as containers: heavier border, flatter fill. */
+.orrery-node--host, .orrery-node--fleet { border-width: 2px; background: var(--surface-control); }
+
+/* A vhost is the front door, so it gets the inverted ground. */
+.orrery-node--vhost { background: var(--ink); border-color: var(--ink); }
+.orrery-node--vhost .orrery-node__label { color: var(--ink-inverse); }
+.orrery-node--vhost .orrery-node__meta { color: var(--muted-inverse); }
+
+/* A module is source, not runtime: dashed border says "this is not a thing
+   that runs". */
+.orrery-node--module { border-style: dashed; background: transparent; }
+.orrery-node--option { border-style: dashed; background: transparent; border-width: 2px; }
+
+/* A oneshot job is present but subordinate to the services around it. */
+.orrery-node--job { border-color: var(--border); }
+.orrery-node--job .orrery-node__label { color: var(--muted); font-weight: 400; }
+
+.orrery-node--selected { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* The one encoding that matters most: solid means nix said so, dashed means
+   orrery read it out of free text and could be wrong. */
+.react-flow__edge-path { stroke: var(--muted); stroke-width: 1.5; }
+.orrery-edge--inferred .react-flow__edge-path { stroke-dasharray: 5 4; stroke: var(--muted-soft); }
+
+.orrery-panel {
+  width: 340px;
+  border-left: 1px solid var(--border);
+  padding: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-y: auto;
+  background: var(--surface);
+}
+.orrery-panel__title { font-weight: 600; margin-bottom: var(--space-1); }
+.orrery-panel__type { color: var(--muted-soft); margin-bottom: var(--space-2); }
+.orrery-panel__section { margin-top: var(--space-2); color: var(--muted); }
+.orrery-panel__row { margin-bottom: 4px; word-break: break-all; }
+.orrery-panel__key { color: var(--muted); }
+.orrery-panel__link {
+  all: unset;
+  cursor: pointer;
+  text-decoration: underline;
+  color: var(--ink);
+}
+.orrery-panel__evidence { color: var(--muted-soft); margin-top: 4px; word-break: break-all; }
+
+.orrery-header {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.orrery-header__right { margin-left: auto; display: flex; align-items: center; gap: var(--space-1); }
+.orrery-crumb { all: unset; cursor: pointer; }
+.orrery-crumb:hover { text-decoration: underline; }

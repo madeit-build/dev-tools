@@ -1,0 +1,4 @@
+# graph.json is secrets-adjacent by construction: it is a projection of an
+# evaluated system config. It is a build artifact, never a committed one.
+out/
+src/app/public/graph.json

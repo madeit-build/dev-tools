@@ -1,0 +1,116 @@
+/*
+  Vendored from the Made I.T. brand repo, which is the canonical source.
+  Do not edit values here. To change a token, change it in brand, note it
+  in that repo's decision log, then re-copy this file whole.
+
+  Vendored rather than imported because brand ships no npm package and
+  this app must build with no network.
+*/
+
+/*
+  Made I.T. design tokens. Canonical source of every brand value.
+  Consumers import or copy this file whole; do not redefine values locally.
+  Rationale for each choice, plus contrast data, lives in BRAND.md.
+*/
+
+:root {
+  /* ---- Ink ramp -------------------------------------------------------
+     The brand is monochrome by direction: navy through gray, no accent hue.
+     Emphasis is carried by weight and fill, never by color temperature. */
+  --ink: #0f172a;         /* primary text, primary fill.        17.85:1 on paper */
+  --slate: #1e293b;       /* mid tier: secondary fill, nested.  14.63:1 on paper */
+  --muted: #475569;       /* secondary copy, nav, footer.        7.58:1 on paper */
+  --muted-soft: #64748b;  /* tertiary: metadata, indices.        4.76:1 on paper */
+  --paper: #ffffff;       /* page ground */
+
+  /* ---- Inverted ground ------------------------------------------------
+     For consoles and dark surfaces sitting on --ink. */
+  --ink-inverse: #e2e8f0;    /* 14.48:1 on --ink */
+  --muted-inverse: #cbd5e1;  /* 12.02:1 on --ink */
+
+  /* ---- Lines ---------------------------------------------------------- */
+  --border: rgba(15, 23, 42, 0.12);
+  --border-strong: rgba(15, 23, 42, 0.2);
+  --grid-line: rgba(15, 23, 42, 0.045);  /* the blueprint motif */
+
+  /* ---- Surfaces -------------------------------------------------------
+     Translucent so the blueprint grid reads through. Controls sit slightly
+     lighter at rest and firm up on hover; that pair is interaction feedback,
+     not decoration, so it gets its own tokens. */
+  --surface: rgba(255, 255, 255, 0.8);                 /* cards, panels */
+  --surface-control: rgba(255, 255, 255, 0.7);         /* buttons at rest */
+  --surface-control-hover: rgba(255, 255, 255, 0.92);  /* buttons hovered */
+
+  /* ---- Type ----------------------------------------------------------- */
+  --font-sans: "Inter", "SF Pro Display", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", monospace;
+
+  /* ---- Space: 8px base ------------------------------------------------ */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+  --space-6: 48px;
+  --space-8: 64px;
+  --space-12: 96px;
+  --space-15: 120px;
+
+  /* ---- Layout --------------------------------------------------------- */
+  --content-width: 1100px;
+  --radius: 0;  /* zero, everywhere. A deliberate signature, not an oversight. */
+
+  /* ---- Console --------------------------------------------------------
+     Terminal, prompt and status-bar surfaces. The one place in the system
+     where accent hue is permitted, because ANSI has sixteen slots and six
+     of them are hues: git emits red and green whether or not the brand
+     would prefer it. The rule for which roles may use hue is in BRAND.md.
+     Ground is Tailwind slate, which is what the ink ramp already was.
+     Contrast figures are against --console-base. */
+  --console-crust: #020617;           /*  1.13:1  deepest step: text on a filled accent badge */
+  --console-base: #0f172a;            /*  1.00:1  terminal ground. Same value as --ink */
+  --console-mantle: #1e293b;          /*  1.22:1  status bars, inactive panes */
+  --console-surface0: #1e293b;        /*  1.22:1  panel fill */
+  --console-surface1: #334155;        /*  1.72:1  selection, hovered row */
+  --console-surface2: #475569;        /*  2.36:1  borders and separators on the console ground */
+  --console-overlay0: #475569;        /*  2.36:1  disabled text, rules */
+  --console-overlay1: #64748b;        /*  3.75:1  comments, line numbers */
+  --console-overlay2: #94a3b8;        /*  6.96:1  low-emphasis text */
+  --console-subtext0: #94a3b8;        /*  6.96:1  secondary console text */
+  --console-subtext1: #cbd5e1;        /* 12.02:1  muted console text. Same value as --muted-inverse */
+  --console-text: #e2e8f0;            /* 14.48:1  primary console text. Same value as --ink-inverse */
+
+  /* Strict policy (default): hue only where it carries meaning. */
+  --console-red: #d58b88;             /*  6.70:1  error, deletion */
+  --console-maroon: #c76e67;          /*  4.98:1  diverged, conflict */
+  --console-flamingo: #c79699;        /*  7.01:1  behind, secondary error */
+  --console-rosewater: #cbd5e1;       /* 12.02:1  decorative red tint */
+  --console-peach: #c9a994;           /*  8.15:1  renamed, secondary warning */
+  --console-yellow: #c9a994;          /*  8.15:1  warning, untracked, duration */
+  --console-green: #8cd19e;           /*  9.97:1  success, addition, path */
+  --console-teal: #cbd5e1;            /* 12.02:1  decorative cyan */
+  --console-sky: #94a3b8;             /*  6.96:1  nested path segment */
+  --console-sapphire: #cbd5e1;        /* 12.02:1  decorative cyan */
+  --console-blue: #81a5d4;            /*  7.03:1  active, modified, info */
+  --console-lavender: #cbd5e1;        /* 12.02:1  decorative violet */
+  --console-mauve: #cbd5e1;           /* 12.02:1  prompt caret, active window */
+  --console-pink: #cbd5e1;            /* 12.02:1  read-only marker */
+
+  /* Full policy: same ramp, hue released to the decorative roles too.
+     Opt in by redefining these seven over the block above. */
+  /* --console-rosewater: #e4b2b7;        9.65:1 */
+  /* --console-flamingo: #d88c93;         6.88:1 */
+  /* --console-peach: #dca27a;            8.07:1 */
+  /* --console-yellow: #e8d087;          11.73:1 */
+  /* --console-teal: #83c9bc;             9.39:1 */
+  /* --console-sky: #7db8d8;              8.26:1 */
+  /* --console-sapphire: #83cad8;         9.70:1 */
+  /* --console-lavender: #aeb7de;         9.04:1 */
+  /* --console-mauve: #a397d3;            6.74:1 */
+  /* --console-pink: #cf95d8;             7.60:1 */
+
+  /* ---- Aliases -------------------------------------------------------
+     Kept so existing consumers keep working. Prefer the canonical names
+     above in new code. */
+  --text: var(--ink);
+  --background: var(--paper);
+}
