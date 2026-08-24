@@ -30,6 +30,15 @@ describe("nodeClass", () => {
     expect(nodeClass(n({}), false)).not.toContain("orrery-node--selected");
   });
 
+  it("marks an annotated node so it is discoverable without clicking", () => {
+    expect(nodeClass(n({}), false, true)).toContain("orrery-node--annotated");
+    expect(nodeClass(n({}), false, false)).not.toContain("--annotated");
+  });
+
+  it("defaults the annotation marker off for existing two-argument callers", () => {
+    expect(nodeClass(n({}), false)).not.toContain("--annotated");
+  });
+
   it("never emits a class encoding a color, since the brand is monochrome", () => {
     for (const type of ["host", "service", "vhost", "module", "input"] as const) {
       const c = nodeClass(n({ type }), false);

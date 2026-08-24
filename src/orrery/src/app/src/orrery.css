@@ -76,6 +76,50 @@ button:hover { background: var(--surface-control-hover); }
 
 .orrery-node--selected { outline: 2px solid var(--ink); outline-offset: 2px; }
 
+/* An annotated node carries a small filled corner square: state is weight and
+   fill, never hue, and a corner mark stays legible at every zoom the canvas
+   allows. */
+.orrery-node--annotated::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 7px;
+  height: 7px;
+  background: var(--ink);
+}
+.orrery-node { position: relative; }
+
+.orrery-annotation__textarea {
+  width: 100%;
+  min-height: 64px;
+  box-sizing: border-box;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-control);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  resize: vertical;
+}
+.orrery-annotation__tags {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 6px;
+  margin-top: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.orrery-tag {
+  display: inline-block;
+  padding: 0 6px;
+  margin: 0 4px 4px 0;
+  border: 1px solid var(--border-strong);
+  font-size: 11px;
+}
+
 /* The one encoding that matters most: solid means nix said so, dashed means
    orrery read it out of free text and could be wrong. */
 .react-flow__edge-path { stroke: var(--muted); stroke-width: 1.5; }
