@@ -6,6 +6,7 @@ import { nodeClass } from "./nodeClass";
 export interface OrreryNodeData extends Record<string, unknown> {
   node: OrreryNode;
   selected: boolean;
+  annotated: boolean;
 }
 
 // The meta line answers "what is this" in the fewest characters that are still
@@ -19,9 +20,9 @@ function meta(node: OrreryNode): string {
 }
 
 export function OrreryNodeView({ data }: NodeProps): JSX.Element {
-  const { node, selected } = data as OrreryNodeData;
+  const { node, selected, annotated } = data as OrreryNodeData;
   return (
-    <div className={nodeClass(node, selected)} title={node.id}>
+    <div className={nodeClass(node, selected, annotated)} title={node.id}>
       <Handle type="target" position={Position.Left} style={{ opacity: 0 }} />
       <div className="orrery-node__label">{node.label}</div>
       <div className="orrery-node__meta">{meta(node)}</div>
