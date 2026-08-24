@@ -65,6 +65,11 @@ button:hover { background: var(--surface-control-hover); }
 .orrery-node--vhost .orrery-node__label { color: var(--ink-inverse); }
 .orrery-node--vhost .orrery-node__meta { color: var(--muted-inverse); }
 
+/* An app is interactive, not managed: lighter border and muted label say
+   "installed for a human, no lifecycle to monitor". */
+.orrery-node--app { border-color: var(--border); background: var(--surface-control); }
+.orrery-node--app .orrery-node__label { font-weight: 400; }
+
 /* A module is source, not runtime: dashed border says "this is not a thing
    that runs". */
 .orrery-node--module { border-style: dashed; background: transparent; }
