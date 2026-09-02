@@ -24,6 +24,15 @@ importers:
         specifier: ^8.32.0
         version: 8.61.0(eslint@9.39.4)(typescript@5.9.3)
 
+  src/hang/src/core:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.0
+        version: 3.2.6(@types/node@20.19.43)(lightningcss@1.33.0)
+
   src/how-does-this-work/src/clients/vscode:
     dependencies:
       '@made-i-t/hdtw-engine-server':
