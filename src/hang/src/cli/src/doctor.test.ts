@@ -39,13 +39,16 @@ describe("collectChecks against a broken environment", () => {
   let base = "";
   let brokenPlugin = "";
   let malformedConfig = "";
+  let scopedPlugin = "";
 
   beforeAll(async () => {
     base = await realpath(await mkdtemp(join(tmpdir(), "hang-doctor-")));
     brokenPlugin = join(base, "broken-plugin");
     malformedConfig = join(base, "malformed-config");
+    scopedPlugin = join(base, "scoped-plugin");
     await mkdir(brokenPlugin);
     await mkdir(malformedConfig);
+    await mkdir(scopedPlugin);
     // A relative plugin specifier is an ordinary prettier config pattern.
     // Node's resolution failure for it embeds an absolute path twice (the
     // resolved plugin path and the resolver's own location) - the scrub
@@ -57,6 +60,14 @@ describe("collectChecks against a broken environment", () => {
     await writeFile(
       join(malformedConfig, ".prettierrc.json"),
       "{ invalid json",
+    );
+    // An uninstalled scoped package is the shape of this project's own
+    // real failure mode (@made-i-t/hang-prettier before Task 9 links it),
+    // and the shape that broke the first redaction attempt: the scope
+    // separator is a "/" that must NOT be mistaken for a path boundary.
+    await writeFile(
+      join(scopedPlugin, ".prettierrc.json"),
+      JSON.stringify({ plugins: ["@totally-not-installed/whatever"] }),
     );
   });
 
@@ -105,6 +116,37 @@ describe("collectChecks against a broken environment", () => {
       expect(check.detail).not.toContain("invalid json");
       expect(check.fix).not.toContain("invalid json");
     }
+  });
+
+  it("still runs the config-independent checks when the config fails to parse", async () => {
+    const checks = await collectChecks(malformedConfig);
+    expect(checks.map((c) => c.name)).toEqual([
+      "prettier config parses",
+      "prettier resolves",
+      "operator position supported",
+      "typescript scanner available",
+    ]);
+  });
+
+  it("skips the checks that need a parsed config when it fails to parse, rather than reporting them ok", async () => {
+    const checks = await collectChecks(malformedConfig);
+    const names = checks.map((c) => c.name);
+    expect(names).not.toContain("plugin loaded");
+    expect(names).not.toContain("operator position configured");
+    expect(names).not.toContain("hangWidth at least printWidth");
+  });
+
+  it("keeps a scoped package specifier intact instead of mangling it as a path", async () => {
+    const checks = await collectChecks(scopedPlugin);
+    const pluginLoaded = checks.find((c) => c.name === "plugin loaded");
+    expect(pluginLoaded?.ok).toBe(false);
+    expect(pluginLoaded?.detail).toContain("@totally-not-installed/whatever");
+    expect(pluginLoaded?.detail).not.toContain("<path>");
+  });
+
+  it("never leaks an absolute filesystem path for a scoped plugin failure either", async () => {
+    const checks = await collectChecks(scopedPlugin);
+    assertNoAbsolutePaths(checks, scopedPlugin);
   });
 });
 
