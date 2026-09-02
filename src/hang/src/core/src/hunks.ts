@@ -4,7 +4,12 @@ export const indentOf = (line: string): number => line.length - line.trimStart()
 
 const startsWithToken = (line: string, tokens: readonly string[]): boolean => {
   const trimmed = line.trimStart();
-  return tokens.some((token) => trimmed.startsWith(token));
+  // A bare "." means member access, never spread: exclude "..." so a spread
+  // element in an ordinary object or array body doesn't masquerade as one.
+  return tokens.some((token) => {
+    if (token === "." && trimmed.startsWith("...")) return false;
+    return trimmed.startsWith(token);
+  });
 };
 
 /**

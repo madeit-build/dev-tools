@@ -59,4 +59,24 @@ describe("probeHunk", () => {
       expect(result.kind, token).toBe("hunk");
     }
   });
+
+  it("skips an object literal whose only leading-dot line is a spread", () => {
+    const result = probe(["const a = {", "  x: 1,", "  ...spread,", "};"]);
+    expect(result).toEqual({ kind: "skip" });
+  });
+
+  it("skips an array literal whose only leading-dot line is a spread", () => {
+    const result = probe(["const a = [", "  1,", "  ...rest,", "];"]);
+    expect(result).toEqual({ kind: "skip" });
+  });
+
+  it("still finds a real member-access dot later in the run past a spread-like line", () => {
+    const result = probe(["const a = obj", "    ...extra", "    .filter(x);"]);
+    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 2, contIndent: 4 } });
+  });
+
+  it("finds the token when it first appears on the third line of the run", () => {
+    const result = probe(["const t = xs", "    a", "    b", "    .map(f);"]);
+    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 3, contIndent: 4 } });
+  });
 });
