@@ -26,6 +26,7 @@ The repo root owns the **shared machinery** (pnpm workspace, Turborepo, base TS 
 | --- | --- | --- |
 | How Does This Work | `src/how-does-this-work/` | [`AGENTS.md`](./src/how-does-this-work/AGENTS.md) · [`CLAUDE.md`](./src/how-does-this-work/CLAUDE.md) |
 | Git Hooks | `src/git-hooks/` | [`README.md`](./src/git-hooks/README.md) |
+| hang | `src/hang/` | [`AGENTS.md`](./src/hang/AGENTS.md) · [`README.md`](./src/hang/README.md) |
 
 Not every tool is a workspace package. `git-hooks` is plain POSIX `sh` with no build, so the `src/*/src/*` globs skip it and `pnpm`/`turbo` never see it.
 
