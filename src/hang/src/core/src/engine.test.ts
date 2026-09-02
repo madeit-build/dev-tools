@@ -88,4 +88,43 @@ describe("hangAlign", () => {
     const result = hangAlign(input, acceptAll, OPTIONS);
     expect(result.decisions.map((d) => d.line)).toEqual([1, 4]);
   });
+
+  it("sorts an applied decision ahead of a rejection that was collected first", () => {
+    // collect() walks forward, so the bad-indent rejection at line 4 lands in
+    // decisions before the line-1 hunk is even verified; without the sort,
+    // the applied decision would be appended after it, out of line order.
+    const input = ["const good = one", "    .f()", "    .g();", "const bad = xs", ".map(f)"].join(
+      "\n",
+    );
+    const result = hangAlign(input, acceptAll, OPTIONS);
+    expect(result.decisions).toEqual([
+      { line: 1, applied: true, anchor: 16, links: 2 },
+      { line: 4, applied: false, reason: "bad-indent" },
+    ]);
+  });
+
+  it("preserves CRLF line endings uniformly end to end", () => {
+    const input =
+      ["const before = 0;", "const taken = regions", "    .filter(f)", "    .reduce(g, 0);", "const after = 1;"].join(
+        "\r\n",
+      ) + "\r\n";
+    const result = hangAlign(input, acceptAll, OPTIONS);
+    expect(result.text).not.toMatch(/[^\r]\n/);
+    expect(result.text).not.toMatch(/\r(?!\n)/);
+    expect(result.text).toBe(
+      [
+        "const before = 0;",
+        "const taken = regions.filter(f)",
+        "                     .reduce(g, 0);",
+        "const after = 1;",
+        "",
+      ].join("\r\n"),
+    );
+  });
+
+  it("leaves a uniformly LF input's endings untouched", () => {
+    const input = ["const taken = regions", "    .filter(f)", "    .reduce(g, 0);"].join("\n");
+    const result = hangAlign(input, acceptAll, OPTIONS);
+    expect(result.text).not.toContain("\r");
+  });
 });
