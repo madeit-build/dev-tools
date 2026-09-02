@@ -48,4 +48,21 @@ export const REFUSALS: Record<string, string> = {
     "    </div>\n" +
     "  );\n" +
     "}\n",
+
+  /**
+   * A `.map` callback returning a multi-line object literal. Prettier breaks
+   * the literal's fields onto their own lines deeper than the `.map`
+   * continuation, none of them branch tokens, so this is nested-content
+   * refused for the same reason as the two fixtures above.
+   *
+   * Also makes the oracle's objectWrap: "collapse" fix load-bearing rather
+   * than only exercised in isolation: without it, canon(source) keeps this
+   * fixture's raw single-line object literal collapsed (it fits at
+   * printWidth 9999) while canon(hung) keeps the already-multi-line
+   * (formatted-then-refused) form expanded, since Prettier's default
+   * objectWrap is "preserve" -- a false meaning-changed mismatch between two
+   * texts that mean the same thing.
+   */
+  chainLinkReturningMultilineObjectLiteral:
+    "const summarized = items.map((item) => ({ identifier: item.identifier, label: item.label, description: item.description })).filter((s) => s.identifier != null);\n",
 };
