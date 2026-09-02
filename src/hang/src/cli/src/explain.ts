@@ -3,9 +3,10 @@ import { options as pluginOptions } from "@made-i-t/hang-prettier";
 
 /** The subset of prettier.Options that HangOptions is derived from. Scoped down
  * rather than importing prettier's own type, since resolveHangOptions only ever
- * reads these two fields. */
+ * reads these three fields. */
 interface FormatWidths {
   printWidth?: number;
+  hangWidth?: number;
   tabWidth?: number;
 }
 
@@ -13,15 +14,21 @@ interface FormatWidths {
  * Derives the HangOptions --explain must use to reproduce the plugin's own
  * decisions. prettier.resolveConfig (which produces `options` here) never
  * applies a plugin's declared option defaults - only prettier.format's own
- * normalization does - so an unconfigured hangWidth must come from the
- * plugin's own default rather than a value computed independently. Otherwise
- * --write and --explain silently disagree on the budget a hang is measured
- * against.
+ * normalization does. It does, however, pass an explicitly configured
+ * hangWidth straight through untouched, and --write's prettier.format call
+ * (with the plugin loaded) merges that configured value over the plugin's
+ * declared default, so a .prettierrc hangWidth wins there too. An
+ * unconfigured hangWidth must therefore fall back to the plugin's own
+ * default rather than a value computed independently, but a configured one
+ * must win over that default - otherwise --write and --explain silently
+ * disagree on the budget a hang is measured against, either because neither
+ * path can see the real default or because --explain ignores an override
+ * --write honors.
  */
 export function resolveHangOptions(options: FormatWidths): HangOptions {
   return {
     printWidth: options.printWidth ?? 80,
-    hangWidth: pluginOptions.hangWidth.default,
+    hangWidth: options.hangWidth ?? pluginOptions.hangWidth.default,
     tabWidth: options.tabWidth ?? 2,
   };
 }

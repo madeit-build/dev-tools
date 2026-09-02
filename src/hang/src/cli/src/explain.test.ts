@@ -54,4 +54,13 @@ describe("resolveHangOptions", () => {
       tabWidth: 2,
     });
   });
+
+  it("passes a configured hangWidth through unchanged instead of overwriting it with the plugin default", () => {
+    // Derived from the live default rather than a fixed literal, so this stays
+    // a genuinely different value even if the plugin's default ever changes.
+    const configured = pluginOptions.hangWidth.default + 40;
+    const resolved = resolveHangOptions({ printWidth: 80, hangWidth: configured, tabWidth: 2 });
+    expect(resolved.hangWidth).toBe(configured);
+    expect(resolved.hangWidth).not.toBe(pluginOptions.hangWidth.default);
+  });
 });
