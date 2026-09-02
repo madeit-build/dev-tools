@@ -137,6 +137,22 @@ describe("hangAlign", () => {
     expect(result.decisions).toEqual([{ line: 1, applied: false, reason: "nested-content" }]);
   });
 
+  it("finds and hangs a chain that follows a bad-indent rejection, without swallowing it", () => {
+    // The bad-indent run's contIndent equals its own head's indent (both 0),
+    // which used to let the run-extension loop keep going through every
+    // line of the next, perfectly good chain instead of stopping right
+    // after the one bad continuation line.
+    const input = ["const t = xs", ".map(f)", "const y = a", "    .b()", "    .c();"].join("\n");
+    const result = hangAlign(input, acceptAll, OPTIONS);
+    expect(result.text).toBe(
+      ["const t = xs", ".map(f)", "const y = a.b()", "           .c();"].join("\n"),
+    );
+    expect(result.decisions).toEqual([
+      { line: 1, applied: false, reason: "bad-indent" },
+      { line: 3, applied: true, anchor: 11, links: 2 },
+    ]);
+  });
+
   it("leaves a uniformly LF input's endings untouched", () => {
     const input = ["const taken = regions", "    .filter(f)", "    .reduce(g, 0);"].join("\n");
     const result = hangAlign(input, acceptAll, OPTIONS);

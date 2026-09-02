@@ -117,7 +117,7 @@ describe("probeHunk", () => {
       "        ? trunc(p)",
       "        : FALLBACK;",
     ]);
-    expect(result.kind).toBe("hunk");
+    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 4, contIndent: 4 } });
   });
 
   it("rejects nested content even when it appears after a branch-token line", () => {
@@ -131,5 +131,21 @@ describe("probeHunk", () => {
       "        )",
     ]);
     expect(result).toEqual({ kind: "reject", reason: "nested-content", endIndex: 6 });
+  });
+
+  it("does not let a bad-indent run swallow a sibling statement at or above the head's own indent", () => {
+    // contIndent (0) equals the head's own indent (0), which is exactly the
+    // bad-indent condition. Without a stop at indentOf(head), the run
+    // keeps extending through "const y = a" (also indent 0) and every line
+    // of its own chain, so a real bad-indent rejection can swallow a
+    // perfectly good following chain instead of just the one bad line.
+    const result = probe([
+      "const t = xs",
+      ".map(f)",
+      "const y = a",
+      "    .b()",
+      "    .c();",
+    ]);
+    expect(result).toEqual({ kind: "reject", reason: "bad-indent", endIndex: 1 });
   });
 });

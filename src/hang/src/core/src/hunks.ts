@@ -45,7 +45,14 @@ export function probeHunk(
   let endIndex = headIndex + 1;
   while (endIndex + 1 < lines.length) {
     const next = lines[endIndex + 1];
-    if (next.trim() === "" || indentOf(next) < contIndent) break;
+    // The second half of this condition only ever bites when contIndent <=
+    // indentOf(head) -- i.e. exactly the bad-indent case below, where the
+    // first half alone would never trigger and the run would otherwise keep
+    // extending through sibling statements at or below the head's own
+    // indent, swallowing a perfectly good chain that follows.
+    if (next.trim() === "" || indentOf(next) < contIndent || indentOf(next) <= indentOf(head)) {
+      break;
+    }
     endIndex++;
     const nextIndent = indentOf(next);
     if (nextIndent === contIndent && startsWithToken(next, tokens)) hasToken = true;
