@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@made-i-t/hang-prettier':
+        specifier: workspace:*
+        version: link:src/hang/src/prettier
       eslint:
         specifier: ^9.27.0
         version: 9.39.4
