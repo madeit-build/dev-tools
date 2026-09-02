@@ -1,4 +1,30 @@
-import type { Decision, RejectReason } from "@made-i-t/hang-core";
+import type { Decision, HangOptions, RejectReason } from "@made-i-t/hang-core";
+import { options as pluginOptions } from "@made-i-t/hang-prettier";
+
+/** The subset of prettier.Options that HangOptions is derived from. Scoped down
+ * rather than importing prettier's own type, since resolveHangOptions only ever
+ * reads these two fields. */
+interface FormatWidths {
+  printWidth?: number;
+  tabWidth?: number;
+}
+
+/**
+ * Derives the HangOptions --explain must use to reproduce the plugin's own
+ * decisions. prettier.resolveConfig (which produces `options` here) never
+ * applies a plugin's declared option defaults - only prettier.format's own
+ * normalization does - so an unconfigured hangWidth must come from the
+ * plugin's own default rather than a value computed independently. Otherwise
+ * --write and --explain silently disagree on the budget a hang is measured
+ * against.
+ */
+export function resolveHangOptions(options: FormatWidths): HangOptions {
+  return {
+    printWidth: options.printWidth ?? 80,
+    hangWidth: pluginOptions.hangWidth.default,
+    tabWidth: options.tabWidth ?? 2,
+  };
+}
 
 const REASONS: Record<RejectReason, string> = {
   "over-budget": "would exceed hangWidth",
