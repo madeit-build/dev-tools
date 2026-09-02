@@ -37,6 +37,7 @@ const REASONS: Record<RejectReason, string> = {
   "over-budget": "would exceed hangWidth",
   "verify-rejected": "guard refused: the edit would change meaning",
   "bad-indent": "continuation is not indented past its head",
+  "nested-content": "a link in this chain has its own multi-line content",
 };
 
 const describe = (decision: Decision): string =>

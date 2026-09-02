@@ -16,6 +16,7 @@ describe("formatDecisions", () => {
       { line: 3, applied: false, reason: "over-budget" },
       { line: 9, applied: false, reason: "verify-rejected" },
       { line: 14, applied: false, reason: "bad-indent" },
+      { line: 20, applied: false, reason: "nested-content" },
     ];
     expect(formatDecisions("src/b.ts", decisions)).toBe(
       [
@@ -23,6 +24,7 @@ describe("formatDecisions", () => {
         "  line 3   skipped   would exceed hangWidth",
         "  line 9   skipped   guard refused: the edit would change meaning",
         "  line 14  skipped   continuation is not indented past its head",
+        "  line 20  skipped   a link in this chain has its own multi-line content",
       ].join("\n"),
     );
   });
