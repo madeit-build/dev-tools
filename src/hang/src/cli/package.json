@@ -1,0 +1,24 @@
+{
+  "name": "@made-i-t/hang-cli",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "bin": { "hang": "dist/main.js" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@made-i-t/hang-core": "workspace:*",
+    "@made-i-t/hang-prettier": "workspace:*",
+    "prettier": "^3.9.6",
+    "tinyglobby": "^0.2.10"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.0"
+  }
+}
