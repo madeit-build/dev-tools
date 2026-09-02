@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { sameTokens } from "./tokens.js";
+import Module from "node:module";
+import { sameTokens, hasScanner } from "./tokens.js";
 
 const same = (before: string, after: string) => sameTokens(before, after, "standard");
 
@@ -48,8 +49,49 @@ describe("sameTokens", () => {
   });
 
   it("scans JSX under the jsx variant", () => {
-    const before = "const e = <div a={1} />;\nconst t = xs\n    .map(f)\n    .join('');";
-    const after = "const e = <div a={1} />;\nconst t = xs.map(f)\n            .join('');";
+    const before = "const e = <div a={1}>x</div>;\nconst t = xs\n    .map(f)\n    .join('');";
+    const after = "const e = <div a={1}>x</div>;\nconst t = xs.map(f)\n            .join('');";
     expect(sameTokens(before, after, "jsx")).toBe(true);
+  });
+
+  it("the jsx variant is not incidental: only it catches a broken closing tag", () => {
+    // Under jsx, "</" merges into one token only when adjacent, so a space
+    // splitting it is a real change. The plain scanner has no such token and
+    // treats the space as cosmetic, which is exactly the gap the variant closes.
+    expect(sameTokens("</div>", "< /div>", "jsx")).toBe(false);
+    expect(sameTokens("</div>", "< /div>", "standard")).toBe(true);
+  });
+
+  it("does not detect an ASI hazard on its own, a documented boundary", () => {
+    // See sameTokens' doc comment: unreachable via this transform today because
+    // no continuation token can follow a restricted-production keyword.
+    const before = "function f() {\n  return\n  { ok: true };\n}";
+    const after = "function f() {\n  return { ok: true };\n}";
+    expect(same(before, after)).toBe(true);
+  });
+
+  it("hasScanner survives import under a TS7-shaped typescript module", async () => {
+    // TS7 drops the compiler API, exposing only version/versionMajorMinor.
+    // Patching Node's own module loader is the only way to simulate that
+    // shape here: createRequire resolves through Node's real CJS loader,
+    // which bypasses vitest's own module-mocking entirely.
+    const moduleWithLoad = Module as unknown as { _load: (...args: unknown[]) => unknown };
+    const originalLoad = moduleWithLoad._load;
+    moduleWithLoad._load = function (this: unknown, request: string, ...rest: unknown[]) {
+      if (request === "typescript") {
+        return { version: "7.0.0", versionMajorMinor: "7.0" };
+      }
+      return (originalLoad as (...args: unknown[]) => unknown).apply(this, [request, ...rest]);
+    };
+    try {
+      const ts7Module = await import("./tokens.js?ts7-shaped-module-test");
+      expect(ts7Module.hasScanner()).toBe(false);
+    } finally {
+      moduleWithLoad._load = originalLoad;
+    }
+  });
+
+  it("hasScanner reports true against the real, pinned typescript", () => {
+    expect(hasScanner()).toBe(true);
   });
 });
