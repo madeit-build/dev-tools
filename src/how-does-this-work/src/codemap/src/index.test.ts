@@ -27,9 +27,22 @@ test("fileOutline lists symbols; unsupported extension yields []", async () => {
 });
 
 test("findSymbol resolves a unique name, flags ambiguity, and reports not-found", async () => {
-  const p = await write("b.ts", ["export function only() {}", "class A { dup() {} }", "class B { dup() {} }"].join("\n"));
-  expect(await findSymbol(p, "only")).toMatchObject({ ok: true, symbol: { name: "only" } });
+  const p = await write(
+    "b.ts",
+    [
+      "export function only() {}",
+      "class A { dup() {} }",
+      "class B { dup() {} }",
+    ].join("\n"),
+  );
+  expect(await findSymbol(p, "only")).toMatchObject({
+    ok: true,
+    symbol: { name: "only" },
+  });
   expect(await findSymbol(p, "dup")).toMatchObject({ ok: "ambiguous" });
-  expect(await findSymbol(p, "A.dup")).toMatchObject({ ok: true, symbol: { qualifiedName: "A.dup" } });
+  expect(await findSymbol(p, "A.dup")).toMatchObject({
+    ok: true,
+    symbol: { qualifiedName: "A.dup" },
+  });
   expect(await findSymbol(p, "missing")).toEqual({ ok: false });
 });

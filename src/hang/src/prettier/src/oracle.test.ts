@@ -23,7 +23,11 @@ const withPlugin = { ...base, plugins: [plugin] };
 // expanded and a collapsed form of the same object reprint to different
 // text, which is a false "meaning changed" waiting to happen.
 const canon = (source: string) =>
-  prettier.format(source, { ...base, printWidth: 9999, objectWrap: "collapse" });
+  prettier.format(source, {
+    ...base,
+    printWidth: 9999,
+    objectWrap: "collapse",
+  });
 
 describe("canon", () => {
   it("collapses an expanded object literal to the same text as its collapsed form", async () => {

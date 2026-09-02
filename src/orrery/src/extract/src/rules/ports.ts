@@ -1,6 +1,9 @@
 import {
-  serviceId, isSecretName,
-  type DropRecord, type EdgeSource, type OrreryEdge,
+  serviceId,
+  isSecretName,
+  type DropRecord,
+  type EdgeSource,
+  type OrreryEdge,
 } from "@made-i-t/orrery-model";
 import type { RuleResult } from "./services";
 
@@ -84,7 +87,10 @@ const PUBLISHED = /^(?:[\d.]+:)?(\d+):(\d+)$/;
 // The prefix must equal the unit name, not merely start it: "ollama" and
 // "ollama-model-loader" both begin with the same six letters.
 function namesItself(unit: string, key: string): boolean {
-  const prefix = key.slice(0, key.lastIndexOf("_")).toLowerCase().replace(/[_-]/g, "");
+  const prefix = key
+    .slice(0, key.lastIndexOf("_"))
+    .toLowerCase()
+    .replace(/[_-]/g, "");
   return prefix === unit.toLowerCase().replace(/[_-]/g, "");
 }
 
@@ -159,7 +165,9 @@ export function linksRule(
         if (!owner || !serviceUnits.has(owner.unit)) {
           ledger.push({
             candidate: `${unit} -> :${port}`,
-            host, rule: RULE, reason: "filtered-by-rule",
+            host,
+            rule: RULE,
+            reason: "filtered-by-rule",
             detail: `env ${key} names port ${port}, which maps to no service in the graph`,
           });
           continue;
@@ -173,7 +181,8 @@ export function linksRule(
 
         edges.push({
           id,
-          from: serviceId(host, unit), to: serviceId(host, owner.unit),
+          from: serviceId(host, unit),
+          to: serviceId(host, owner.unit),
           type: "depends-on",
           // Always inferred, even when the port resolved from a declared
           // mapping. That a URL in an env var means a runtime dependency is

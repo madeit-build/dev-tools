@@ -57,8 +57,10 @@ function checkIntegrity(g: Graph): void {
   }
 
   for (const e of g.edges) {
-    if (!seen.has(e.from)) throw new Error(`dangling edge ${e.id}: no node ${e.from}`);
-    if (!seen.has(e.to)) throw new Error(`dangling edge ${e.id}: no node ${e.to}`);
+    if (!seen.has(e.from))
+      throw new Error(`dangling edge ${e.id}: no node ${e.from}`);
+    if (!seen.has(e.to))
+      throw new Error(`dangling edge ${e.id}: no node ${e.to}`);
   }
 }
 

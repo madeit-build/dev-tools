@@ -1,7 +1,8 @@
 import { Query } from "web-tree-sitter";
 import { loadLanguage, newParser, type CodemapLanguage } from "./grammars.js";
 
-export type SymbolKind = "function" | "method" | "class" | "interface" | "const" | "enum" | "type";
+export type SymbolKind =
+  "function" | "method" | "class" | "interface" | "const" | "enum" | "type";
 
 export interface CodeSymbol {
   name: string;
@@ -43,7 +44,10 @@ interface TsNode {
   endPosition: { row: number; column: number };
 }
 
-export async function parseSymbols(content: string, language: CodemapLanguage): Promise<CodeSymbol[]> {
+export async function parseSymbols(
+  content: string,
+  language: CodemapLanguage,
+): Promise<CodeSymbol[]> {
   const lang = await loadLanguage(language);
   const parser = await newParser(language);
   const tree = parser.parse(content);
@@ -74,9 +78,8 @@ export async function parseSymbols(content: string, language: CodemapLanguage): 
 function qualify(name: string, declaration: TsNode): string {
   let cursor: TsNode | null = declaration.parent ?? null;
   while (cursor) {
-    if (
-      cursor.type === "class_declaration" ||
-      cursor.type === "interface_declaration"
+    if ( cursor.type === "class_declaration"
+         || cursor.type === "interface_declaration"
     ) {
       const owner = ownerName(cursor);
       if (owner) return `${owner}.${name}`;

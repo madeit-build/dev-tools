@@ -15,6 +15,7 @@
 ### Task 1: Protocol — `save` flag, optional `savedPath`, `saveTour` method
 
 **Files:**
+
 - Modify: `src/protocol/src/generation.ts`
 - Test: `src/protocol/src/saveTour.test.ts`
 
@@ -38,12 +39,14 @@ Expected: FAIL — constants not exported.
 - [ ] **Step 3: Edit `src/protocol/src/generation.ts`.** Add `save?` to `GenerateTourParams` and make `savedPath` optional on the result:
 
 Change `GenerateTourParams` to add (after `maxBudgetUsd?`):
+
 ```ts
   /** When false, generate without writing the tour to the catalog (ephemeral). Defaults to true. */
   save?: boolean;
 ```
 
 Change `GenerateTourResult` so `savedPath` is optional:
+
 ```ts
 export interface GenerateTourResult {
   tour: Tour;
@@ -53,6 +56,7 @@ export interface GenerateTourResult {
 ```
 
 Append the saveTour contract at the end of the file:
+
 ```ts
 /** JSON-RPC method: client→engine, persist a (previously generated, in-memory) tour into the catalog. */
 export const SAVE_TOUR_METHOD = "hdtw/saveTour";
@@ -89,6 +93,7 @@ git commit -m "feat(protocol): add save flag, optional savedPath, and saveTour m
 ### Task 2: engine-server — extract `tourStorage`; `generateTour` honors `save`
 
 **Files:**
+
 - Create: `src/engine/server/src/tourStorage.ts`
 - Modify: `src/engine/server/src/generationPipeline.ts`
 - Test: `src/engine/server/src/tourStorage.test.ts`
@@ -108,10 +113,9 @@ const TOUR_FILE_SUFFIX = ".tour.json";
 export class TourSaveError extends Error {}
 
 export function slugify(title: string): string {
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+  const slug = title.toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/^-+|-+$/g, "");
   return slug.length > 0 ? slug : "tour";
 }
 
@@ -124,7 +128,10 @@ async function exists(filePath: string): Promise<boolean> {
   }
 }
 
-export async function uniqueTourId(toursDir: string, baseId: string): Promise<string> {
+export async function uniqueTourId(
+  toursDir: string,
+  baseId: string,
+): Promise<string> {
   let id = baseId;
   let counter = 2;
   while (await exists(path.join(toursDir, `${id}${TOUR_FILE_SUFFIX}`))) {
@@ -137,7 +144,7 @@ export async function uniqueTourId(toursDir: string, baseId: string): Promise<st
 /** Assign a unique id, gate the result, and atomically write the tour into the catalog. */
 export async function writeTourToCatalog(
   workspaceRoot: string,
-  tour: Tour
+  tour: Tour,
 ): Promise<{ savedPath: string; tour: Tour }> {
   const toursDir = path.join(workspaceRoot, ...TOURS_DIR_SEGMENTS);
   await mkdir(toursDir, { recursive: true });
@@ -147,7 +154,9 @@ export async function writeTourToCatalog(
   const serialized = JSON.stringify(finalTour, null, 2) + "\n";
   const gate = parseTour(serialized, id);
   if (!gate.ok) {
-    throw new TourSaveError(`tour failed validation: ${gate.errors.join("; ")}`);
+    throw new TourSaveError(
+      `tour failed validation: ${gate.errors.join("; ")}`,
+    );
   }
 
   const finalPath = path.join(toursDir, `${id}${TOUR_FILE_SUFFIX}`);
@@ -155,7 +164,10 @@ export async function writeTourToCatalog(
   await writeFile(tempPath, serialized, "utf8");
   await rename(tempPath, finalPath);
 
-  return { savedPath: [...TOURS_DIR_SEGMENTS, `${id}${TOUR_FILE_SUFFIX}`].join("/"), tour: finalTour };
+  return {
+    savedPath: [...TOURS_DIR_SEGMENTS, `${id}${TOUR_FILE_SUFFIX}`].join("/"),
+    tour: finalTour,
+  };
 }
 ```
 
@@ -183,7 +195,16 @@ function tour(title: string): Tour {
     title,
     summary: "",
     steps: [
-      { title: "s", narration: "n", anchor: { file: "README.md", startLine: 1, endLine: 1, snippetHash: "sha256:aa" } },
+      {
+        title: "s",
+        narration: "n",
+        anchor: {
+          file: "README.md",
+          startLine: 1,
+          endLine: 1,
+          snippetHash: "sha256:aa",
+        },
+      },
     ],
   };
 }
@@ -201,13 +222,20 @@ describe("writeTourToCatalog", () => {
     const result = await writeTourToCatalog(workspaceRoot, tour("My Tour"));
     expect(result.savedPath).toBe(".hdtw/tours/my-tour.tour.json");
     expect(result.tour.id).toBe("my-tour");
-    const onDisk = JSON.parse(await readFile(path.join(workspaceRoot, result.savedPath), "utf8"));
+    const onDisk = JSON.parse(
+      await readFile(path.join(workspaceRoot, result.savedPath), "utf8"),
+    );
     expect(onDisk.id).toBe("my-tour");
   });
 
   test("a colliding title gets a -2 suffix", async () => {
-    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
-    await writeFile(path.join(workspaceRoot, ".hdtw/tours/my-tour.tour.json"), "{}");
+    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(workspaceRoot, ".hdtw/tours/my-tour.tour.json"),
+      "{}",
+    );
     const result = await writeTourToCatalog(workspaceRoot, tour("My Tour"));
     expect(result.savedPath).toBe(".hdtw/tours/my-tour-2.tour.json");
     expect(result.tour.id).toBe("my-tour-2");
@@ -242,13 +270,18 @@ function assembleTour(draft: DraftTour, steps: TourStep[]): Tour {
   const serialized = JSON.stringify(tour, null, 2) + "\n";
   const gate = parseTour(serialized, tour.id);
   if (!gate.ok) {
-    throw new GenerationFailedError(`generated tour failed validation: ${gate.errors.join("; ")}`);
+    throw new GenerationFailedError(
+      `generated tour failed validation: ${gate.errors.join("; ")}`,
+    );
   }
   return tour;
 }
 
 function slugifyTitle(title: string): string {
-  const slug = title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return slug.length > 0 ? slug : "tour";
 }
 ```
@@ -258,24 +291,40 @@ function slugifyTitle(title: string): string {
 (c) Replace the tail of `runGeneration` (the `onProgress saving` + `saveTour` + `generate.done` + `span.end` + `return`) with:
 
 ```ts
-  const tour = assembleTour(draft, verified.steps);
+const tour = assembleTour(draft, verified.steps);
 
-  if (params.save === false) {
-    observer.logger.info("generate.done", { id: tour.id, steps: tour.steps.length, saved: false });
-    span.end({ steps: tour.steps.length });
-    return { tour, savedPath: undefined };
-  }
+if (params.save === false) {
+  observer.logger.info("generate.done", {
+    id: tour.id,
+    steps: tour.steps.length,
+    saved: false,
+  });
+  span.end({ steps: tour.steps.length });
+  return { tour, savedPath: undefined };
+}
 
-  onProgress({ phase: "saving", message: "Saving tour", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
-  let saved;
-  try {
-    saved = await writeTourToCatalog(params.workspaceRoot, tour);
-  } catch (error) {
-    throw new GenerationFailedError(error instanceof Error ? error.message : String(error));
-  }
-  observer.logger.info("generate.done", { id: saved.tour.id, steps: saved.tour.steps.length, savedPath: saved.savedPath });
-  span.end({ steps: saved.tour.steps.length });
-  return { tour: saved.tour, savedPath: saved.savedPath };
+onProgress({
+  phase: "saving",
+  message: "Saving tour",
+  tokensIn: 0,
+  tokensOut: 0,
+  estimatedCostUsd: 0,
+});
+let saved;
+try {
+  saved = await writeTourToCatalog(params.workspaceRoot, tour);
+} catch (error) {
+  throw new GenerationFailedError(
+    error instanceof Error ? error.message : String(error),
+  );
+}
+observer.logger.info("generate.done", {
+  id: saved.tour.id,
+  steps: saved.tour.steps.length,
+  savedPath: saved.savedPath,
+});
+span.end({ steps: saved.tour.steps.length });
+return { tour: saved.tour, savedPath: saved.savedPath };
 ```
 
 (`GenerateTourResult` now allows `savedPath?: string` so returning `savedPath: undefined` typechecks.)
@@ -283,22 +332,27 @@ function slugifyTitle(title: string): string {
 - [ ] **Step 5: Extend the pipeline test — `src/engine/server/tests/generationPipeline.test.ts`.** Add inside `describe("runGeneration", ...)`:
 
 ```ts
-  test("save:false returns the tour and writes nothing", async () => {
-    const controller = new AbortController();
-    const observer = createObserver({ sink: { record: () => {} }, minLevel: "error" });
-    const result = await runGeneration(
-      { workspaceRoot, topic: "x", save: false },
-      new FakeTourGenerator(),
-      observer,
-      () => {},
-      controller.signal
-    );
-    expect(result.savedPath).toBeUndefined();
-    expect(result.tour.steps).toHaveLength(1);
-    const { readdir } = await import("node:fs/promises");
-    const entries = await readdir(path.join(workspaceRoot, ".hdtw", "tours")).catch(() => []);
-    expect(entries).toEqual([]); // nothing written
+test("save:false returns the tour and writes nothing", async () => {
+  const controller = new AbortController();
+  const observer = createObserver({
+    sink: { record: () => {} },
+    minLevel: "error",
   });
+  const result = await runGeneration(
+    { workspaceRoot, topic: "x", save: false },
+    new FakeTourGenerator(),
+    observer,
+    () => {},
+    controller.signal,
+  );
+  expect(result.savedPath).toBeUndefined();
+  expect(result.tour.steps).toHaveLength(1);
+  const { readdir } = await import("node:fs/promises");
+  const entries = await readdir(
+    path.join(workspaceRoot, ".hdtw", "tours"),
+  ).catch(() => []);
+  expect(entries).toEqual([]); // nothing written
+});
 ```
 
 (The existing happy-path test already covers `save:true` writing — confirm it still passes.)
@@ -320,6 +374,7 @@ git commit -m "feat(engine-server): extract tourStorage; generateTour honors sav
 ### Task 3: engine-server — `saveTour` handler + register + e2e
 
 **Files:**
+
 - Create: `src/engine/server/src/saveTourHandler.ts`
 - Modify: `src/engine/server/src/main.ts`
 - Test: `src/engine/server/tests/saveTour.e2e.test.ts`
@@ -330,8 +385,13 @@ git commit -m "feat(engine-server): extract tourStorage; generateTour honors sav
 import type { SaveTourParams, SaveTourResult } from "@made-i-t/hdtw-protocol";
 import { writeTourToCatalog } from "./tourStorage.js";
 
-export async function saveTour(params: SaveTourParams): Promise<SaveTourResult> {
-  const { savedPath } = await writeTourToCatalog(params.workspaceRoot, params.tour);
+export async function saveTour(
+  params: SaveTourParams,
+): Promise<SaveTourResult> {
+  const { savedPath } = await writeTourToCatalog(
+    params.workspaceRoot,
+    params.tour,
+  );
   return { savedPath };
 }
 ```
@@ -382,15 +442,18 @@ test("generate save:false writes nothing; saveTour then persists it", async () =
   });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   connection.listen();
 
-  const generated = await connection.sendRequest<GenerateTourResult>(GENERATE_TOUR_METHOD, {
-    workspaceRoot,
-    topic: "how does the readme work",
-    save: false,
-  });
+  const generated = await connection.sendRequest<GenerateTourResult>(
+    GENERATE_TOUR_METHOD,
+    {
+      workspaceRoot,
+      topic: "how does the readme work",
+      save: false,
+    },
+  );
   expect(generated.savedPath).toBeUndefined();
 
   const saved = await connection.sendRequest<SaveTourResult>(SAVE_TOUR_METHOD, {
@@ -398,14 +461,19 @@ test("generate save:false writes nothing; saveTour then persists it", async () =
     tour: generated.tour,
   });
   expect(saved.savedPath).toBe(".hdtw/tours/fake-tour.tour.json");
-  const onDisk = JSON.parse(await readFile(path.join(workspaceRoot, saved.savedPath), "utf8"));
+  const onDisk = JSON.parse(
+    await readFile(path.join(workspaceRoot, saved.savedPath), "utf8"),
+  );
   expect(onDisk.id).toBe("fake-tour");
 
   // Saving again gets a -2 suffix.
-  const saved2 = await connection.sendRequest<SaveTourResult>(SAVE_TOUR_METHOD, {
-    workspaceRoot,
-    tour: generated.tour,
-  });
+  const saved2 = await connection.sendRequest<SaveTourResult>(
+    SAVE_TOUR_METHOD,
+    {
+      workspaceRoot,
+      tour: generated.tour,
+    },
+  );
   expect(saved2.savedPath).toBe(".hdtw/tours/fake-tour-2.tour.json");
 });
 ```
@@ -447,6 +515,7 @@ git commit -m "feat(engine-server): add saveTour handler over stdio"
 ### Task 4: VS Code — "Ask…" + ephemeral walk + "Save tour"
 
 **Files:**
+
 - Create: `src/clients/vscode/src/saveState.ts`
 - Modify: `src/clients/vscode/src/engineClient.ts`
 - Modify: `src/clients/vscode/package.json`
@@ -467,7 +536,9 @@ describe("saveState", () => {
   });
   test("an unsaved walk exposes its tour until saved", () => {
     const s = createSaveState();
-    const tour = { id: "t" } as unknown as import("@made-i-t/hdtw-protocol").Tour;
+    const tour = {
+      id: "t",
+    } as unknown as import("@made-i-t/hdtw-protocol").Tour;
     s.setUnsaved(tour);
     expect(s.unsavedTour()).toBe(tour);
     s.setSaved();
@@ -536,29 +607,38 @@ Add `hdtw.ask` to the `view/title` menu (before refresh), e.g. group `navigation
 - [ ] **Step 6: Wire `src/clients/vscode/src/extension.ts`.** Read the file first. Make these changes:
 
 (a) Imports + module state:
+
 ```ts
 import { createSaveState } from "./saveState.js";
 ```
+
 ```ts
 const saveState = createSaveState();
 let saveStatusItem: vscode.StatusBarItem | undefined;
 ```
 
 (b) In `activate`, create the status-bar item and register the commands. After the channel/observer setup, add:
+
 ```ts
-  saveStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
-  saveStatusItem.command = "hdtw.saveWalk";
-  saveStatusItem.text = "$(save) Save tour";
-  saveStatusItem.tooltip = "Save this walk to .hdtw/tours/";
-  context.subscriptions.push(saveStatusItem);
+saveStatusItem = vscode.window.createStatusBarItem(
+  vscode.StatusBarAlignment.Left,
+  99,
+);
+saveStatusItem.command = "hdtw.saveWalk";
+saveStatusItem.text = "$(save) Save tour";
+saveStatusItem.tooltip = "Save this walk to .hdtw/tours/";
+context.subscriptions.push(saveStatusItem);
 ```
+
 In the `context.subscriptions.push(...)` command block add:
+
 ```ts
     vscode.commands.registerCommand("hdtw.ask", () => askWalk()),
     vscode.commands.registerCommand("hdtw.saveWalk", () => saveWalk()),
 ```
 
 (c) A helper to reflect save state in the UI:
+
 ```ts
 function refreshSaveAffordance(): void {
   if (saveState.unsavedTour()) {
@@ -572,15 +652,20 @@ function refreshSaveAffordance(): void {
 (d) Mark saved-from-catalog walks as saved. In `startTour` and `followRelated`, right before/after starting the walk, call `saveState.setSaved(); refreshSaveAffordance();`. In `generateTour` (Chunk 2's immediate-commit flow) likewise call `saveState.setSaved(); refreshSaveAffordance();` after the walk starts.
 
 (e) Add `askWalk`:
+
 ```ts
 async function askWalk(): Promise<void> {
   const root = workspaceRoot();
   if (!root || !client) {
-    void vscode.window.showErrorMessage("HDTW: open a folder to ask about its code.");
+    void vscode.window.showErrorMessage(
+      "HDTW: open a folder to ask about its code.",
+    );
     return;
   }
   if (generating) {
-    void vscode.window.showWarningMessage("HDTW: a tour is already being generated.");
+    void vscode.window.showWarningMessage(
+      "HDTW: a tour is already being generated.",
+    );
     return;
   }
   const question = await vscode.window.showInputBox({
@@ -598,16 +683,26 @@ async function askWalk(): Promise<void> {
   generating = true;
   try {
     const result = await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: "HDTW: exploring", cancellable: true },
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "HDTW: exploring",
+        cancellable: true,
+      },
       (progress, token) =>
         client!.generateTour(
-          { workspaceRoot: root, topic: question, model: model || undefined, maxBudgetUsd, save: false },
+          {
+            workspaceRoot: root,
+            topic: question,
+            model: model || undefined,
+            maxBudgetUsd,
+            save: false,
+          },
           (update) =>
             progress.report({
               message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
             }),
-          token
-        )
+          token,
+        ),
     );
     observer?.logger.info("ask.generated", { id: result.tour.id });
     await refreshTourTitles(root);
@@ -627,6 +722,7 @@ async function askWalk(): Promise<void> {
 ```
 
 (f) Add `saveWalk`:
+
 ```ts
 async function saveWalk(): Promise<void> {
   const root = workspaceRoot();
@@ -643,7 +739,9 @@ async function saveWalk(): Promise<void> {
     void vscode.window.showInformationMessage(`HDTW: saved to ${savedPath}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`HDTW: could not save tour: ${message}`);
+    void vscode.window.showErrorMessage(
+      `HDTW: could not save tour: ${message}`,
+    );
   }
 }
 ```
@@ -667,6 +765,7 @@ git commit -m "feat(vscode): Ask… ephemeral walk with Save-to-catalog affordan
 ### Task 5: Docs
 
 **Files:**
+
 - Modify: `docs/product-roadmap.md`
 - Modify: `AGENTS.md`
 
@@ -696,4 +795,7 @@ git commit -m "docs: mark conversational ask (chunk 3a) shipped"
 2. Confirm **no** file was written yet (`git status` shows no new `.hdtw/tours/` file).
 3. Click **Save tour** → a new `.hdtw/tours/<slug>.tour.json` appears; the status-bar item disappears; the sidebar lists it.
 4. Ask again and **close the walk without saving** → confirm nothing was written.
+
+```
+
 ```

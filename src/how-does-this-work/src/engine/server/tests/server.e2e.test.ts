@@ -18,7 +18,9 @@ import {
 } from "@made-i-t/hdtw-protocol";
 
 const serverEntry = fileURLToPath(new URL("../dist/main.js", import.meta.url));
-const fixtureWorkspace = fileURLToPath(new URL("./fixtures/workspace", import.meta.url));
+const fixtureWorkspace = fileURLToPath(
+  new URL("./fixtures/workspace", import.meta.url),
+);
 
 let serverProcess: ChildProcess | undefined;
 let connection: MessageConnection | undefined;
@@ -29,7 +31,7 @@ function startServer(): MessageConnection {
   });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   connection.listen();
   return connection;
@@ -61,7 +63,10 @@ test("engine server lists and fetches tours over stdio", async () => {
   const list = await conn.sendRequest<ListToursResult>(LIST_TOURS_METHOD, {
     workspaceRoot: fixtureWorkspace,
   });
-  expect(list.tours.map((tour) => tour.id)).toEqual(["broken-tour", "good-tour"]);
+  expect(list.tours.map((tour) => tour.id)).toEqual([
+    "broken-tour",
+    "good-tour",
+  ]);
 
   const fetched = await conn.sendRequest<GetTourResult>(GET_TOUR_METHOD, {
     workspaceRoot: fixtureWorkspace,
@@ -73,6 +78,6 @@ test("engine server lists and fetches tours over stdio", async () => {
     conn.sendRequest(GET_TOUR_METHOD, {
       workspaceRoot: fixtureWorkspace,
       tourId: "missing",
-    })
+    }),
   ).rejects.toMatchObject({ code: -32001 });
 });

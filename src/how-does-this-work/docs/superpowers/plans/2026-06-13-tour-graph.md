@@ -4,7 +4,7 @@
 
 **Goal:** A step can carry `relatedTours`; following one in the editor pushes the current walk onto a stack, walks the sub-tour, and auto-returns to the parent step. The generation agent proposes cross-links from the existing tour catalog; the engine drops links it can't resolve.
 
-**Architecture:** Schema-additive `relatedTours` on `TourStep` (no version bump). engine-core validates link *shape*; engine-server fetches the catalog, passes it to the generator, and keeps only catalog-resolvable links during verification (logging drops via the observer). The VS Code client gains a pure `walkStack` module (the branching logic) and a stack-based `WalkController` that renders related-tour command links in the narration thread and a breadcrumb in the status bar. Spec: `docs/superpowers/specs/2026-06-13-tour-graph-design.md`.
+**Architecture:** Schema-additive `relatedTours` on `TourStep` (no version bump). engine-core validates link _shape_; engine-server fetches the catalog, passes it to the generator, and keeps only catalog-resolvable links during verification (logging drops via the observer). The VS Code client gains a pure `walkStack` module (the branching logic) and a stack-based `WalkController` that renders related-tour command links in the narration thread and a breadcrumb in the status bar. Spec: `docs/superpowers/specs/2026-06-13-tour-graph-design.md`.
 
 **Tech Stack:** existing monorepo stack. New VS Code usage: `MarkdownString.isTrusted` command links.
 
@@ -15,6 +15,7 @@
 ### Task 1: Protocol — `relatedTours` on `TourStep`
 
 **Files:**
+
 - Modify: `src/protocol/src/tours.ts`
 - Test: `src/protocol/src/relatedTours.test.ts`
 
@@ -55,11 +56,19 @@ import { expect, test } from "vitest";
 import type { RelatedTour, TourStep } from "./index.js";
 
 test("a step can carry related tours and remains schemaVersion-1 compatible", () => {
-  const related: RelatedTour = { tourId: "jsonrpc", label: "How JSON-RPC works" };
+  const related: RelatedTour = {
+    tourId: "jsonrpc",
+    label: "How JSON-RPC works",
+  };
   const step: TourStep = {
     title: "s",
     narration: "n",
-    anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
+    anchor: {
+      file: "a.ts",
+      startLine: 1,
+      endLine: 1,
+      snippetHash: "sha256:aa",
+    },
     relatedTours: [related],
   };
   expect(step.relatedTours?.[0].tourId).toBe("jsonrpc");
@@ -86,51 +95,70 @@ git commit -m "feat(protocol): add optional relatedTours to TourStep"
 ### Task 2: engine-core — validate `relatedTours` shape
 
 **Files:**
+
 - Modify: `src/engine/core/src/tours.ts`
 - Test: `src/engine/core/src/tours.test.ts`
 
 - [ ] **Step 1: Write the failing tests** — in `src/engine/core/src/tours.test.ts`, inside the `describe("parseTour", ...)` block (after the existing anchor tests), add:
 
 ```ts
-  test("accepts a step with valid relatedTours", () => {
-    const step = {
-      title: "Linked",
-      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
-      narration: "x",
-      relatedTours: [{ tourId: "other" }, { tourId: "second", label: "Second" }],
-    };
-    const result = parseTour(validTourJson({ steps: [step] }), "demo");
-    expect(result.ok).toBe(true);
-  });
+test("accepts a step with valid relatedTours", () => {
+  const step = {
+    title: "Linked",
+    anchor: {
+      file: "a.ts",
+      startLine: 1,
+      endLine: 1,
+      snippetHash: "sha256:aa",
+    },
+    narration: "x",
+    relatedTours: [{ tourId: "other" }, { tourId: "second", label: "Second" }],
+  };
+  const result = parseTour(validTourJson({ steps: [step] }), "demo");
+  expect(result.ok).toBe(true);
+});
 
-  test("rejects relatedTours that is not an array", () => {
-    const step = {
-      title: "Bad",
-      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
-      narration: "x",
-      relatedTours: { tourId: "other" },
-    };
-    const result = parseTour(validTourJson({ steps: [step] }), "demo");
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.errors).toContain("steps[0].relatedTours must be an array");
-  });
+test("rejects relatedTours that is not an array", () => {
+  const step = {
+    title: "Bad",
+    anchor: {
+      file: "a.ts",
+      startLine: 1,
+      endLine: 1,
+      snippetHash: "sha256:aa",
+    },
+    narration: "x",
+    relatedTours: { tourId: "other" },
+  };
+  const result = parseTour(validTourJson({ steps: [step] }), "demo");
+  expect(result.ok).toBe(false);
+  if (!result.ok)
+    expect(result.errors).toContain("steps[0].relatedTours must be an array");
+});
 
-  test("rejects a related entry with a non-string tourId or non-string label", () => {
-    const step = {
-      title: "Bad",
-      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
-      narration: "x",
-      relatedTours: [{ tourId: "" }, { tourId: "ok", label: 5 }],
-    };
-    const result = parseTour(validTourJson({ steps: [step] }), "demo");
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.errors).toContain(
-        "steps[0].relatedTours[0].tourId must be a non-empty string"
-      );
-      expect(result.errors).toContain("steps[0].relatedTours[1].label must be a string when present");
-    }
-  });
+test("rejects a related entry with a non-string tourId or non-string label", () => {
+  const step = {
+    title: "Bad",
+    anchor: {
+      file: "a.ts",
+      startLine: 1,
+      endLine: 1,
+      snippetHash: "sha256:aa",
+    },
+    narration: "x",
+    relatedTours: [{ tourId: "" }, { tourId: "ok", label: 5 }],
+  };
+  const result = parseTour(validTourJson({ steps: [step] }), "demo");
+  expect(result.ok).toBe(false);
+  if (!result.ok) {
+    expect(result.errors).toContain(
+      "steps[0].relatedTours[0].tourId must be a non-empty string",
+    );
+    expect(result.errors).toContain(
+      "steps[0].relatedTours[1].label must be a string when present",
+    );
+  }
+});
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -141,7 +169,7 @@ Expected: the 3 new tests FAIL (relatedTours not yet validated; the "accepts" te
 - [ ] **Step 3: Add validation in `src/engine/core/src/tours.ts`** — in `validateStep`, after the `errors.push(...validateAnchor(candidate.anchor, label));` line and before `return errors;`, add:
 
 ```ts
-  errors.push(...validateRelatedTours(candidate.relatedTours, label));
+errors.push(...validateRelatedTours(candidate.relatedTours, label));
 ```
 
 Then add this new function immediately after `validateStep`:
@@ -191,6 +219,7 @@ git commit -m "feat(engine-core): validate relatedTours shape in parseTour"
 ### Task 3: engine-server — catalog fetch + related-link resolution in the pipeline
 
 **Files:**
+
 - Modify: `src/engine/server/src/tourGenerator.ts` (DraftStep.relatedTours; catalog param on generate/repair)
 - Modify: `src/engine/server/src/fakeTourGenerator.ts` (signature; relatedTours pass-through)
 - Modify: `src/engine/server/src/generationPipeline.ts` (fetch catalog; resolve links; pass catalog to generator)
@@ -201,7 +230,11 @@ git commit -m "feat(engine-core): validate relatedTours shape in parseTour"
 Add the protocol import for `RelatedTour` and `TourSummary` at the top (there is already a `import type { GenerationProgressParams } from "@made-i-t/hdtw-protocol";` — extend it):
 
 ```ts
-import type { GenerationProgressParams, RelatedTour, TourSummary } from "@made-i-t/hdtw-protocol";
+import type {
+  GenerationProgressParams,
+  RelatedTour,
+  TourSummary,
+} from "@made-i-t/hdtw-protocol";
 ```
 
 Add `relatedTours` to `DraftStep`:
@@ -224,7 +257,7 @@ export interface TourGenerator {
     topic: string,
     model: string | undefined,
     catalog: TourSummary[],
-    hooks: GenerationHooks
+    hooks: GenerationHooks,
   ): Promise<DraftTour>;
   /** One repair round: same topic, prior draft, and the anchor errors to fix. */
   repair(
@@ -234,7 +267,7 @@ export interface TourGenerator {
     catalog: TourSummary[],
     draft: DraftTour,
     anchorErrors: string[],
-    hooks: GenerationHooks
+    hooks: GenerationHooks,
   ): Promise<DraftTour>;
 }
 ```
@@ -272,43 +305,55 @@ and `repair`'s signature from `(_workspaceRoot, _topic, _model, _draft, _anchorE
 Add a test inside `describe("runGeneration", ...)`. It pre-creates an existing tour in the workspace so the catalog has one resolvable id, then drafts a step with one resolvable and one ghost related link:
 
 ```ts
-  test("keeps catalog-resolvable related links and drops the rest", async () => {
-    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
-    await writeFile(
-      path.join(workspaceRoot, ".hdtw/tours/existing.tour.json"),
-      JSON.stringify({
-        schemaVersion: 1,
-        id: "existing",
-        title: "Existing",
-        summary: "",
-        steps: [
-          {
-            title: "s",
-            narration: "n",
-            anchor: { file: "README.md", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
-          },
-        ],
-      })
-    );
-    const draft: DraftTour = {
-      title: "Linked tour",
-      summary: "has links",
+test("keeps catalog-resolvable related links and drops the rest", async () => {
+  await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
+  await writeFile(
+    path.join(workspaceRoot, ".hdtw/tours/existing.tour.json"),
+    JSON.stringify({
+      schemaVersion: 1,
+      id: "existing",
+      title: "Existing",
+      summary: "",
       steps: [
         {
-          title: "The readme",
-          narration: "x",
-          anchor: { file: "README.md", startLine: 1, endLine: 1 },
-          relatedTours: [{ tourId: "existing" }, { tourId: "ghost", label: "Nope" }],
+          title: "s",
+          narration: "n",
+          anchor: {
+            file: "README.md",
+            startLine: 1,
+            endLine: 1,
+            snippetHash: "sha256:aa",
+          },
         },
       ],
-    };
-    const result = await run(new FakeTourGenerator({ draft }));
-    expect(result.tour.steps[0].relatedTours).toEqual([{ tourId: "existing" }]);
-    const dropped = observed
-      .filter((r) => r.kind === "log" && (r as { event: string }).event === "verify.related_dropped")
-      .map((r) => (r as { fields?: { tourId?: string } }).fields?.tourId);
-    expect(dropped).toContain("ghost");
-  });
+    }),
+  );
+  const draft: DraftTour = {
+    title: "Linked tour",
+    summary: "has links",
+    steps: [
+      {
+        title: "The readme",
+        narration: "x",
+        anchor: { file: "README.md", startLine: 1, endLine: 1 },
+        relatedTours: [
+          { tourId: "existing" },
+          { tourId: "ghost", label: "Nope" },
+        ],
+      },
+    ],
+  };
+  const result = await run(new FakeTourGenerator({ draft }));
+  expect(result.tour.steps[0].relatedTours).toEqual([{ tourId: "existing" }]);
+  const dropped = observed
+    .filter(
+      (r) =>
+        r.kind === "log"
+        && (r as { event: string }).event === "verify.related_dropped",
+    )
+    .map((r) => (r as { fields?: { tourId?: string } }).fields?.tourId);
+  expect(dropped).toContain("ghost");
+});
 ```
 
 (`mkdir`/`writeFile`/`path` are already imported in this test file; `observed` and `run` already exist from the observability task.)
@@ -338,39 +383,61 @@ import { listTours } from "./tourHandlers.js";
 In `runGeneration`, fetch the catalog once near the top of the `try` block (right after the `hooks` object is defined, before the first `generator.generate`):
 
 ```ts
-    const catalogResult = await listTours({ workspaceRoot: params.workspaceRoot });
-    const catalog: TourSummary[] = catalogResult.tours.filter((tour) => tour.error === undefined);
-    const catalogIds = new Set(catalog.map((tour) => tour.id));
+const catalogResult = await listTours({ workspaceRoot: params.workspaceRoot });
+const catalog: TourSummary[] = catalogResult.tours.filter(
+  (tour) => tour.error === undefined,
+);
+const catalogIds = new Set(catalog.map((tour) => tour.id));
 ```
 
 Change the `generator.generate(...)` call to pass `catalog`:
 
 ```ts
-      draft = await generator.generate(params.workspaceRoot, params.topic, normalizeModel(params.model), catalog, hooks);
+draft = await generator.generate(
+  params.workspaceRoot,
+  params.topic,
+  normalizeModel(params.model),
+  catalog,
+  hooks,
+);
 ```
 
 Change the `generator.repair(...)` call to pass `catalog` after `normalizeModel(params.model)`:
 
 ```ts
-        draft = await generator.repair(
-          params.workspaceRoot,
-          params.topic,
-          normalizeModel(params.model),
-          catalog,
-          draft,
-          verified.errors,
-          hooks
-        );
+draft = await generator.repair(
+  params.workspaceRoot,
+  params.topic,
+  normalizeModel(params.model),
+  catalog,
+  draft,
+  verified.errors,
+  hooks,
+);
 ```
 
 Change BOTH `verifyDraft(...)` calls to pass `catalogIds` and `observer`:
 
 ```ts
-    let verified = await verifyDraft(params.workspaceRoot, draft, catalogIds, observer, onProgress);
+let verified = await verifyDraft(
+  params.workspaceRoot,
+  draft,
+  catalogIds,
+  observer,
+  onProgress,
+);
 ```
+
 and (in the repair branch):
+
 ```ts
-      verified = await verifyDraft(params.workspaceRoot, draft, catalogIds, observer, onProgress);
+verified = await verifyDraft(
+  params.workspaceRoot,
+  draft,
+  catalogIds,
+  observer,
+  onProgress,
+);
 ```
 
 Change `verifyDraft` to accept `catalogIds` and attach resolved links. Replace the whole `verifyDraft` function with:
@@ -381,21 +448,43 @@ async function verifyDraft(
   draft: DraftTour,
   catalogIds: Set<string>,
   observer: Observer,
-  onProgress: (progress: GenerationProgressParams) => void
+  onProgress: (progress: GenerationProgressParams) => void,
 ): Promise<VerifiedDraft> {
-  onProgress({ phase: "verifying", message: "Verifying anchors", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
+  onProgress({
+    phase: "verifying",
+    message: "Verifying anchors",
+    tokensIn: 0,
+    tokensOut: 0,
+    estimatedCostUsd: 0,
+  });
   const errors: string[] = [];
   const steps: TourStep[] = [];
   for (const draftStep of draft.steps) {
     const verifiedStep = await verifyStep(workspaceRoot, draftStep);
     if (typeof verifiedStep === "string") {
-      observer.logger.warn("verify.step", { ok: false, file: draftStep.anchor.file, error: verifiedStep });
+      observer.logger.warn("verify.step", {
+        ok: false,
+        file: draftStep.anchor.file,
+        error: verifiedStep,
+      });
       observer.metrics.count("verify.drift");
       errors.push(verifiedStep);
     } else {
-      observer.logger.info("verify.step", { ok: true, title: draftStep.title, file: draftStep.anchor.file });
-      const related = resolveRelatedTours(draftStep.relatedTours, catalogIds, observer);
-      steps.push(related.length > 0 ? { ...verifiedStep, relatedTours: related } : verifiedStep);
+      observer.logger.info("verify.step", {
+        ok: true,
+        title: draftStep.title,
+        file: draftStep.anchor.file,
+      });
+      const related = resolveRelatedTours(
+        draftStep.relatedTours,
+        catalogIds,
+        observer,
+      );
+      steps.push(
+        related.length > 0
+          ? { ...verifiedStep, relatedTours: related }
+          : verifiedStep,
+      );
     }
   }
   return errors.length > 0 ? { ok: false, errors } : { ok: true, steps };
@@ -404,7 +493,7 @@ async function verifyDraft(
 function resolveRelatedTours(
   related: RelatedTour[] | undefined,
   catalogIds: Set<string>,
-  observer: Observer
+  observer: Observer,
 ): RelatedTour[] {
   if (!related) {
     return [];
@@ -440,26 +529,29 @@ git commit -m "feat(engine-server): fetch tour catalog and resolve related links
 ### Task 4: engine-server — Claude generator proposes cross-links
 
 **Files:**
+
 - Modify: `src/engine/server/src/claudeTourGenerator.ts`
 - Test: `src/engine/server/src/claudeTourGenerator.test.ts`
 
 - [ ] **Step 1: Write the failing tests** — in `src/engine/server/src/claudeTourGenerator.test.ts`, add to the `describe("parseDraft", ...)` block:
 
 ```ts
-  test("accepts a draft with relatedTours on a step", () => {
-    const text = `\`\`\`json
+test("accepts a draft with relatedTours on a step", () => {
+  const text = `\`\`\`json
 { "title": "T", "summary": "S", "steps": [ { "title": "s1", "narration": "n", "anchor": { "file": "a.ts", "startLine": 1, "endLine": 2 }, "relatedTours": [ { "tourId": "other", "label": "Other" } ] } ] }
 \`\`\``;
-    const draft = parseDraft(text);
-    expect(draft.steps[0].relatedTours).toEqual([{ tourId: "other", label: "Other" }]);
-  });
+  const draft = parseDraft(text);
+  expect(draft.steps[0].relatedTours).toEqual([
+    { tourId: "other", label: "Other" },
+  ]);
+});
 
-  test("rejects relatedTours with a non-string tourId", () => {
-    const text = `\`\`\`json
+test("rejects relatedTours with a non-string tourId", () => {
+  const text = `\`\`\`json
 { "title": "T", "summary": "S", "steps": [ { "title": "s1", "narration": "n", "anchor": { "file": "a.ts", "startLine": 1, "endLine": 2 }, "relatedTours": [ { "tourId": 5 } ] } ] }
 \`\`\``;
-    expect(() => parseDraft(text)).toThrow();
-  });
+  expect(() => parseDraft(text)).toThrow();
+});
 ```
 
 - [ ] **Step 2: Run to verify failure**
@@ -503,7 +595,9 @@ Change `repair`'s signature to accept (and ignore for prompt purposes) the catal
 (b) Add the catalog-section helper near the bottom of the file (e.g. after `isAuthError`):
 
 ```ts
-function catalogSection(catalog: import("@made-i-t/hdtw-protocol").TourSummary[]): string {
+function catalogSection(
+  catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
+): string {
   if (catalog.length === 0) {
     return "";
   }
@@ -536,18 +630,25 @@ Your FINAL message must be ONLY a fenced JSON block in exactly this shape, with 
 (d) Extend `validateDraft` to validate optional `relatedTours`. Inside the `draft.steps.forEach(...)` callback, after the anchor check, add:
 
 ```ts
-    if (candidate.relatedTours !== undefined) {
-      if (!Array.isArray(candidate.relatedTours)) {
-        errors.push(`steps[${index}].relatedTours must be an array`);
-      } else {
-        candidate.relatedTours.forEach((link, linkIndex) => {
-          const entry = link as Record<string, unknown> | null;
-          if (typeof entry !== "object" || entry === null || typeof entry.tourId !== "string" || entry.tourId.length === 0) {
-            errors.push(`steps[${index}].relatedTours[${linkIndex}].tourId must be a non-empty string`);
-          }
-        });
+if (candidate.relatedTours !== undefined) {
+  if (!Array.isArray(candidate.relatedTours)) {
+    errors.push(`steps[${index}].relatedTours must be an array`);
+  } else {
+    candidate.relatedTours.forEach((link, linkIndex) => {
+      const entry = link as Record<string, unknown> | null;
+      if (
+        typeof entry !== "object"
+        || entry === null
+        || typeof entry.tourId !== "string"
+        || entry.tourId.length === 0
+      ) {
+        errors.push(
+          `steps[${index}].relatedTours[${linkIndex}].tourId must be a non-empty string`,
+        );
       }
-    }
+    });
+  }
+}
 ```
 
 - [ ] **Step 4: Build, test, lint**
@@ -567,6 +668,7 @@ git commit -m "feat(engine-server): let the agent propose validated related-tour
 ### Task 5: VS Code — pure `walkStack` module
 
 **Files:**
+
 - Create: `src/clients/vscode/src/walkStack.ts`
 - Test: `src/clients/vscode/src/walkStack.test.ts`
 
@@ -576,7 +678,13 @@ git commit -m "feat(engine-server): let the agent propose validated related-tour
 import { describe, expect, test } from "vitest";
 import type { Tour } from "@made-i-t/hdtw-protocol";
 import { startWalk } from "./walkState.js";
-import { activeWalk, advance, breadcrumbLabel, pushWalk, retreat } from "./walkStack.js";
+import {
+  activeWalk,
+  advance,
+  breadcrumbLabel,
+  pushWalk,
+  retreat,
+} from "./walkStack.js";
 
 function tour(id: string, steps: number): Tour {
   return {
@@ -587,7 +695,12 @@ function tour(id: string, steps: number): Tour {
     steps: Array.from({ length: steps }, (_unused, index) => ({
       title: `${id}-${index}`,
       narration: "n",
-      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
+      anchor: {
+        file: "a.ts",
+        startLine: 1,
+        endLine: 1,
+        snippetHash: "sha256:aa",
+      },
     })),
   };
 }
@@ -708,6 +821,7 @@ git commit -m "feat(vscode): add pure walk-stack module"
 ### Task 6: VS Code — stack-based WalkController, related links, breadcrumb, follow command
 
 **Files:**
+
 - Modify: `src/clients/vscode/src/walkController.ts`
 - Modify: `src/clients/vscode/package.json` (command)
 - Modify: `src/clients/vscode/src/extension.ts` (followRelated command, tourTitles, controller construction)
@@ -739,14 +853,21 @@ export class WalkController implements vscode.Disposable {
   constructor(
     private readonly workspaceRoot: string,
     /** Returns the title of a tour id known to the workspace, or undefined when it does not exist. */
-    private readonly lookupTourTitle: (tourId: string) => string | undefined
+    private readonly lookupTourTitle: (tourId: string) => string | undefined,
   ) {
-    this.commentController = vscode.comments.createCommentController("hdtw-tour", "HDTW Tour Guide");
+    this.commentController = vscode.comments.createCommentController(
+      "hdtw-tour",
+      "HDTW Tour Guide",
+    );
     this.decoration = vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
-      backgroundColor: new vscode.ThemeColor("editor.findMatchHighlightBackground"),
+      backgroundColor: new vscode.ThemeColor(
+        "editor.findMatchHighlightBackground",
+      ),
     });
-    this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    this.statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Left,
+    );
   }
 
   async start(tour: Tour): Promise<void> {
@@ -800,7 +921,9 @@ export class WalkController implements vscode.Disposable {
     this.clearStepArtifacts();
     const active = activeWalk(this.stack);
     const step = currentStep(active);
-    const fileUri = vscode.Uri.file(path.join(this.workspaceRoot, ...step.anchor.file.split("/")));
+    const fileUri = vscode.Uri.file(
+      path.join(this.workspaceRoot, ...step.anchor.file.split("/")),
+    );
 
     let document: vscode.TextDocument | undefined;
     try {
@@ -811,7 +934,7 @@ export class WalkController implements vscode.Disposable {
 
     if (!document) {
       void vscode.window.showWarningMessage(
-        `HDTW step "${step.title}": anchor file ${step.anchor.file} is missing — code may have changed since this tour was authored.`
+        `HDTW step "${step.title}": anchor file ${step.anchor.file} is missing — code may have changed since this tour was authored.`,
       );
       this.updateStatusBar();
       return;
@@ -820,9 +943,16 @@ export class WalkController implements vscode.Disposable {
     const drifted = step.anchor.endLine > document.lineCount;
     const startLine = Math.min(step.anchor.startLine, document.lineCount) - 1;
     const endLine = Math.min(step.anchor.endLine, document.lineCount) - 1;
-    const range = new vscode.Range(startLine, 0, endLine, document.lineAt(endLine).text.length);
+    const range = new vscode.Range(
+      startLine,
+      0,
+      endLine,
+      document.lineAt(endLine).text.length,
+    );
 
-    const editor = await vscode.window.showTextDocument(document, { preserveFocus: false });
+    const editor = await vscode.window.showTextDocument(document, {
+      preserveFocus: false,
+    });
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 
     if (!drifted) {
@@ -833,27 +963,36 @@ export class WalkController implements vscode.Disposable {
     const body =
       (drifted
         ? "⚠️ _This step's anchor has drifted — code may have changed since authoring._\n\n"
-        : "") +
-      step.narration +
-      this.relatedSection(step.relatedTours);
+        : "")
+      + step.narration
+      + this.relatedSection(step.relatedTours);
     const narration = new vscode.MarkdownString(body);
     narration.isTrusted = { enabledCommands: ["hdtw.followRelated"] };
     const comments: vscode.Comment[] = [
       {
         body: narration,
         mode: vscode.CommentMode.Preview,
-        author: { name: `🧭 HDTW Guide — ${step.title} (${progressLabel(active)})` },
+        author: {
+          name: `🧭 HDTW Guide — ${step.title} (${progressLabel(active)})`,
+        },
       },
     ];
-    this.thread = this.commentController.createCommentThread(fileUri, range, comments);
-    this.thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+    this.thread = this.commentController.createCommentThread(
+      fileUri,
+      range,
+      comments,
+    );
+    this.thread.collapsibleState =
+      vscode.CommentThreadCollapsibleState.Expanded;
     this.thread.canReply = false;
     this.thread.label = breadcrumbLabel(this.stack);
 
     this.updateStatusBar();
   }
 
-  private relatedSection(related: Tour["steps"][number]["relatedTours"]): string {
+  private relatedSection(
+    related: Tour["steps"][number]["relatedTours"],
+  ): string {
     if (!related || related.length === 0) {
       return "";
     }
@@ -889,7 +1028,7 @@ export class WalkController implements vscode.Disposable {
 - [ ] **Step 2: Manifest — add the command in `src/clients/vscode/package.json`** — in the `contributes.commands` array, after `hdtw.tourExit`, add:
 
 ```json
-      { "command": "hdtw.followRelated", "title": "HDTW: Follow Related Tour" }
+{ "command": "hdtw.followRelated", "title": "HDTW: Follow Related Tour" }
 ```
 
 - [ ] **Step 3: Wire `src/clients/vscode/src/extension.ts`**
@@ -911,7 +1050,10 @@ async function refreshTourTitles(root: string): Promise<void> {
   }
   try {
     const { tours } = await client.listTours(root);
-    tourTitles = new Map(tours.filter((tour) => tour.error === undefined).map((tour) => [tour.id, tour.title]));
+    tourTitles = new Map(
+      tours.filter((tour) => tour.error === undefined)
+           .map((tour) => [tour.id, tour.title]),
+    );
   } catch {
     // Leave the previous snapshot in place.
   }
@@ -921,26 +1063,26 @@ async function refreshTourTitles(root: string): Promise<void> {
 (c) In `startTour`, after fetching the tour and before constructing the controller, refresh titles and pass the lookup. Replace the body of the `try` in `startTour`:
 
 ```ts
-  try {
-    const { tour } = await client.getTour(root, tourId);
-    observer?.logger.info("tour.started", { tourId });
-    await refreshTourTitles(root);
-    walk?.dispose();
-    walk = new WalkController(root, (id) => tourTitles.get(id));
-    await walk.start(tour);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`HDTW: could not start tour: ${message}`);
-  }
+try {
+  const { tour } = await client.getTour(root, tourId);
+  observer?.logger.info("tour.started", { tourId });
+  await refreshTourTitles(root);
+  walk?.dispose();
+  walk = new WalkController(root, (id) => tourTitles.get(id));
+  await walk.start(tour);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  void vscode.window.showErrorMessage(`HDTW: could not start tour: ${message}`);
+}
 ```
 
 (d) In `generateTour`, where it auto-walks the result (`walk = new WalkController(root); await walk.start(result.tour);`), refresh titles and pass the lookup:
 
 ```ts
-    await refreshTourTitles(root);
-    walk?.dispose();
-    walk = new WalkController(root, (id) => tourTitles.get(id));
-    await walk.start(result.tour);
+await refreshTourTitles(root);
+walk?.dispose();
+walk = new WalkController(root, (id) => tourTitles.get(id));
+await walk.start(result.tour);
 ```
 
 (e) Register the follow command — in the `context.subscriptions.push(...)` block where the other `hdtw.*` commands are registered, add:
@@ -963,7 +1105,9 @@ async function followRelated(tourId: string): Promise<void> {
     await walk.pushTour(tour);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`HDTW: could not open related tour "${tourId}": ${message}`);
+    void vscode.window.showErrorMessage(
+      `HDTW: could not open related tour "${tourId}": ${message}`,
+    );
   }
 }
 ```
@@ -985,6 +1129,7 @@ git commit -m "feat(vscode): walk-stack controller with related-tour links and b
 ### Task 7: Dogfood second tour + cross-link + docs
 
 **Files:**
+
 - Create: `.hdtw/tours/anchor-verification.tour.json`
 - Modify: `.hdtw/tours/monorepo-architecture.tour.json` (add a related link)
 - Modify: `docs/product-roadmap.md`
@@ -1004,6 +1149,7 @@ console.log("sha256:"+crypto.createHash("sha256").update(text).digest("hex"));
 ```
 
 Steps (locate exact lines with `grep -n`, anchor the named construct, compute the hash, and fill real `startLine`/`endLine`/`snippetHash` — no `0`/`FILL` may survive):
+
 1. **"Hashing the snippet"** — `src/engine/core/src/anchors.ts`: the `computeSnippetHash` function. Narration: `Every anchor stores a sha256 of the exact lines it points at, computed here. This is what lets a later chunk detect when code has drifted out from under a tour — the hash recorded at authoring time no longer matches the file.`
 2. **"Verifying against the file"** — `src/engine/core/src/anchors.ts`: the `verifyAnchor` function. Narration: `The engine never trusts an anchor's line range — it independently checks the range against the real file and recomputes the hash. The agent proposes; the engine verifies. That is the core trust rule of generation.`
 
@@ -1018,12 +1164,22 @@ Assemble:
   "steps": [
     {
       "title": "Hashing the snippet",
-      "anchor": { "file": "src/engine/core/src/anchors.ts", "startLine": 0, "endLine": 0, "snippetHash": "sha256:FILL" },
+      "anchor": {
+        "file": "src/engine/core/src/anchors.ts",
+        "startLine": 0,
+        "endLine": 0,
+        "snippetHash": "sha256:FILL"
+      },
       "narration": "Every anchor stores a sha256 of the exact lines it points at, computed here. This is what lets a later chunk detect when code has drifted out from under a tour — the hash recorded at authoring time no longer matches the file."
     },
     {
       "title": "Verifying against the file",
-      "anchor": { "file": "src/engine/core/src/anchors.ts", "startLine": 0, "endLine": 0, "snippetHash": "sha256:FILL" },
+      "anchor": {
+        "file": "src/engine/core/src/anchors.ts",
+        "startLine": 0,
+        "endLine": 0,
+        "snippetHash": "sha256:FILL"
+      },
       "narration": "The engine never trusts an anchor's line range — it independently checks the range against the real file and recomputes the hash. The agent proposes; the engine verifies. That is the core trust rule of generation."
     }
   ]

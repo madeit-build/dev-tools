@@ -19,14 +19,16 @@ export function parseRecord(line: string): ObservabilityRecord | null {
     return null;
   }
   const candidate = parsed as Record<string, unknown>;
-  if (candidate.kind === "log" && typeof candidate.event === "string" && typeof candidate.ts === "number") {
+  if ( candidate.kind === "log"
+       && typeof candidate.event === "string"
+       && typeof candidate.ts === "number"
+  ) {
     return parsed as ObservabilityRecord;
   }
-  if (
-    candidate.kind === "metric" &&
-    typeof candidate.name === "string" &&
-    typeof candidate.value === "number" &&
-    typeof candidate.ts === "number"
+  if ( candidate.kind === "metric"
+       && typeof candidate.name === "string"
+       && typeof candidate.value === "number"
+       && typeof candidate.ts === "number"
   ) {
     return parsed as ObservabilityRecord;
   }

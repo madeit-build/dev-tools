@@ -17,7 +17,10 @@ describe("buildStepAnswerPrompt", () => {
     expect(prompt).toContain("Architecture");
   });
   test("tolerates a missing tour title", () => {
-    const prompt = buildStepAnswerPrompt({ ...context, tourTitle: undefined }, "q");
+    const prompt = buildStepAnswerPrompt(
+      { ...context, tourTitle: undefined },
+      "q",
+    );
     expect(prompt).toContain("(untitled)");
   });
 });

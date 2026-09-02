@@ -7,14 +7,41 @@ const valid: Graph = {
   generatedAt: "2026-08-21T00:00:00.000Z",
   flakeRef: ".",
   nodes: [
-    { id: "host:box", type: "host", label: "box", host: "box", attrs: {}, provenance: { files: [] } },
-    { id: "service:box/caddy", type: "service", label: "caddy", host: "box", attrs: {}, provenance: { files: [] } },
+    {
+      id: "host:box",
+      type: "host",
+      label: "box",
+      host: "box",
+      attrs: {},
+      provenance: { files: [] },
+    },
+    {
+      id: "service:box/caddy",
+      type: "service",
+      label: "caddy",
+      host: "box",
+      attrs: {},
+      provenance: { files: [] },
+    },
   ],
   edges: [
-    { id: "e1", from: "host:box", to: "service:box/caddy", type: "contains", source: "declared", evidence: null },
+    {
+      id: "e1",
+      from: "host:box",
+      to: "service:box/caddy",
+      type: "contains",
+      source: "declared",
+      evidence: null,
+    },
   ],
   ledger: [
-    { candidate: "dbus", host: "box", rule: "services", reason: "no-exec", detail: "no ExecStart" },
+    {
+      candidate: "dbus",
+      host: "box",
+      rule: "services",
+      reason: "no-exec",
+      detail: "no ExecStart",
+    },
   ],
 };
 
@@ -29,7 +56,10 @@ describe("validateGraph", () => {
   });
 
   it("rejects an unknown drop reason, so the ledger cannot drift", () => {
-    const bad = { ...valid, ledger: [{ ...valid.ledger[0], reason: "because" }] };
+    const bad = {
+      ...valid,
+      ledger: [{ ...valid.ledger[0], reason: "because" }],
+    };
     expect(() => validateGraph(bad)).toThrow();
   });
 
@@ -49,7 +79,12 @@ describe("validateGraph", () => {
   it("rejects a node whose provenance carries an absolute path", () => {
     const bad = {
       ...valid,
-      nodes: [{ ...valid.nodes[0], provenance: { files: ["/nix/store/aaa-source/nix/x.nix"] } }],
+      nodes: [
+        {
+          ...valid.nodes[0],
+          provenance: { files: ["/nix/store/aaa-source/nix/x.nix"] },
+        },
+      ],
     };
     expect(() => validateGraph(bad)).toThrow(/absolute path/);
   });

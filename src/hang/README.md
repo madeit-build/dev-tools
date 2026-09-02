@@ -2,12 +2,16 @@
 
 Hanging (visual) alignment for code Prettier has already formatted.
 
+<!-- prettier-ignore -->
 ```js
 // Prettier alone
 const taken = regions
     .filter((region) => !region.growing)
     .reduce((sum, region) => sum + regionRows(region, rowsOf), 0);
+```
 
+<!-- prettier-ignore -->
+```js
 // hang
 const taken = regions.filter((region) => !region.growing)
                      .reduce((sum, region) => sum + regionRows(region, rowsOf), 0);
@@ -60,10 +64,10 @@ don't widen it.
 Both live in `.prettierrc.json`, read by Prettier itself — no separate config
 file.
 
-| Key | Default | Effect |
-| --- | --- | --- |
-| `experimentalOperatorPosition` | `"end"` (Prettier's default) | Must be `"start"` for `&&`, `||`, `??` continuations to hang. |
-| `hangWidth` | `printWidth + 20` | A separate budget from `printWidth`. A hunk whose hung form would exceed it keeps Prettier's original block shape instead, recorded as `over-budget`. |
+| Key                            | Default                      | Effect                                                                                                                                                |
+| ------------------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `experimentalOperatorPosition` | `"end"` (Prettier's default) | Must be `"start"` for `&&`, `\|\|`, and `??` continuations to hang.                                                                                   |
+| `hangWidth`                    | `printWidth + 20`            | A separate budget from `printWidth`. A hunk whose hung form would exceed it keeps Prettier's original block shape instead, recorded as `over-budget`. |
 
 ## Commands
 

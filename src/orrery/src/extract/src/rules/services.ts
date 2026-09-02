@@ -1,6 +1,9 @@
 import {
-  hostId, serviceId,
-  type DropRecord, type OrreryEdge, type OrreryNode,
+  hostId,
+  serviceId,
+  type DropRecord,
+  type OrreryEdge,
+  type OrreryNode,
 } from "@made-i-t/orrery-model";
 
 // The projection. Kept as an exported constant so the fixture-capture command
@@ -35,10 +38,9 @@ export function normalizeExec(exec: unknown): string | null {
   if (typeof exec === "string") return exec.trim() || null;
   if (!Array.isArray(exec)) return null;
 
-  const real = exec
-    .filter((e): e is string => typeof e === "string")
-    .map((e) => e.trim())
-    .filter(Boolean);
+  const real = exec.filter((e): e is string => typeof e === "string")
+                   .map((e) => e.trim())
+                   .filter(Boolean);
 
   // Several real entries means several ExecStart lines, which systemd runs in
   // order. Joining keeps that visible instead of silently showing only one.
@@ -69,7 +71,10 @@ export type Lifecycle = "running" | "oneshot";
 const lifecycleOf = (type: string | null): Lifecycle =>
   type === "oneshot" ? "oneshot" : "running";
 
-export function servicesRule(host: string, raw: Record<string, RawService>): RuleResult {
+export function servicesRule(
+  host: string,
+  raw: Record<string, RawService>,
+): RuleResult {
   const nodes: OrreryNode[] = [];
   const edges: OrreryEdge[] = [];
   const ledger: DropRecord[] = [];
@@ -79,7 +84,13 @@ export function servicesRule(host: string, raw: Record<string, RawService>): Rul
     const svc = raw[unit];
 
     if (isTemplate(unit)) {
-      ledger.push({ candidate: unit, host, rule: RULE, reason: "filtered-by-rule", detail: "systemd template unit" });
+      ledger.push({
+        candidate: unit,
+        host,
+        rule: RULE,
+        reason: "filtered-by-rule",
+        detail: "systemd template unit",
+      });
       continue;
     }
 
@@ -87,7 +98,13 @@ export function servicesRule(host: string, raw: Record<string, RawService>): Rul
     // value would keep a unit that has no command at all.
     const exec = normalizeExec(svc.exec);
     if (!exec) {
-      ledger.push({ candidate: unit, host, rule: RULE, reason: "no-exec", detail: "no ExecStart" });
+      ledger.push({
+        candidate: unit,
+        host,
+        rule: RULE,
+        reason: "no-exec",
+        detail: "no ExecStart",
+      });
       continue;
     }
 
@@ -109,8 +126,11 @@ export function servicesRule(host: string, raw: Record<string, RawService>): Rul
 
     edges.push({
       id: `contains:${hostId(host)}->${id}`,
-      from: hostId(host), to: id,
-      type: "contains", source: "declared", evidence: null,
+      from: hostId(host),
+      to: id,
+      type: "contains",
+      source: "declared",
+      evidence: null,
     });
   }
 
@@ -126,8 +146,11 @@ export function servicesRule(host: string, raw: Record<string, RawService>): Rul
       if (!kept.has(depUnit)) continue;
       edges.push({
         id: `depends-on:${serviceId(host, unit)}->${serviceId(host, depUnit)}`,
-        from: serviceId(host, unit), to: serviceId(host, depUnit),
-        type: "depends-on", source: "declared", evidence: `after=${dep}`,
+        from: serviceId(host, unit),
+        to: serviceId(host, depUnit),
+        type: "depends-on",
+        source: "declared",
+        evidence: `after=${dep}`,
       });
     }
   }

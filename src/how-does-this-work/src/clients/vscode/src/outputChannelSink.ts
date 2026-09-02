@@ -1,5 +1,8 @@
 import type * as vscode from "vscode";
-import type { ObservabilityRecord, ObservabilitySink } from "@made-i-t/hdtw-observability";
+import type {
+  ObservabilityRecord,
+  ObservabilitySink,
+} from "@made-i-t/hdtw-observability";
 
 /** Renders observability records into a native VS Code LogOutputChannel. */
 export class OutputChannelSink implements ObservabilitySink {
@@ -8,7 +11,9 @@ export class OutputChannelSink implements ObservabilitySink {
   record(record: ObservabilityRecord): void {
     try {
       if (record.kind === "metric") {
-        this.channel.debug(`metric ${record.name}=${record.value}${formatFields(record.fields)}`);
+        this.channel.debug(
+          `metric ${record.name}=${record.value}${formatFields(record.fields)}`,
+        );
         return;
       }
       const line = `${record.event}${formatFields(record.fields)}`;
