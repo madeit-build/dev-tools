@@ -13,6 +13,21 @@ const CHAIN =
   "const taken = regions.filter((region) => !region.growing)" +
   ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n";
 
+const MULTI_STATEMENT =
+  'const short = xs.map(f).join(",");\n' +
+  "const taken = regions.filter((region) => !region.growing)" +
+  ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n" +
+  "const alsoShort = ys.filter(g);\n";
+
+const WITH_COMMENTS_AND_BLANKS =
+  "// leading file comment\n" +
+  "\n" +
+  "// a comment right before the chain\n" +
+  "const taken = regions.filter((region) => !region.growing)" +
+  ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n" +
+  "\n" +
+  "const other = 1;\n";
+
 let forceHangAlignFailure = false;
 
 vi.mock("@made-i-t/hang-core", async (importOriginal) => {
@@ -69,14 +84,51 @@ describe("the plugin", () => {
     expect(narrow).toBe(await prettier.format(CHAIN, base));
   });
 
-  it("feeds hangAlign exactly what Prettier alone produces", async () => {
-    const plain = await prettier.format(CHAIN, base);
-    const viaCore = hangAlign(plain, createAdapter("x.ts"), {
-      printWidth: 90,
-      hangWidth: 100,
-      tabWidth: 4,
-    }).text;
-    expect(await prettier.format(CHAIN, withPlugin)).toBe(viaCore);
+  describe("feeds hangAlign exactly what Prettier alone produces", () => {
+    // This property is what lets Task 7's --explain compute diagnostics by running
+    // hangAlign on plain Prettier output instead of the plugin. It has to hold across
+    // shapes, not just the single-chain fixture, or --explain would report decisions
+    // the plugin never actually made.
+    it("a single top-level chain", async () => {
+      const plain = await prettier.format(CHAIN, base);
+      const viaCore = hangAlign(plain, createAdapter("x.ts"), {
+        printWidth: 90,
+        hangWidth: 100,
+        tabWidth: 4,
+      }).text;
+      expect(await prettier.format(CHAIN, withPlugin)).toBe(viaCore);
+    });
+
+    it("a multi-statement file where only one statement's chain hangs", async () => {
+      const plain = await prettier.format(MULTI_STATEMENT, base);
+      const viaCore = hangAlign(plain, createAdapter("x.ts"), {
+        printWidth: 90,
+        hangWidth: 100,
+        tabWidth: 4,
+      }).text;
+      expect(await prettier.format(MULTI_STATEMENT, withPlugin)).toBe(viaCore);
+    });
+
+    it("leading comments and blank lines between statements", async () => {
+      const plain = await prettier.format(WITH_COMMENTS_AND_BLANKS, base);
+      const viaCore = hangAlign(plain, createAdapter("x.ts"), {
+        printWidth: 90,
+        hangWidth: 100,
+        tabWidth: 4,
+      }).text;
+      expect(await prettier.format(WITH_COMMENTS_AND_BLANKS, withPlugin)).toBe(viaCore);
+    });
+
+    it("a non-default tabWidth and printWidth combination", async () => {
+      const narrow = { parser: "typescript" as const, tabWidth: 2, printWidth: 60 };
+      const plain = await prettier.format(CHAIN, narrow);
+      const viaCore = hangAlign(plain, createAdapter("x.ts"), {
+        printWidth: 60,
+        hangWidth: 100,
+        tabWidth: 2,
+      }).text;
+      expect(await prettier.format(CHAIN, { ...narrow, plugins: [plugin] })).toBe(viaCore);
+    });
   });
 
   it("hangs inside a nested block, relative to that block's indent", async () => {
@@ -94,14 +146,25 @@ describe("the plugin", () => {
     expect(continuation!.length - continuation!.trimStart().length).toBe(anchor);
   });
 
-  it("fails closed: a thrown error inside hangAlign falls back to plain Prettier output", async () => {
+  it("fails closed: a thrown error falls back to plain Prettier output and never logs source text", async () => {
+    const DISTINCTIVE_SOURCE =
+      "const regionsMarkerXyzzy999 = regions.filter((region) => !region.growing)" +
+      ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n";
+    const stderrWrite = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     forceHangAlignFailure = true;
-    const [viaPlugin, plain] = await Promise.all([
-      prettier.format(CHAIN, withPlugin),
-      prettier.format(CHAIN, base),
-    ]);
-    expect(viaPlugin).toBe(plain);
-    expect(plugin.getLastFailure()).toBe("forced failure for the fail-closed test");
+    try {
+      const [viaPlugin, plain] = await Promise.all([
+        prettier.format(DISTINCTIVE_SOURCE, withPlugin),
+        prettier.format(DISTINCTIVE_SOURCE, base),
+      ]);
+      expect(viaPlugin).toBe(plain);
+      expect(plugin.getLastFailure()).toBe("forced failure for the fail-closed test");
+      expect(stderrWrite).toHaveBeenCalled();
+      const written = stderrWrite.mock.calls.map(([chunk]) => String(chunk)).join("");
+      expect(written).not.toContain("regionsMarkerXyzzy999");
+    } finally {
+      stderrWrite.mockRestore();
+    }
   });
 
   it("formats a .tsx file end-to-end: a closing tag survives alongside a hung chain", async () => {

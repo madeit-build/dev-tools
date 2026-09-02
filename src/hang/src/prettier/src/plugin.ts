@@ -13,6 +13,9 @@ const base: PrettierPrinter = (estree as PrettierPrinter).printers.estree;
 
 let lastFailure: string | null = null;
 
+/** Holds only the most recent failure across every file formatted in this process, so a
+ * multi-file consumer reading it after a batch can attribute one file's failure to another.
+ * A consumer that needs per-file attribution needs a different mechanism than this hook. */
 export const getLastFailure = (): string | null => lastFailure;
 
 export const options = {
@@ -39,6 +42,8 @@ export const printers = {
         const rendered = printer.printDocToString(doc, opts).formatted;
         const { text } = hangAlign(rendered, createAdapter(opts.filepath), {
           printWidth: opts.printWidth,
+          // Defensive fallback for a caller that bypasses Prettier's option normalization,
+          // e.g. invoking printers.estree.print directly instead of through prettier.format.
           hangWidth: opts.hangWidth ?? opts.printWidth + 20,
           tabWidth: opts.tabWidth,
         });
