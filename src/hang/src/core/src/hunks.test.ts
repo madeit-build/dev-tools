@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { indentOf, probeHunk } from "./hunks.js";
 
 const TOKENS = [".", "&&", "||", "??"] as const;
-const probe = (lines: string[], at = 0) => probeHunk(lines, at, TOKENS);
+const BRANCH_TOKENS = ["?", ":"] as const;
+const probe = (lines: string[], at = 0) => probeHunk(lines, at, TOKENS, BRANCH_TOKENS);
 
 describe("indentOf", () => {
   it("counts leading spaces", () => {
@@ -50,7 +51,11 @@ describe("probeHunk", () => {
   });
 
   it("rejects a continuation that is not indented past its head", () => {
-    expect(probe(["const t = xs", ".map(f)"])).toEqual({ kind: "reject", reason: "bad-indent" });
+    expect(probe(["const t = xs", ".map(f)"])).toEqual({
+      kind: "reject",
+      reason: "bad-indent",
+      endIndex: 1,
+    });
   });
 
   it("recognises every configured token", () => {
@@ -78,5 +83,53 @@ describe("probeHunk", () => {
   it("finds the token when it first appears on the third line of the run", () => {
     const result = probe(["const t = xs", "    a", "    b", "    .map(f);"]);
     expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 3, contIndent: 4 } });
+  });
+
+  it("rejects a run whose deeper-indented line is a call's own wrapped argument, not a branch token", () => {
+    const result = probe([
+      "const dropped = observed",
+      "    .filter(",
+      "        (r) => r.kind === 'log',",
+      "    )",
+      "    .map((r) => r.fields);",
+    ]);
+    expect(result).toEqual({ kind: "reject", reason: "nested-content", endIndex: 4 });
+  });
+
+  it("rejects a run whose deeper-indented lines are a callback's own multi-line JSX body", () => {
+    const result = probe([
+      "    {Object.entries(attrs)",
+      "        .filter(([, v]) => v !== null)",
+      "        .map(([k, v]) => (",
+      "            <div key={k} className='panel__row'>",
+      "                <span>{String(v)}</span>",
+      "            </div>",
+      "        ))}",
+    ]);
+    expect(result).toEqual({ kind: "reject", reason: "nested-content", endIndex: 6 });
+  });
+
+  it("still hangs when every deeper-indented line begins with a branch token", () => {
+    const result = probe([
+      "total +=",
+      "    typeof p === 'number'",
+      "    && p >= 0",
+      "        ? trunc(p)",
+      "        : FALLBACK;",
+    ]);
+    expect(result.kind).toBe("hunk");
+  });
+
+  it("rejects nested content even when it appears after a branch-token line", () => {
+    const result = probe([
+      "total +=",
+      "    cond",
+      "    && x >= 0",
+      "        ? trunc(p)",
+      "        : fallback(",
+      "            deeper,",
+      "        )",
+    ]);
+    expect(result).toEqual({ kind: "reject", reason: "nested-content", endIndex: 6 });
   });
 });

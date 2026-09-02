@@ -6,12 +6,14 @@ const OPTIONS: HangOptions = { printWidth: 80, hangWidth: 100, tabWidth: 4 };
 
 const acceptAll: Adapter = {
   continuationTokens: [".", "&&", "||", "??"],
+  branchTokens: ["?", ":"],
   verify: () => true,
 };
 
 /** Rejects any candidate text containing the marker, to exercise the fallback. */
 const rejectContaining = (marker: string): Adapter => ({
   continuationTokens: [".", "&&", "||", "??"],
+  branchTokens: ["?", ":"],
   verify: (_before, after) => !after.includes(marker),
 });
 
@@ -120,6 +122,19 @@ describe("hangAlign", () => {
         "",
       ].join("\r\n"),
     );
+  });
+
+  it("refuses a run whose chain link carries its own wrapped arguments as nested content", () => {
+    const input = [
+      "const dropped = observed",
+      "    .filter(",
+      "        (r) => r.kind === 'log',",
+      "    )",
+      "    .map((r) => r.fields);",
+    ].join("\n");
+    const result = hangAlign(input, acceptAll, OPTIONS);
+    expect(result.text).toBe(input);
+    expect(result.decisions).toEqual([{ line: 1, applied: false, reason: "nested-content" }]);
   });
 
   it("leaves a uniformly LF input's endings untouched", () => {

@@ -19,11 +19,20 @@ const startsWithToken = (line: string, tokens: readonly string[]): boolean => {
  * scans every line at the continuation's own indent level, not just the
  * first: `typeof p === 'number' && p >= 0` puts the operand before the
  * operator, so the token can show up on the second line of the run.
+ *
+ * A deeper-indented line is only ever legitimate when it is still part of the
+ * expression, e.g. a ternary's `?`/`:` branch. Anything else deeper than the
+ * continuation indent is a chain link's own nested content -- a call's
+ * wrapped arguments, a callback's multi-line body -- and join-and-shift would
+ * drag it out to the anchor column along with the rest of the run. That is
+ * meaning-preserving but visually wrong, so the whole run is refused rather
+ * than partially hung.
  */
 export function probeHunk(
   lines: readonly string[],
   headIndex: number,
   tokens: readonly string[],
+  branchTokens: readonly string[],
 ): HunkProbe {
   const head = lines[headIndex];
   const first = lines[headIndex + 1];
@@ -31,17 +40,21 @@ export function probeHunk(
 
   const contIndent = indentOf(first);
   let hasToken = startsWithToken(first, tokens);
+  let hasNestedContent = false;
 
   let endIndex = headIndex + 1;
   while (endIndex + 1 < lines.length) {
     const next = lines[endIndex + 1];
     if (next.trim() === "" || indentOf(next) < contIndent) break;
     endIndex++;
-    if (indentOf(next) === contIndent && startsWithToken(next, tokens)) hasToken = true;
+    const nextIndent = indentOf(next);
+    if (nextIndent === contIndent && startsWithToken(next, tokens)) hasToken = true;
+    if (nextIndent > contIndent && !startsWithToken(next, branchTokens)) hasNestedContent = true;
   }
 
   if (!hasToken) return { kind: "skip" };
-  if (contIndent <= indentOf(head)) return { kind: "reject", reason: "bad-indent" };
+  if (contIndent <= indentOf(head)) return { kind: "reject", reason: "bad-indent", endIndex };
+  if (hasNestedContent) return { kind: "reject", reason: "nested-content", endIndex };
 
   return { kind: "hunk", hunk: { headIndex, endIndex, contIndent } };
 }

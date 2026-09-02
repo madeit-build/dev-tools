@@ -30,14 +30,17 @@ function collect(
   let index = 0;
 
   while (index < lines.length) {
-    const probe = probeHunk(lines, index, adapter.continuationTokens);
+    const probe = probeHunk(lines, index, adapter.continuationTokens, adapter.branchTokens);
     if (probe.kind === "skip") {
       index += 1;
       continue;
     }
     if (probe.kind === "reject") {
       decisions.push({ line: index + 1, applied: false, reason: probe.reason });
-      index += 1;
+      // Same principle as the over-budget skip below: a rejected run is not
+      // retried from inside it, which would just re-hit its own continuation
+      // lines as spurious further rejections.
+      index = probe.endIndex + 1;
       continue;
     }
     const replacement = buildReplacement(lines, probe.hunk);
