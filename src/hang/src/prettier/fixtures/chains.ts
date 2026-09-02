@@ -15,4 +15,9 @@ export const CHAINS: Record<string, string> = {
     "function f() {\n  const t = regions.filterOutTheGrowingOnes((r) => !r.growing).reduceToTotal((s, r) => s + r, 0);\n}\n",
   lineCommentBetweenLinks:
     "const c = things.filterOutDisabled((x) => x.on)\n  // drop the tiny ones\n  .reduceToTotal((s, x) => s + x, 0);\n",
+  // Every other fixture's chain hangs off a VariableDeclarator. This one is a
+  // bare ExpressionStatement, a different head shape for buildReplacement's
+  // anchor arithmetic to get right.
+  bareExpressionStatement:
+    "emitter.registerHandler(onChangeCallback).withRetryPolicy(retryPolicyConfig).startListening();\n",
 };
