@@ -8,6 +8,7 @@ interface FormatWidths {
   printWidth?: number;
   hangWidth?: number;
   tabWidth?: number;
+  useTabs?: boolean;
 }
 
 /**
@@ -30,6 +31,7 @@ export function resolveHangOptions(options: FormatWidths): HangOptions {
     printWidth: options.printWidth ?? 80,
     hangWidth: options.hangWidth ?? pluginOptions.hangWidth.default,
     tabWidth: options.tabWidth ?? 2,
+    useTabs: options.useTabs ?? false,
   };
 }
 
@@ -41,6 +43,8 @@ const REASONS: Record<RejectReason, string> = {
   "opens-delimiter":
     "head ends with its own opening delimiter, which the run does not close",
   "single-link": "only one link: nothing to align by joining it up",
+  "use-tabs":
+    "useTabs is set: hang can't compute columns across tab indentation yet",
 };
 
 const describe = (decision: Decision): string =>

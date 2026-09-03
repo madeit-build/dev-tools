@@ -13,6 +13,7 @@ interface ResolvedConfig {
   printWidth?: number;
   hangWidth?: number;
   experimentalOperatorPosition?: string;
+  useTabs?: boolean;
 }
 
 // Matches only a token that BEGINS a path - at the start of the string or
@@ -198,6 +199,22 @@ export async function collectChecks(root: string): Promise<Check[]> {
         ok: hangWidth >= printWidth,
         detail: `hangWidth ${hangWidth}, printWidth ${printWidth}`,
         fix: "raise hangWidth: a budget below printWidth skips every candidate",
+      },
+    },
+    {
+      needsConfig: true,
+      check: {
+        name: "useTabs not set",
+        // indentOf counts characters, not visual columns: a tab-indented
+        // head and a space-indented continuation would misalign by
+        // tabWidth - 1 per tab, so the engine refuses every candidate
+        // outright ("use-tabs") rather than emit a misaligned hang.
+        ok: config.useTabs !== true,
+        detail:
+          config.useTabs === true
+            ? "useTabs is true: every candidate is refused"
+            : "useTabs is unset or false",
+        fix: 'set "useTabs": false, or accept that hang will refuse every candidate in this project',
       },
     },
   ];

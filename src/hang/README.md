@@ -59,6 +59,12 @@ from its main entry, exposing only `version`. Without `createScanner`, the
 synchronous safety guard has nothing to verify against, so pin the range and
 don't widen it.
 
+**`useTabs: true` disables hang entirely, refusing every candidate.** Column
+arithmetic counts characters, not visual columns, so a tab-indented head and
+a space-indented continuation would misalign by `tabWidth - 1` per tab.
+Rather than emit a misaligned hang, every candidate is refused
+(`use-tabs`). `hang doctor` reports this.
+
 ## Config keys
 
 Both live in `.prettierrc.json`, read by Prettier itself — no separate config
@@ -83,15 +89,20 @@ what an editor running Prettier produces.
 `--explain` reports every candidate line that began a continuation run, plus
 the reason it was kept or skipped: `hung`, or skipped for `over-budget`,
 `verify-rejected` (the safety guard rejected the edit because it would change
-meaning), or `bad-indent` (the continuation isn't indented past its head).
+meaning), `bad-indent` (the continuation isn't indented past its head),
+`nested-content` (a link in the chain has its own multi-line content),
+`opens-delimiter` (the head ends with its own opening delimiter, which the
+run does not close — the `if (` shape), `single-link` (only one link, so
+there's nothing to align by joining it up), or `use-tabs` (`useTabs` is set).
 This is not a debug flag — the underlying decision log is recorded on every
 run, so `--explain` never requires re-running anything to answer "why didn't
 this hang."
 
 `doctor` exits 0 only when every check passes: Prettier resolves, the
 installed Prettier supports `experimentalOperatorPosition`, the plugin is
-actually loaded (not just listed), the TypeScript scanner is available, and
-both config keys above are set to values that will actually produce a hang.
+actually loaded (not just listed), the TypeScript scanner is available, both
+config keys above are set to values that will actually produce a hang, and
+`useTabs` isn't set.
 
 ## Safety
 

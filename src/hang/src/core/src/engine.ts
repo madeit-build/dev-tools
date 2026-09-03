@@ -49,6 +49,15 @@ function collect(
       index = probe.endIndex + 1;
       continue;
     }
+    if (options.useTabs) {
+      // indentOf counts characters, not visual columns, so a tab-indented
+      // head and a space-indented continuation misalign by tabWidth - 1 per
+      // tab. Expanding tabs to columns is the real fix; refusing every
+      // candidate is the honest one until that lands.
+      decisions.push({ line: index + 1, applied: false, reason: "use-tabs" });
+      index = probe.hunk.endIndex + 1;
+      continue;
+    }
     const replacement = buildReplacement(lines, probe.hunk);
     if (replacement.links < 2) {
       // A single link buys nothing: there is no second continuation line

@@ -93,6 +93,13 @@ than an error, so anyone touching this tool needs to know them going in:
 "versionMajorMinor"]`. Without a scanner the safety guard has nothing to
   compare, so `doctor` checks `createScanner` directly rather than trusting
   the version string.
+- **`useTabs: true` silently refuses every candidate.** `indentOf` (hunks.ts)
+  counts characters, not visual columns, so a tab-indented head plus a
+  space-indented continuation (or the reverse) would misalign by
+  `tabWidth - 1` per tab. Rather than emit that, the engine refuses every
+  candidate outright (`RejectReason "use-tabs"`) when `HangOptions.useTabs`
+  is true. Expanding tabs to visual columns would be the real fix; it isn't
+  implemented. `doctor`'s "useTabs not set" check reports this.
 
 Also worth knowing, since they're real and easy to mistake for bugs:
 

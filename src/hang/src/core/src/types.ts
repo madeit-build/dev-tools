@@ -2,6 +2,14 @@ export interface HangOptions {
   printWidth: number;
   hangWidth: number;
   tabWidth: number;
+  /** True when the source is tab-indented. indentOf (hunks.ts) counts
+   * characters, not visual columns, so a tab-indented head plus a
+   * space-indented continuation (or the reverse) would misalign by
+   * tabWidth - 1 per tab. Expanding tabs to visual columns is the real fix
+   * and is not implemented; every candidate is refused instead. Defaults to
+   * false so every existing caller that never set it keeps behaving exactly
+   * as before. */
+  useTabs?: boolean;
 }
 
 export type RejectReason =
@@ -10,6 +18,7 @@ export type RejectReason =
   | "opens-delimiter"
   | "over-budget"
   | "single-link"
+  | "use-tabs"
   | "verify-rejected";
 
 // The "never logs source text" guarantee lives here, structurally: every

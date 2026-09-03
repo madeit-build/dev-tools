@@ -174,6 +174,19 @@ describe("hangAlign", () => {
     ]);
   });
 
+  it("refuses every candidate when useTabs is set, with a reject reason", () => {
+    const input = [
+      "const taken = regions",
+      "    .filter(f)",
+      "    .reduce(g, 0);",
+    ].join("\n");
+    const result = hangAlign(input, acceptAll, { ...OPTIONS, useTabs: true });
+    expect(result.text).toBe(input);
+    expect(result.decisions).toEqual([
+      { line: 1, applied: false, reason: "use-tabs" },
+    ]);
+  });
+
   it("refuses a hunk with only one link: nothing is bought by aligning it", () => {
     const input = ["const value = something", "    .property;"].join("\n");
     const result = hangAlign(input, acceptAll, OPTIONS);

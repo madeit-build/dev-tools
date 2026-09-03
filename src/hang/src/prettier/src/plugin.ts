@@ -62,6 +62,7 @@ export const printers = {
           // already filled opts.hangWidth with that same default.
           hangWidth: opts.hangWidth ?? options.hangWidth.default,
           tabWidth: opts.tabWidth,
+          useTabs: opts.useTabs,
         });
         lastFailure = null;
         return builders.join(builders.literalline, text.split("\n"));

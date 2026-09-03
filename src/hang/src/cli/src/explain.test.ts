@@ -21,6 +21,7 @@ describe("formatDecisions", () => {
       { line: 20, applied: false, reason: "nested-content" },
       { line: 25, applied: false, reason: "opens-delimiter" },
       { line: 30, applied: false, reason: "single-link" },
+      { line: 35, applied: false, reason: "use-tabs" },
     ];
     expect(formatDecisions("src/b.ts", decisions)).toBe(
       [
@@ -31,6 +32,7 @@ describe("formatDecisions", () => {
         "  line 20  skipped   a link in this chain has its own multi-line content",
         "  line 25  skipped   head ends with its own opening delimiter, which the run does not close",
         "  line 30  skipped   only one link: nothing to align by joining it up",
+        "  line 35  skipped   useTabs is set: hang can't compute columns across tab indentation yet",
       ].join("\n"),
     );
   });
@@ -51,6 +53,7 @@ describe("resolveHangOptions", () => {
       printWidth: 60,
       hangWidth: pluginOptions.hangWidth.default,
       tabWidth: 4,
+      useTabs: false,
     });
   });
 
@@ -59,6 +62,7 @@ describe("resolveHangOptions", () => {
       printWidth: 80,
       hangWidth: pluginOptions.hangWidth.default,
       tabWidth: 2,
+      useTabs: false,
     });
   });
 
@@ -73,5 +77,9 @@ describe("resolveHangOptions", () => {
     });
     expect(resolved.hangWidth).toBe(configured);
     expect(resolved.hangWidth).not.toBe(pluginOptions.hangWidth.default);
+  });
+
+  it("passes useTabs through so a tab-indented project's decisions match the plugin's own refusal", () => {
+    expect(resolveHangOptions({ useTabs: true }).useTabs).toBe(true);
   });
 });

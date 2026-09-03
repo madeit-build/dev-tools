@@ -24,6 +24,7 @@ describe("collectChecks", () => {
       "typescript scanner available",
       "operator position configured",
       "hangWidth at least printWidth",
+      "useTabs not set",
     ]);
   });
 
@@ -41,6 +42,7 @@ describe("collectChecks against a broken environment", () => {
   let malformedConfig = "";
   let scopedPlugin = "";
   let wideProject = "";
+  let tabsProject = "";
 
   beforeAll(async () => {
     base = await realpath(await mkdtemp(join(tmpdir(), "hang-doctor-")));
@@ -48,10 +50,16 @@ describe("collectChecks against a broken environment", () => {
     malformedConfig = join(base, "malformed-config");
     scopedPlugin = join(base, "scoped-plugin");
     wideProject = join(base, "wide-project");
+    tabsProject = join(base, "tabs-project");
     await mkdir(brokenPlugin);
     await mkdir(malformedConfig);
     await mkdir(scopedPlugin);
     await mkdir(wideProject);
+    await mkdir(tabsProject);
+    await writeFile(
+      join(tabsProject, ".prettierrc.json"),
+      JSON.stringify({ useTabs: true }),
+    );
     // Regression: hangWidth's fallback used to be computed three different
     // ways (a dead printWidth + 20 in plugin.ts, an independent printWidth +
     // 20 here, and the plugin's real declared default of 100 in explain.ts).
@@ -147,6 +155,7 @@ describe("collectChecks against a broken environment", () => {
     expect(names).not.toContain("plugin loaded");
     expect(names).not.toContain("operator position configured");
     expect(names).not.toContain("hangWidth at least printWidth");
+    expect(names).not.toContain("useTabs not set");
   });
 
   it("keeps a scoped package specifier intact instead of mangling it as a path", async () => {
@@ -169,6 +178,13 @@ describe("collectChecks against a broken environment", () => {
     );
     expect(hangWidthCheck?.ok).toBe(false);
     expect(hangWidthCheck?.detail).toBe("hangWidth 100, printWidth 120");
+  });
+
+  it("fails useTabs-not-set when the project configures useTabs", async () => {
+    const checks = await collectChecks(tabsProject);
+    const useTabsCheck = checks.find((c) => c.name === "useTabs not set");
+    expect(useTabsCheck?.ok).toBe(false);
+    expect(useTabsCheck?.detail).toContain("useTabs is true");
   });
 });
 
