@@ -146,6 +146,37 @@ describe("the plugin", () => {
     expect(continuation!.length - continuation!.trimStart().length).toBe(anchor);
   });
 
+  it("joins a wrapped if-condition with no glue after its own opening paren", async () => {
+    // Regression for a dogfood defect (10 of 35 hung chains, ~29%, across the
+    // monorepo): buildReplacement's glue rule special-cased member access but
+    // had no case for "head already ends with its own opening delimiter", so
+    // this used to render as `if ( candidate.kind === "log"`, a single stray
+    // space worse than Prettier's own output. Needs experimentalOperatorPosition:
+    // "start" to reproduce the real config, since only then does a leading "&&"
+    // give the run a token to hang on.
+    const narrow = {
+      parser: "typescript" as const,
+      tabWidth: 2,
+      printWidth: 50,
+      experimentalOperatorPosition: "start" as const,
+    };
+    const src =
+      'function f(candidate: { kind: unknown }): boolean {\n  if (candidate.kind === "log" && typeof candidate.kind === "string") {\n    return true;\n  }\n  return false;\n}\n';
+    const out = await prettier.format(src, { ...narrow, plugins: [plugin] });
+    expect(out).toBe(
+      "function f(candidate: {\n" +
+        "  kind: unknown;\n" +
+        "}): boolean {\n" +
+        '  if (candidate.kind === "log"\n' +
+        '      && typeof candidate.kind === "string"\n' +
+        "  ) {\n" +
+        "    return true;\n" +
+        "  }\n" +
+        "  return false;\n" +
+        "}\n",
+    );
+  });
+
   it("fails closed: a thrown error falls back to plain Prettier output and never logs source text", async () => {
     const DISTINCTIVE_SOURCE =
       "const regionsMarkerXyzzy999 = regions.filter((region) => !region.growing)" +
