@@ -98,9 +98,12 @@ Also worth knowing, since they're real and easy to mistake for bugs:
 
 - `hang` only rearranges breaks Prettier already made. A chain that fits on
   one line under `printWidth` stays on one line; there is nothing to hang.
-- `hangWidth` (default `printWidth + 20`) is a budget separate from
-  `printWidth`. A hunk whose hung form would exceed it is left in Prettier's
-  block form and recorded as `over-budget` — not an error, just a decision.
+- `hangWidth` (default `100`, declared as a literal in `plugin.ts` — Prettier
+  option defaults can't be computed from another option's resolved value) is a
+  budget separate from `printWidth`. A hunk whose hung form would exceed it is
+  left in Prettier's block form and recorded as `over-budget` — not an error,
+  just a decision. `doctor` and `--explain` both read the same declared
+  default rather than each computing their own guess at it.
 - `hang --explain` is a printer over data the run already produced, not a
   separate analysis path. `decisions` is populated on every run
   unconditionally, so "why didn't this hang" never requires adding

@@ -191,11 +191,16 @@ rather than trusting the version string.
 
 ## Overflow policy
 
-Alignment costs horizontal room, so `hangWidth` is a separate budget defaulting
-to `printWidth + 20`. A hunk that would exceed it is left in Prettier's block
-form and recorded as `over-budget`. This keeps the common case visually
-consistent, hard-stops pathological lines, and makes "why did this not align"
-answerable with one number.
+Alignment costs horizontal room, so `hangWidth` is a separate budget, declared
+as a Prettier plugin option with a literal default of `100`. It cannot default
+to `printWidth + 20` in practice: Prettier's option schema requires a static
+default value, computed once when the plugin is declared, not a function of
+another option's resolved value. `doctor` and `--explain` both read the same
+literal (`pluginOptions.hangWidth.default`) rather than each computing their
+own guess at it, which is what makes them agree. A hunk that would exceed the
+budget is left in Prettier's block form and recorded as `over-budget`. This
+keeps the common case visually consistent, hard-stops pathological lines, and
+makes "why did this not align" answerable with one number.
 
 ## Security
 

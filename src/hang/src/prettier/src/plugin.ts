@@ -13,9 +13,10 @@ const base: PrettierPrinter = (estree as PrettierPrinter).printers.estree;
 
 let lastFailure: string | null = null;
 
-/** Holds only the most recent failure across every file formatted in this process, so a
- * multi-file consumer reading it after a batch can attribute one file's failure to another.
- * A consumer that needs per-file attribution needs a different mechanism than this hook. */
+/** Test-only hook: holds only the most recent failure across every file formatted in this
+ * process, so a test can assert on the fail-closed path without scraping stderr. Not consumed
+ * by `doctor`, which never formats a file and so never populates this. A multi-file consumer
+ * needing per-file attribution needs a different mechanism than this hook. */
 export const getLastFailure = (): string | null => lastFailure;
 
 export const options = {
@@ -53,9 +54,13 @@ export const printers = {
         }).formatted;
         const { text } = hangAlign(rendered, createAdapter(opts.filepath), {
           printWidth: opts.printWidth,
-          // Defensive fallback for a caller that bypasses Prettier's option normalization,
-          // e.g. invoking printers.estree.print directly instead of through prettier.format.
-          hangWidth: opts.hangWidth ?? opts.printWidth + 20,
+          // Falls back to the same literal this module declares as
+          // options.hangWidth.default, for a caller that bypasses Prettier's
+          // option normalization (e.g. invoking printers.estree.print
+          // directly instead of through prettier.format). Through the normal
+          // prettier.format path this is never reached: normalization has
+          // already filled opts.hangWidth with that same default.
+          hangWidth: opts.hangWidth ?? options.hangWidth.default,
           tabWidth: opts.tabWidth,
         });
         lastFailure = null;

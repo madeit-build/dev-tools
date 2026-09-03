@@ -40,15 +40,28 @@ describe("collectChecks against a broken environment", () => {
   let brokenPlugin = "";
   let malformedConfig = "";
   let scopedPlugin = "";
+  let wideProject = "";
 
   beforeAll(async () => {
     base = await realpath(await mkdtemp(join(tmpdir(), "hang-doctor-")));
     brokenPlugin = join(base, "broken-plugin");
     malformedConfig = join(base, "malformed-config");
     scopedPlugin = join(base, "scoped-plugin");
+    wideProject = join(base, "wide-project");
     await mkdir(brokenPlugin);
     await mkdir(malformedConfig);
     await mkdir(scopedPlugin);
+    await mkdir(wideProject);
+    // Regression: hangWidth's fallback used to be computed three different
+    // ways (a dead printWidth + 20 in plugin.ts, an independent printWidth +
+    // 20 here, and the plugin's real declared default of 100 in explain.ts).
+    // At printWidth 120 those two formulas disagree with the real default,
+    // so this config used to pass a check that should fail: the plugin
+    // actually budgets 100, well under this project's printWidth of 120.
+    await writeFile(
+      join(wideProject, ".prettierrc.json"),
+      JSON.stringify({ printWidth: 120 }),
+    );
     // A relative plugin specifier is an ordinary prettier config pattern.
     // Node's resolution failure for it embeds an absolute path twice (the
     // resolved plugin path and the resolver's own location) - the scrub
@@ -147,6 +160,15 @@ describe("collectChecks against a broken environment", () => {
   it("never leaks an absolute filesystem path for a scoped plugin failure either", async () => {
     const checks = await collectChecks(scopedPlugin);
     assertNoAbsolutePaths(checks, scopedPlugin);
+  });
+
+  it("fails hangWidth-at-least-printWidth at printWidth 120 with no hangWidth configured, using the plugin's real default", async () => {
+    const checks = await collectChecks(wideProject);
+    const hangWidthCheck = checks.find(
+      (c) => c.name === "hangWidth at least printWidth",
+    );
+    expect(hangWidthCheck?.ok).toBe(false);
+    expect(hangWidthCheck?.detail).toBe("hangWidth 100, printWidth 120");
   });
 });
 

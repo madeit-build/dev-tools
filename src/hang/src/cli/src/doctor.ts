@@ -1,4 +1,4 @@
-import { hasScanner } from "@made-i-t/hang-prettier";
+import { hasScanner, options as pluginOptions } from "@made-i-t/hang-prettier";
 import * as prettier from "prettier";
 
 export interface Check {
@@ -123,7 +123,12 @@ export async function collectChecks(root: string): Promise<Check[]> {
   }
 
   const printWidth = config.printWidth ?? 80;
-  const hangWidth = config.hangWidth ?? printWidth + 20;
+  // The plugin's declared option default is the one value Prettier's own
+  // normalization actually fills in when hangWidth is unset (see plugin.ts).
+  // Computing a fallback independently here used to drift from that -
+  // printWidth + 20 looked plausible but was never what an unconfigured
+  // project actually got at print time.
+  const hangWidth = config.hangWidth ?? pluginOptions.hangWidth.default;
 
   const checkDefinitions: { needsConfig: boolean; check: Check }[] = [
     {

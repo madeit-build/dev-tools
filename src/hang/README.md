@@ -67,7 +67,7 @@ file.
 | Key                            | Default                      | Effect                                                                                                                                                |
 | ------------------------------ | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `experimentalOperatorPosition` | `"end"` (Prettier's default) | Must be `"start"` for `&&`, `\|\|`, and `??` continuations to hang.                                                                                   |
-| `hangWidth`                    | `printWidth + 20`            | A separate budget from `printWidth`. A hunk whose hung form would exceed it keeps Prettier's original block shape instead, recorded as `over-budget`. |
+| `hangWidth`                    | `100`                        | A separate budget from `printWidth`. A hunk whose hung form would exceed it keeps Prettier's original block shape instead, recorded as `over-budget`. |
 
 ## Commands
 
