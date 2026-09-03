@@ -31,10 +31,9 @@ const WINDOWS_DRIVE_PATH = /(?<=^|[\s'"(])[A-Za-z]:\\[^\s'")]+/g;
 const UNC_PATH = /(?<=^|[\s'"(])\\\\[^\s'")]+/g;
 
 function redactPaths(text: string): string {
-  return text
-    .replace(POSIX_PATH, "<path>")
-    .replace(WINDOWS_DRIVE_PATH, "<path>")
-    .replace(UNC_PATH, "<path>");
+  return text.replace(POSIX_PATH, "<path>")
+             .replace(WINDOWS_DRIVE_PATH, "<path>")
+             .replace(UNC_PATH, "<path>");
 }
 
 // prettier.resolveConfig's JSON parse failure embeds both the config's
@@ -43,16 +42,14 @@ function redactPaths(text: string): string {
 // either a local path or the config's own source text, both forbidden.
 function describeConfigError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  const positionLine = message
-    .split("\n")
-    .find((line) => /\bat position \d+/.test(line));
+  const positionLine = message.split("\n")
+                              .find((line) => /\bat position \d+/.test(line));
   return redactPaths(positionLine?.trim() ?? "config could not be parsed");
 }
 
 function optionNames(support: prettier.SupportInfo): Set<string> {
-  const names = support.options
-    .map((option) => option.name)
-    .filter((name): name is string => name !== undefined);
+  const names = support.options.map((option) => option.name)
+                               .filter((name): name is string => name !== undefined);
   return new Set(names);
 }
 
@@ -87,8 +84,7 @@ export async function collectChecks(root: string): Promise<Check[]> {
   let config: ResolvedConfig = {};
   let configError: unknown = null;
   try {
-    config = ((await prettier.resolveConfig(`${root}/index.ts`)) ??
-      {}) as ResolvedConfig;
+    config = ((await prettier.resolveConfig(`${root}/index.ts`)) ?? {}) as ResolvedConfig;
   } catch (error) {
     configError = error;
   }

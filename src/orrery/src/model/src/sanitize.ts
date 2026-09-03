@@ -13,7 +13,10 @@ const STORE_PATH_PREFIX = new RegExp(`^/nix/store/${STORE_HASH}-[^/]+/(.*)$`);
 // The same shape found anywhere in a string, used for values like ExecStart.
 // The name is kept and the hash dropped: the name says what runs, the hash is
 // machine-specific churn and a local filesystem detail.
-const STORE_PATH_ANYWHERE = new RegExp(`/nix/store/${STORE_HASH}-([^/\\s]+)`, "g");
+const STORE_PATH_ANYWHERE = new RegExp(
+  `/nix/store/${STORE_HASH}-([^/\\s]+)`,
+  "g",
+);
 
 // Any absolute path under any user's home, on macOS or Linux. Deliberately not
 // requiring a repo-shaped tail: the original version only stripped paths whose
@@ -24,7 +27,8 @@ const HOME_PATH_ANYWHERE = /\/(?:Users|home)\/[^/\s]+(?=\/)/g;
 // A home path whose tail looks like it sits inside a repo. Used only for
 // provenance, where a repo-relative path is both possible and more useful
 // than a tilde.
-const HOME_REPO_PATH = /^\/(?:Users|home)\/[^/]+\/(?:.*\/)?[^/]+\/((?:nix|src|docs)\/.*)$/;
+const HOME_REPO_PATH =
+  /^\/(?:Users|home)\/[^/]+\/(?:.*\/)?[^/]+\/((?:nix|src|docs)\/.*)$/;
 
 // For source-file provenance: the path inside the repo, or inside the flake.
 export function toRepoPath(p: string): string {
@@ -41,9 +45,8 @@ export function toRepoPath(p: string): string {
 // evidence, ledger details. Keeps the string readable while removing store
 // hashes and usernames, both of which are local filesystem structure.
 export function scrubText(s: string): string {
-  return s
-    .replace(STORE_PATH_ANYWHERE, "<store>/$1")
-    .replace(HOME_PATH_ANYWHERE, "~");
+  return s.replace(STORE_PATH_ANYWHERE, "<store>/$1")
+          .replace(HOME_PATH_ANYWHERE, "~");
 }
 
 // Matches on the NAME, never the value. A name is an architectural fact worth
@@ -106,7 +109,11 @@ function sanitizeEdge(e: OrreryEdge): OrreryEdge {
 }
 
 function sanitizeDrop(r: DropRecord): DropRecord {
-  return { ...r, candidate: scrubText(r.candidate), detail: scrubText(r.detail) };
+  return {
+    ...r,
+    candidate: scrubText(r.candidate),
+    detail: scrubText(r.detail),
+  };
 }
 
 export function sanitizeGraph(g: Graph): Graph {

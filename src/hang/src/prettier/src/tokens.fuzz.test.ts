@@ -83,7 +83,8 @@ const CORRUPTING_SHAPES: readonly Shape[] = [
     // A tagged template whose own tail carries the corruption, with a
     // backtick-bearing regex earlier in the same substitution.
     name: "tagged-template-with-regex-backtick-corrupt-tail",
-    before: "const msg = tag`hi ${/`/.test(s) ? a : b} there\n    .b not a chain`;\n",
+    before:
+      "const msg = tag`hi ${/`/.test(s) ? a : b} there\n    .b not a chain`;\n",
     after: "const msg = tag`hi ${/`/.test(s) ? a : b} there.b not a chain`;\n",
   },
   {
@@ -106,22 +107,22 @@ const NEUTRAL_SHAPES: readonly Shape[] = CORRUPTING_SHAPES.map((shape) => ({
 }));
 
 const NOISE_BLOCKS: readonly string[] = [
-  'const msg1 = `hi ${name} there`;\n',
-  'const nested1 = `outer ${`inner ${x}`} end`;\n',
-  'const tagged1 = tag`hi ${y} there`;\n',
-  'const obj1 = { a: 1, b: { c: 2 } };\n',
-  'const objInSub = `hi ${f({ a: 1 })} there`;\n',
-  'const re1 = /x{/;\n',
-  'const re2 = /x}/;\n',
-  'const re3 = /\\{/;\n',
-  'const re4 = /a{2}/;\n',
-  'const re5 = /`/;\n',
+  "const msg1 = `hi ${name} there`;\n",
+  "const nested1 = `outer ${`inner ${x}`} end`;\n",
+  "const tagged1 = tag`hi ${y} there`;\n",
+  "const obj1 = { a: 1, b: { c: 2 } };\n",
+  "const objInSub = `hi ${f({ a: 1 })} there`;\n",
+  "const re1 = /x{/;\n",
+  "const re2 = /x}/;\n",
+  "const re3 = /\\{/;\n",
+  "const re4 = /a{2}/;\n",
+  "const re5 = /`/;\n",
   'const reInSub = `${/\\{/.test(s) ? "o" : "x"}`;\n',
-  'const div1 = `${a / b}`;\n',
-  '// a line comment with a { brace\n',
-  '/* a block comment with a } brace */\n',
+  "const div1 = `${a / b}`;\n",
+  "// a line comment with a { brace\n",
+  "/* a block comment with a } brace */\n",
   'const str1 = "a string with { and } braces";\n',
-  '',
+  "",
 ];
 
 const SEED = 20260902;
@@ -147,30 +148,38 @@ function wrap(shape: Shape, rand: () => number): Shape {
   };
 }
 
-describe("sameTokens fuzz: corruption embedded inside the ambiguous construct, seed " + SEED, () => {
-  const rand = mulberry32(SEED);
-  const acceptedCorruptions: string[] = [];
-  const rejectedNeutrals: string[] = [];
+describe(
+  "sameTokens fuzz: corruption embedded inside the ambiguous construct, seed "
+    + SEED,
+  () => {
+    const rand = mulberry32(SEED);
+    const acceptedCorruptions: string[] = [];
+    const rejectedNeutrals: string[] = [];
 
-  for (let i = 0; i < ITERATIONS; i++) {
-    const corrupting = rand() < 0.5;
-    const pool = corrupting ? CORRUPTING_SHAPES : NEUTRAL_SHAPES;
-    const shape = wrap(pool[Math.floor(rand() * pool.length)], rand);
-    const verdict = sameTokens(shape.before, shape.after, "standard");
+    for (let i = 0; i < ITERATIONS; i++) {
+      const corrupting = rand() < 0.5;
+      const pool = corrupting ? CORRUPTING_SHAPES : NEUTRAL_SHAPES;
+      const shape = wrap(pool[Math.floor(rand() * pool.length)], rand);
+      const verdict = sameTokens(shape.before, shape.after, "standard");
 
-    if (corrupting && verdict) {
-      acceptedCorruptions.push(`iteration ${i} (${shape.name}): accepted a real corruption`);
+      if (corrupting && verdict) {
+        acceptedCorruptions.push(
+          `iteration ${i} (${shape.name}): accepted a real corruption`,
+        );
+      }
+      if (!corrupting && !verdict) {
+        rejectedNeutrals.push(
+          `iteration ${i} (${shape.name}): rejected a no-op change`,
+        );
+      }
     }
-    if (!corrupting && !verdict) {
-      rejectedNeutrals.push(`iteration ${i} (${shape.name}): rejected a no-op change`);
-    }
-  }
 
-  it(`never accepts a corruption embedded in an ambiguous construct, across ${ITERATIONS} generated cases`, () => {
-    expect(acceptedCorruptions).toEqual([]);
-  });
+    it(`never accepts a corruption embedded in an ambiguous construct, across ${ITERATIONS} generated cases`, () => {
+      expect(acceptedCorruptions).toEqual([]);
+    });
 
-  it(`never rejects the same constructs with no corruption, across ${ITERATIONS} generated cases`, () => {
-    expect(rejectedNeutrals).toEqual([]);
-  });
-});
+    it(`never rejects the same constructs with no corruption, across ${ITERATIONS} generated cases`, () => {
+      expect(rejectedNeutrals).toEqual([]);
+    });
+  },
+);

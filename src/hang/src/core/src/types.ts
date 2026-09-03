@@ -4,7 +4,8 @@ export interface HangOptions {
   tabWidth: number;
 }
 
-export type RejectReason = "bad-indent" | "nested-content" | "over-budget" | "verify-rejected";
+export type RejectReason =
+  "bad-indent" | "nested-content" | "over-budget" | "verify-rejected";
 
 export type Decision =
   | { line: number; applied: true; anchor: number; links: number }
@@ -34,5 +35,9 @@ export interface Hunk {
 
 export type HunkProbe =
   | { kind: "hunk"; hunk: Hunk }
-  | { kind: "reject"; reason: "bad-indent" | "nested-content"; endIndex: number }
+  | {
+      kind: "reject";
+      reason: "bad-indent" | "nested-content";
+      endIndex: number;
+    }
   | { kind: "skip" };

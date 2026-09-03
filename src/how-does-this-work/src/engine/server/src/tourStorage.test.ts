@@ -19,7 +19,16 @@ function tour(title: string): Tour {
     title,
     summary: "",
     steps: [
-      { title: "s", narration: "n", anchor: { file: "README.md", startLine: 1, endLine: 1, snippetHash: "sha256:aa" } },
+      {
+        title: "s",
+        narration: "n",
+        anchor: {
+          file: "README.md",
+          startLine: 1,
+          endLine: 1,
+          snippetHash: "sha256:aa",
+        },
+      },
     ],
   };
 }
@@ -37,13 +46,20 @@ describe("writeTourToCatalog", () => {
     const result = await writeTourToCatalog(workspaceRoot, tour("My Tour"));
     expect(result.savedPath).toBe(".hdtw/tours/my-tour.tour.json");
     expect(result.tour.id).toBe("my-tour");
-    const onDisk = JSON.parse(await readFile(path.join(workspaceRoot, result.savedPath), "utf8"));
+    const onDisk = JSON.parse(
+      await readFile(path.join(workspaceRoot, result.savedPath), "utf8"),
+    );
     expect(onDisk.id).toBe("my-tour");
   });
 
   test("a colliding title gets a -2 suffix", async () => {
-    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
-    await writeFile(path.join(workspaceRoot, ".hdtw/tours/my-tour.tour.json"), "{}");
+    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(workspaceRoot, ".hdtw/tours/my-tour.tour.json"),
+      "{}",
+    );
     const result = await writeTourToCatalog(workspaceRoot, tour("My Tour"));
     expect(result.savedPath).toBe(".hdtw/tours/my-tour-2.tour.json");
     expect(result.tour.id).toBe("my-tour-2");

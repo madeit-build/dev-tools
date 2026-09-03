@@ -7,7 +7,7 @@ export interface StepAnswerer {
     context: StepQaContext,
     question: string,
     model: string | undefined,
-    hooks: GenerationHooks
+    hooks: GenerationHooks,
   ): Promise<string>;
 }
 
@@ -18,7 +18,10 @@ export const STEP_ANSWER_SYSTEM_PROMPT = `You are a principal engineer answering
 - If the question is outside the scope of this code, say so briefly rather than speculating.`;
 
 /** Pure: build the user prompt from the step context + question. */
-export function buildStepAnswerPrompt(context: StepQaContext, question: string): string {
+export function buildStepAnswerPrompt(
+  context: StepQaContext,
+  question: string,
+): string {
   return `A teammate paused on this step of the tour "${context.tourTitle ?? "(untitled)"}".
 
 File: ${context.file} (lines ${context.startLine}-${context.endLine})

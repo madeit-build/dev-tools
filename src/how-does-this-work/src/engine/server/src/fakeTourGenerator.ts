@@ -36,7 +36,7 @@ export class FakeTourGenerator implements TourGenerator {
     topic: string,
     _model: string | undefined,
     _catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
-    hooks: GenerationHooks
+    hooks: GenerationHooks,
   ): Promise<DraftTour> {
     this.emit(hooks, "exploring", `Exploring for "${topic}"`, 1000, 200);
     this.throwIfAborted(hooks);
@@ -67,7 +67,7 @@ export class FakeTourGenerator implements TourGenerator {
     _catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
     _draft: DraftTour,
     _anchorErrors: string[],
-    hooks: GenerationHooks
+    hooks: GenerationHooks,
   ): Promise<DraftTour> {
     this.emit(hooks, "repairing", "Repairing anchors", 500, 200);
     this.throwIfAborted(hooks);
@@ -79,14 +79,15 @@ export class FakeTourGenerator implements TourGenerator {
     phase: "exploring" | "drafting" | "repairing",
     message: string,
     tokensIn: number,
-    tokensOut: number
+    tokensOut: number,
   ): void {
     hooks.onProgress({
       phase,
       message,
       tokensIn,
       tokensOut,
-      estimatedCostUsd: (this.runningCostUsd += this.options.costPerEvent ?? 0.01),
+      estimatedCostUsd: (this.runningCostUsd +=
+        this.options.costPerEvent ?? 0.01),
     });
   }
 

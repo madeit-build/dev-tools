@@ -15,6 +15,7 @@
 ### Task 1: engine-core — `checkAnchorFreshness` + `findReanchor`
 
 **Files:**
+
 - Modify: `src/engine/core/src/anchors.ts`
 - Test: `src/engine/core/src/drift.test.ts`
 
@@ -22,7 +23,11 @@
 
 ```ts
 import { describe, expect, test } from "vitest";
-import { computeSnippetHash, checkAnchorFreshness, findReanchor } from "./anchors.js";
+import {
+  computeSnippetHash,
+  checkAnchorFreshness,
+  findReanchor,
+} from "./anchors.js";
 
 const file = "alpha\nbeta\ngamma\ndelta\nepsilon";
 // "beta\ngamma" is lines 2-3
@@ -42,7 +47,9 @@ describe("checkAnchorFreshness", () => {
   });
 
   test("out-of-range when endLine exceeds the file", () => {
-    expect(checkAnchorFreshness(anchor(4, 99, hash23), file)).toBe("out-of-range");
+    expect(checkAnchorFreshness(anchor(4, 99, hash23), file)).toBe(
+      "out-of-range",
+    );
   });
 });
 
@@ -50,26 +57,42 @@ describe("findReanchor", () => {
   test("relocates verbatim-moved code to its new range", () => {
     const moved = "pad\npad\nbeta\ngamma\ntail";
     const result = findReanchor(anchor(2, 3, hash23), moved);
-    expect(result).toEqual({ outcome: "reanchored", startLine: 3, endLine: 4, snippetHash: hash23 });
+    expect(result).toEqual({
+      outcome: "reanchored",
+      startLine: 3,
+      endLine: 4,
+      snippetHash: hash23,
+    });
   });
 
   test("not-found when the code changed", () => {
     const changed = "alpha\nBETA\nGAMMA\ndelta";
-    expect(findReanchor(anchor(2, 3, hash23), changed)).toEqual({ outcome: "not-found" });
+    expect(findReanchor(anchor(2, 3, hash23), changed)).toEqual({
+      outcome: "not-found",
+    });
   });
 
   test("not-found when the file is shorter than the window", () => {
-    expect(findReanchor(anchor(2, 3, hash23), "only-one-line")).toEqual({ outcome: "not-found" });
+    expect(findReanchor(anchor(2, 3, hash23), "only-one-line")).toEqual({
+      outcome: "not-found",
+    });
   });
 
   test("ambiguous when more than one window matches", () => {
     const dup = "beta\ngamma\nx\nbeta\ngamma";
-    expect(findReanchor(anchor(2, 3, hash23), dup)).toEqual({ outcome: "ambiguous" });
+    expect(findReanchor(anchor(2, 3, hash23), dup)).toEqual({
+      outcome: "ambiguous",
+    });
   });
 
   test("reanchors unchanged code to the same range", () => {
     const result = findReanchor(anchor(2, 3, hash23), file);
-    expect(result).toEqual({ outcome: "reanchored", startLine: 2, endLine: 3, snippetHash: hash23 });
+    expect(result).toEqual({
+      outcome: "reanchored",
+      startLine: 2,
+      endLine: 3,
+      snippetHash: hash23,
+    });
   });
 });
 ```
@@ -87,27 +110,32 @@ export type AnchorFreshness = "fresh" | "drifted" | "out-of-range";
 /** Recompute the anchored snippet's hash and compare to the stored one. Assumes a valid anchor range (parseTour gates that). */
 export function checkAnchorFreshness(
   anchor: AnchorRange & { snippetHash: string },
-  fileContent: string
+  fileContent: string,
 ): AnchorFreshness {
   const lineCount = fileContent.split(/\r?\n/).length;
   if (anchor.endLine > lineCount) {
     return "out-of-range";
   }
   const current = computeSnippetHash(
-    extractAnchoredText(fileContent, anchor.startLine, anchor.endLine)
+    extractAnchoredText(fileContent, anchor.startLine, anchor.endLine),
   );
   return current === anchor.snippetHash ? "fresh" : "drifted";
 }
 
 export type ReanchorResult =
-  | { outcome: "reanchored"; startLine: number; endLine: number; snippetHash: string }
+  | {
+      outcome: "reanchored";
+      startLine: number;
+      endLine: number;
+      snippetHash: string;
+    }
   | { outcome: "not-found" }
   | { outcome: "ambiguous" };
 
 /** Search the file for the window (of the anchor's original length) whose hash equals the stored hash. */
 export function findReanchor(
   anchor: AnchorRange & { snippetHash: string },
-  fileContent: string
+  fileContent: string,
 ): ReanchorResult {
   const lines = fileContent.split(/\r?\n/);
   const windowLength = anchor.endLine - anchor.startLine + 1;
@@ -117,7 +145,10 @@ export function findReanchor(
   const matches: { startLine: number; endLine: number }[] = [];
   for (let start = 1; start + windowLength - 1 <= lines.length; start += 1) {
     const end = start + windowLength - 1;
-    if (computeSnippetHash(lines.slice(start - 1, end).join("\n")) === anchor.snippetHash) {
+    if (
+      computeSnippetHash(lines.slice(start - 1, end).join("\n"))
+      === anchor.snippetHash
+    ) {
       matches.push({ startLine: start, endLine: end });
     }
   }
@@ -153,6 +184,7 @@ git commit -m "feat(engine-core): add anchor freshness check and hash-window re-
 ### Task 2: protocol — drift methods + types
 
 **Files:**
+
 - Create: `src/protocol/src/drift.ts`
 - Modify: `src/protocol/src/index.ts`
 - Test: `src/protocol/src/drift.test.ts`
@@ -185,7 +217,8 @@ export const CHECK_TOUR_DRIFT_METHOD = "hdtw/checkTourDrift";
 /** JSON-RPC method: client→engine, re-anchor one drifted step (atomic rewrite of the tour file). */
 export const REANCHOR_STEP_METHOD = "hdtw/reanchorStep";
 
-export type StepDriftState = "fresh" | "drifted" | "out-of-range" | "file-missing";
+export type StepDriftState =
+  "fresh" | "drifted" | "out-of-range" | "file-missing";
 
 export interface StepDriftStatus {
   index: number;
@@ -201,7 +234,8 @@ export interface CheckTourDriftResult {
   statuses: StepDriftStatus[];
 }
 
-export type ReanchorOutcome = "reanchored" | "not-found" | "ambiguous" | "file-missing";
+export type ReanchorOutcome =
+  "reanchored" | "not-found" | "ambiguous" | "file-missing";
 
 export interface ReanchorStepParams {
   workspaceRoot: string;
@@ -239,6 +273,7 @@ git commit -m "feat(protocol): add checkTourDrift and reanchorStep methods"
 ### Task 3: engine-server — `checkTourDrift` handler + register + e2e
 
 **Files:**
+
 - Create: `src/engine/server/src/driftHandlers.ts`
 - Modify: `src/engine/server/src/main.ts`
 - Test: `src/engine/server/tests/drift.e2e.test.ts`
@@ -259,10 +294,15 @@ import type {
 import { getTour, TourNotFoundError } from "./tourHandlers.js";
 
 /** Read an anchored file, confined to the workspace; undefined when missing or escaping. */
-async function readAnchoredFile(workspaceRoot: string, file: string): Promise<string | undefined> {
+async function readAnchoredFile(
+  workspaceRoot: string,
+  file: string,
+): Promise<string | undefined> {
   const resolvedRoot = path.resolve(workspaceRoot);
   const resolved = path.resolve(resolvedRoot, ...file.split("/"));
-  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
+  if (resolved !== resolvedRoot
+      && !resolved.startsWith(resolvedRoot + path.sep)
+  ) {
     return undefined;
   }
   try {
@@ -272,15 +312,26 @@ async function readAnchoredFile(workspaceRoot: string, file: string): Promise<st
   }
 }
 
-export async function checkTourDrift(params: CheckTourDriftParams): Promise<CheckTourDriftResult> {
-  const { tour } = await getTour({ workspaceRoot: params.workspaceRoot, tourId: params.tourId });
+export async function checkTourDrift(
+  params: CheckTourDriftParams,
+): Promise<CheckTourDriftResult> {
+  const { tour } = await getTour({
+    workspaceRoot: params.workspaceRoot,
+    tourId: params.tourId,
+  });
   const statuses: StepDriftStatus[] = [];
   for (let index = 0; index < tour.steps.length; index += 1) {
     const step = tour.steps[index];
-    const content = await readAnchoredFile(params.workspaceRoot, step.anchor.file);
+    const content = await readAnchoredFile(
+      params.workspaceRoot,
+      step.anchor.file,
+    );
     statuses.push({
       index,
-      status: content === undefined ? "file-missing" : checkAnchorFreshness(step.anchor, content),
+      status:
+        content === undefined
+          ? "file-missing"
+          : checkAnchorFreshness(step.anchor, content),
     });
   }
   return { statuses };
@@ -289,13 +340,23 @@ export async function checkTourDrift(params: CheckTourDriftParams): Promise<Chec
 const TOUR_FILE_SUFFIX = ".tour.json";
 const SAFE_TOUR_ID = /^[\w.-]+$/;
 
-export async function reanchorStep(params: ReanchorStepParams): Promise<ReanchorStepResult> {
-  const { tour } = await getTour({ workspaceRoot: params.workspaceRoot, tourId: params.tourId });
+export async function reanchorStep(
+  params: ReanchorStepParams,
+): Promise<ReanchorStepResult> {
+  const { tour } = await getTour({
+    workspaceRoot: params.workspaceRoot,
+    tourId: params.tourId,
+  });
   const step = tour.steps[params.stepIndex];
   if (!step) {
-    throw new TourNotFoundError(`tour "${params.tourId}" has no step ${params.stepIndex}`);
+    throw new TourNotFoundError(
+      `tour "${params.tourId}" has no step ${params.stepIndex}`,
+    );
   }
-  const content = await readAnchoredFile(params.workspaceRoot, step.anchor.file);
+  const content = await readAnchoredFile(
+    params.workspaceRoot,
+    step.anchor.file,
+  );
   if (content === undefined) {
     return { outcome: "file-missing" };
   }
@@ -318,7 +379,7 @@ export async function reanchorStep(params: ReanchorStepParams): Promise<Reanchor
     params.workspaceRoot,
     ".hdtw",
     "tours",
-    `${params.tourId}${TOUR_FILE_SUFFIX}`
+    `${params.tourId}${TOUR_FILE_SUFFIX}`,
   );
   const tempPath = `${finalPath}.tmp`;
   await writeFile(tempPath, JSON.stringify(tour, null, 2) + "\n", "utf8");
@@ -371,7 +432,10 @@ afterEach(async () => {
 });
 
 test("checkTourDrift reports fresh then drifted after the file shifts", async () => {
-  await writeFile(path.join(workspaceRoot, "src.ts"), "line1\nline2\nline3\nline4\n");
+  await writeFile(
+    path.join(workspaceRoot, "src.ts"),
+    "line1\nline2\nline3\nline4\n",
+  );
   await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
   // Build the tour with a correct hash by importing engine-core in-process.
   const { computeSnippetHash } = await import("@made-i-t/hdtw-engine-core");
@@ -387,31 +451,47 @@ test("checkTourDrift reports fresh then drifted after the file shifts", async ()
         {
           title: "s",
           narration: "n",
-          anchor: { file: "src.ts", startLine: 2, endLine: 3, snippetHash: hash },
+          anchor: {
+            file: "src.ts",
+            startLine: 2,
+            endLine: 3,
+            snippetHash: hash,
+          },
         },
       ],
-    })
+    }),
   );
 
-  serverProcess = spawn(process.execPath, [serverEntry], { stdio: ["pipe", "pipe", "inherit"] });
+  serverProcess = spawn(process.execPath, [serverEntry], {
+    stdio: ["pipe", "pipe", "inherit"],
+  });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   connection.listen();
 
-  const fresh = await connection.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
-    workspaceRoot,
-    tourId: "t",
-  });
+  const fresh = await connection.sendRequest<CheckTourDriftResult>(
+    CHECK_TOUR_DRIFT_METHOD,
+    {
+      workspaceRoot,
+      tourId: "t",
+    },
+  );
   expect(fresh.statuses).toEqual([{ index: 0, status: "fresh" }]);
 
   // Shift the anchored lines down by two.
-  await writeFile(path.join(workspaceRoot, "src.ts"), "pad\npad\nline1\nline2\nline3\nline4\n");
-  const drifted = await connection.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
-    workspaceRoot,
-    tourId: "t",
-  });
+  await writeFile(
+    path.join(workspaceRoot, "src.ts"),
+    "pad\npad\nline1\nline2\nline3\nline4\n",
+  );
+  const drifted = await connection.sendRequest<CheckTourDriftResult>(
+    CHECK_TOUR_DRIFT_METHOD,
+    {
+      workspaceRoot,
+      tourId: "t",
+    },
+  );
   expect(drifted.statuses).toEqual([{ index: 0, status: "drifted" }]);
 });
 ```
@@ -426,16 +506,19 @@ Expected: the drift e2e FAILS ("Unhandled method hdtw/checkTourDrift"). Existing
 - [ ] **Step 4: Register `checkTourDrift` in `src/engine/server/src/main.ts`.** Add to the protocol import block: `CHECK_TOUR_DRIFT_METHOD`, `type CheckTourDriftParams`. Add an import: `import { checkTourDrift } from "./driftHandlers.js";`. Register after the `GENERATE_TOUR_METHOD` handler:
 
 ```ts
-connection.onRequest(CHECK_TOUR_DRIFT_METHOD, async (params: CheckTourDriftParams) => {
-  try {
-    return await checkTourDrift(params);
-  } catch (error) {
-    if (error instanceof TourNotFoundError) {
-      throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
+connection.onRequest(
+  CHECK_TOUR_DRIFT_METHOD,
+  async (params: CheckTourDriftParams) => {
+    try {
+      return await checkTourDrift(params);
+    } catch (error) {
+      if (error instanceof TourNotFoundError) {
+        throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
+      }
+      throw error;
     }
-    throw error;
-  }
-});
+  },
+);
 ```
 
 (`TourNotFoundError`, `ResponseError`, `TOUR_NOT_FOUND_ERROR_CODE` are already imported in main.ts.)
@@ -457,6 +540,7 @@ git commit -m "feat(engine-server): add checkTourDrift over stdio"
 ### Task 4: engine-server — register `reanchorStep` + e2e
 
 **Files:**
+
 - Modify: `src/engine/server/src/main.ts`
 - Test: `src/engine/server/tests/drift.e2e.test.ts` (extend)
 
@@ -464,7 +548,10 @@ git commit -m "feat(engine-server): add checkTourDrift over stdio"
 
 ```ts
 test("reanchorStep relocates a drifted step and rewrites the tour", async () => {
-  await writeFile(path.join(workspaceRoot, "src.ts"), "line1\nline2\nline3\nline4\n");
+  await writeFile(
+    path.join(workspaceRoot, "src.ts"),
+    "line1\nline2\nline3\nline4\n",
+  );
   await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
   const { computeSnippetHash } = await import("@made-i-t/hdtw-engine-core");
   const hash = computeSnippetHash("line2\nline3");
@@ -477,36 +564,58 @@ test("reanchorStep relocates a drifted step and rewrites the tour", async () => 
       title: "T",
       summary: "",
       steps: [
-        { title: "s", narration: "n", anchor: { file: "src.ts", startLine: 2, endLine: 3, snippetHash: hash } },
+        {
+          title: "s",
+          narration: "n",
+          anchor: {
+            file: "src.ts",
+            startLine: 2,
+            endLine: 3,
+            snippetHash: hash,
+          },
+        },
       ],
-    })
+    }),
   );
   // Shift the code down by two lines.
-  await writeFile(path.join(workspaceRoot, "src.ts"), "pad\npad\nline1\nline2\nline3\nline4\n");
+  await writeFile(
+    path.join(workspaceRoot, "src.ts"),
+    "pad\npad\nline1\nline2\nline3\nline4\n",
+  );
 
-  serverProcess = spawn(process.execPath, [serverEntry], { stdio: ["pipe", "pipe", "inherit"] });
+  serverProcess = spawn(process.execPath, [serverEntry], {
+    stdio: ["pipe", "pipe", "inherit"],
+  });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   connection.listen();
 
-  const reanchor = await connection.sendRequest<ReanchorStepResult>(REANCHOR_STEP_METHOD, {
-    workspaceRoot,
-    tourId: "t",
-    stepIndex: 0,
-  });
+  const reanchor = await connection.sendRequest<ReanchorStepResult>(
+    REANCHOR_STEP_METHOD,
+    {
+      workspaceRoot,
+      tourId: "t",
+      stepIndex: 0,
+    },
+  );
   expect(reanchor.outcome).toBe("reanchored");
   expect(reanchor.anchor).toMatchObject({ startLine: 4, endLine: 5 });
 
-  const onDisk = JSON.parse(await (await import("node:fs/promises")).readFile(tourPath, "utf8"));
+  const onDisk = JSON.parse(
+    await (await import("node:fs/promises")).readFile(tourPath, "utf8"),
+  );
   expect(onDisk.steps[0].anchor.startLine).toBe(4);
   expect(onDisk.steps[0].anchor.endLine).toBe(5);
 
-  const recheck = await connection.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
-    workspaceRoot,
-    tourId: "t",
-  });
+  const recheck = await connection.sendRequest<CheckTourDriftResult>(
+    CHECK_TOUR_DRIFT_METHOD,
+    {
+      workspaceRoot,
+      tourId: "t",
+    },
+  );
   expect(recheck.statuses).toEqual([{ index: 0, status: "fresh" }]);
 });
 ```
@@ -519,16 +628,19 @@ Expected: the new reanchor test FAILS ("Unhandled method hdtw/reanchorStep").
 - [ ] **Step 3: Register `reanchorStep` in `src/engine/server/src/main.ts`.** Add to the protocol import block: `REANCHOR_STEP_METHOD`, `type ReanchorStepParams`. Add to the driftHandlers import: `reanchorStep`. Register after the `CHECK_TOUR_DRIFT_METHOD` handler:
 
 ```ts
-connection.onRequest(REANCHOR_STEP_METHOD, async (params: ReanchorStepParams) => {
-  try {
-    return await reanchorStep(params);
-  } catch (error) {
-    if (error instanceof TourNotFoundError) {
-      throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
+connection.onRequest(
+  REANCHOR_STEP_METHOD,
+  async (params: ReanchorStepParams) => {
+    try {
+      return await reanchorStep(params);
+    } catch (error) {
+      if (error instanceof TourNotFoundError) {
+        throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
+      }
+      throw error;
     }
-    throw error;
-  }
-});
+  },
+);
 ```
 
 - [ ] **Step 4: Build and run**
@@ -548,6 +660,7 @@ git commit -m "feat(engine-server): add reanchorStep with atomic tour rewrite"
 ### Task 5: VS Code — client methods + pure drift-badge helper
 
 **Files:**
+
 - Modify: `src/clients/vscode/src/engineClient.ts`
 - Create: `src/clients/vscode/src/driftBadge.ts`
 - Test: `src/clients/vscode/src/driftBadge.test.ts`
@@ -644,6 +757,7 @@ git commit -m "feat(vscode): add drift client methods and pure drift-badge helpe
 ### Task 6: VS Code — drift badges + re-anchor link in the walk
 
 **Files:**
+
 - Modify: `src/clients/vscode/src/walkController.ts`
 - Modify: `src/clients/vscode/package.json` (command)
 - Modify: `src/clients/vscode/src/extension.ts`
@@ -672,28 +786,37 @@ import { driftBadge, isReanchorable } from "./driftBadge.js";
 (d) In `renderCurrentStep`, replace the current crude `const drifted = step.anchor.endLine > document.lineCount;` and the drift notice logic with the authoritative status. Compute:
 
 ```ts
-    const status: StepDriftState = this.driftByIndex.get(activeWalk(this.stack).stepIndex) ?? "fresh";
-    const drifted = status !== "fresh";
+const status: StepDriftState =
+  this.driftByIndex.get(activeWalk(this.stack).stepIndex) ?? "fresh";
+const drifted = status !== "fresh";
 ```
 
 Keep the existing decoration/range logic guarded by `!drifted` as today. Replace the inline drifted-notice string in the `body` with the badge + optional re-anchor link. Replace the `body` construction with:
 
 ```ts
-    const badge = driftBadge(status);
-    const reanchorLink =
-      isReanchorable(status) && this.reanchorContext
-        ? `\n\n[🔧 Re-anchor this step](command:hdtw.reanchorStep?${encodeURIComponent(
-            JSON.stringify([this.reanchorContext.tourId, activeWalk(this.stack).stepIndex])
-          )})`
-        : "";
-    const body =
-      (badge ? badge + "\n\n" : "") + step.narration + reanchorLink + this.relatedSection(step.relatedTours);
+const badge = driftBadge(status);
+const reanchorLink =
+  isReanchorable(status) && this.reanchorContext
+    ? `\n\n[🔧 Re-anchor this step](command:hdtw.reanchorStep?${encodeURIComponent(
+        JSON.stringify([
+          this.reanchorContext.tourId,
+          activeWalk(this.stack).stepIndex,
+        ]),
+      )})`
+    : "";
+const body =
+  (badge ? badge + "\n\n" : "")
+  + step.narration
+  + reanchorLink
+  + this.relatedSection(step.relatedTours);
 ```
 
 And update the trusted commands to include the new command:
 
 ```ts
-    narration.isTrusted = { enabledCommands: ["hdtw.followRelated", "hdtw.reanchorStep"] };
+narration.isTrusted = {
+  enabledCommands: ["hdtw.followRelated", "hdtw.reanchorStep"],
+};
 ```
 
 (e) Add a `reanchorContext` field + a `refresh()` method so the extension can set drift then re-render the current step, and so the command target knows the active tourId:
@@ -715,7 +838,7 @@ And update the trusted commands to include the new command:
 - [ ] **Step 2: Manifest — add the command in `src/clients/vscode/package.json`** — in `contributes.commands`, after `hdtw.followRelated`, add:
 
 ```json
-      { "command": "hdtw.reanchorStep", "title": "HDTW: Re-anchor Step" }
+{ "command": "hdtw.reanchorStep", "title": "HDTW: Re-anchor Step" }
 ```
 
 - [ ] **Step 3: Wire `src/clients/vscode/src/extension.ts`.** Read the file first.
@@ -723,19 +846,19 @@ And update the trusted commands to include the new command:
 (a) Add a helper that starts a walk WITH drift (used by both startTour and generate auto-walk). After constructing the controller in `startTour`, set the reanchor context, check drift, and apply it. Replace the `startTour` success path:
 
 ```ts
-  try {
-    const { tour } = await client.getTour(root, tourId);
-    observer?.logger.info("tour.started", { tourId });
-    await refreshTourTitles(root);
-    walk?.dispose();
-    walk = new WalkController(root, (id) => tourTitles.get(id));
-    walk.setReanchorContext(tourId);
-    await walk.start(tour);
-    await applyDrift(root, tourId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`HDTW: could not start tour: ${message}`);
-  }
+try {
+  const { tour } = await client.getTour(root, tourId);
+  observer?.logger.info("tour.started", { tourId });
+  await refreshTourTitles(root);
+  walk?.dispose();
+  walk = new WalkController(root, (id) => tourTitles.get(id));
+  walk.setReanchorContext(tourId);
+  await walk.start(tour);
+  await applyDrift(root, tourId);
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  void vscode.window.showErrorMessage(`HDTW: could not start tour: ${message}`);
+}
 ```
 
 (b) Add the `applyDrift` helper near `startTour`:
@@ -750,7 +873,11 @@ async function applyDrift(root: string, tourId: string): Promise<void> {
     walk.setDrift(statuses);
     await walk.refresh();
     const drifted = statuses.filter((s) => s.status !== "fresh").length;
-    observer?.logger.info("drift.checked", { tourId, drifted, total: statuses.length });
+    observer?.logger.info("drift.checked", {
+      tourId,
+      drifted,
+      total: statuses.length,
+    });
   } catch {
     // Drift is best-effort; a failure leaves the walk usable without badges.
   }
@@ -760,12 +887,12 @@ async function applyDrift(root: string, tourId: string): Promise<void> {
 (c) In `generateTour`'s auto-walk, mirror it: after `await walk.start(result.tour);` add `walk.setReanchorContext(result.tour.id); await applyDrift(root, result.tour.id);` (set the context before or after start; before refresh is fine — simplest is to set context right after constructing walk, like startTour). Adjust to:
 
 ```ts
-    await refreshTourTitles(root);
-    walk?.dispose();
-    walk = new WalkController(root, (id) => tourTitles.get(id));
-    walk.setReanchorContext(result.tour.id);
-    await walk.start(result.tour);
-    await applyDrift(root, result.tour.id);
+await refreshTourTitles(root);
+walk?.dispose();
+walk = new WalkController(root, (id) => tourTitles.get(id));
+walk.setReanchorContext(result.tour.id);
+await walk.start(result.tour);
+await applyDrift(root, result.tour.id);
 ```
 
 (d) Register the re-anchor command — in the `context.subscriptions.push(...)` block, add:
@@ -786,10 +913,14 @@ async function reanchorStep(tourId: string, stepIndex: number): Promise<void> {
   }
   try {
     const result = await client.reanchorStep(root, tourId, stepIndex);
-    observer?.logger.info("reanchor.result", { tourId, stepIndex, outcome: result.outcome });
+    observer?.logger.info("reanchor.result", {
+      tourId,
+      stepIndex,
+      outcome: result.outcome,
+    });
     if (result.outcome === "reanchored") {
       void vscode.window.showInformationMessage(
-        `HDTW: re-anchored step ${stepIndex + 1} — review the change in your tour file.`
+        `HDTW: re-anchored step ${stepIndex + 1} — review the change in your tour file.`,
       );
       await applyDrift(root, tourId);
       return;
@@ -801,7 +932,7 @@ async function reanchorStep(tourId: string, stepIndex: number): Promise<void> {
           ? "the file is missing"
           : "the original code could not be found";
     void vscode.window.showWarningMessage(
-      `HDTW: couldn't re-anchor step ${stepIndex + 1} — ${reason}. Edit the tour by hand.`
+      `HDTW: couldn't re-anchor step ${stepIndex + 1} — ${reason}. Edit the tour by hand.`,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -827,6 +958,7 @@ git commit -m "feat(vscode): drift badges and re-anchor link in the walk"
 ### Task 7: VS Code sidebar drift badge + docs
 
 **Files:**
+
 - Modify: `src/clients/vscode/src/tourTree.ts`
 - Modify: `src/clients/vscode/src/extension.ts` (drift counts + Check command)
 - Modify: `src/clients/vscode/package.json` (command + menu)
@@ -857,8 +989,8 @@ Provide the count from the provider:
 (c) In `applyDrift` (from Task 6), after computing `drifted`, update the cache and refresh the tree:
 
 ```ts
-    driftCounts.set(tourId, drifted);
-    tree?.refresh();
+driftCounts.set(tourId, drifted);
+tree?.refresh();
 ```
 
 (insert right after the `observer?.logger.info("drift.checked", ...)` line).
@@ -890,7 +1022,11 @@ Provide the count from the provider:
 Add to `contributes.commands`:
 
 ```json
-      { "command": "hdtw.checkTourDrift", "title": "HDTW: Check Tour for Drift", "icon": "$(search)" }
+{
+  "command": "hdtw.checkTourDrift",
+  "title": "HDTW: Check Tour for Drift",
+  "icon": "$(search)"
+}
 ```
 
 Add a `view/item/context` menu so it appears on a tour row (add the `view/item/context` key to `contributes.menus` if absent):
@@ -932,4 +1068,7 @@ git commit -m "feat(vscode): sidebar drift badge + check-drift command; mark chu
 3. Re-start that tour (or run "HDTW: Check Tour for Drift" on it) → the step badges "drifted"; the sidebar shows `⚠ 1 drifted`.
 4. Click "Re-anchor this step" → info message; the tour file updates (check `git diff .hdtw/tours/...`); re-walk → the step is fresh.
 5. Edit the anchored code's CONTENT (not just position) → re-anchor → "couldn't re-anchor … edit by hand".
+
+```
+
 ```

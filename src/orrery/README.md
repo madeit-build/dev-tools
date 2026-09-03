@@ -27,7 +27,7 @@ than argued:
   leading empty entry is systemd's reset idiom. That shape appears nowhere in
   the source; the module system manufactures it.
 - Dumping a whole service to JSON fails with `cannot coerce a list to a
-  string`, thrown from `derivationStrict`. The evaluated config is a graph of
+string`, thrown from `derivationStrict`. The evaluated config is a graph of
   thunks and derivations, not a document, which is why every rule here is a
   narrow projection rather than a dump.
 

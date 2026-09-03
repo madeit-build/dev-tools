@@ -15,6 +15,7 @@
 ### Task 1: Protocol — `askAboutStep` method + types + `"answering"` phase
 
 **Files:**
+
 - Modify: `src/protocol/src/generation.ts`
 - Test: `src/protocol/src/askAboutStep.test.ts`
 
@@ -37,17 +38,14 @@ Expected: FAIL — constant not exported.
 - [ ] **Step 3: Edit `src/protocol/src/generation.ts`.**
 
 (a) Add `"answering"` to the `GenerationPhase` union. Change it to:
+
 ```ts
 export type GenerationPhase =
-  | "exploring"
-  | "drafting"
-  | "verifying"
-  | "repairing"
-  | "saving"
-  | "answering";
+  "exploring" | "drafting" | "verifying" | "repairing" | "saving" | "answering";
 ```
 
 (b) Append the askAboutStep contract at the end of the file:
+
 ```ts
 /** JSON-RPC method: client→engine, answer a follow-up question about the current tour step. */
 export const ASK_ABOUT_STEP_METHOD = "hdtw/askAboutStep";
@@ -90,6 +88,7 @@ git commit -m "feat(protocol): add askAboutStep method, StepQaContext, answering
 ### Task 2: engine-server — `StepAnswerer` port, prompt builder, fake + Claude answerers
 
 **Files:**
+
 - Create: `src/engine/server/src/stepAnswerer.ts`
 - Create: `src/engine/server/src/fakeStepAnswerer.ts`
 - Create: `src/engine/server/src/claudeStepAnswerer.ts`
@@ -107,7 +106,7 @@ export interface StepAnswerer {
     context: StepQaContext,
     question: string,
     model: string | undefined,
-    hooks: GenerationHooks
+    hooks: GenerationHooks,
   ): Promise<string>;
 }
 
@@ -118,7 +117,10 @@ export const STEP_ANSWER_SYSTEM_PROMPT = `You are a principal engineer answering
 - If the question is outside the scope of this code, say so briefly rather than speculating.`;
 
 /** Pure: build the user prompt from the step context + question. */
-export function buildStepAnswerPrompt(context: StepQaContext, question: string): string {
+export function buildStepAnswerPrompt(
+  context: StepQaContext,
+  question: string,
+): string {
   return `A teammate paused on this step of the tour "${context.tourTitle ?? "(untitled)"}".
 
 File: ${context.file} (lines ${context.startLine}-${context.endLine})
@@ -159,7 +161,10 @@ describe("buildStepAnswerPrompt", () => {
     expect(prompt).toContain("Architecture");
   });
   test("tolerates a missing tour title", () => {
-    const prompt = buildStepAnswerPrompt({ ...context, tourTitle: undefined }, "q");
+    const prompt = buildStepAnswerPrompt(
+      { ...context, tourTitle: undefined },
+      "q",
+    );
     expect(prompt).toContain("(untitled)");
   });
 });
@@ -191,7 +196,7 @@ export class FakeStepAnswerer implements StepAnswerer {
     _context: StepQaContext,
     question: string,
     _model: string | undefined,
-    hooks: GenerationHooks
+    hooks: GenerationHooks,
   ): Promise<string> {
     hooks.onProgress({
       phase: "answering",
@@ -219,7 +224,11 @@ import {
   GenerationFailedError,
   type GenerationHooks,
 } from "./tourGenerator.js";
-import { buildStepAnswerPrompt, STEP_ANSWER_SYSTEM_PROMPT, type StepAnswerer } from "./stepAnswerer.js";
+import {
+  buildStepAnswerPrompt,
+  STEP_ANSWER_SYSTEM_PROMPT,
+  type StepAnswerer,
+} from "./stepAnswerer.js";
 
 const ESTIMATED_USD_PER_INPUT_TOKEN = 3 / 1_000_000;
 const ESTIMATED_USD_PER_OUTPUT_TOKEN = 15 / 1_000_000;
@@ -231,7 +240,7 @@ export class ClaudeStepAnswerer implements StepAnswerer {
     context: StepQaContext,
     question: string,
     model: string | undefined,
-    hooks: GenerationHooks
+    hooks: GenerationHooks,
   ): Promise<string> {
     const abortController = new AbortController();
     const onAbort = () => abortController.abort();
@@ -266,14 +275,17 @@ export class ClaudeStepAnswerer implements StepAnswerer {
             tokensIn,
             tokensOut,
             estimatedCostUsd:
-              tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN + tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
+              tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN
+              + tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
           });
         }
         if (message.type === "result") {
           if (message.subtype === "success") {
             resultText = message.result;
           } else {
-            throw new GenerationFailedError(`agent run ended without a result (${message.subtype})`);
+            throw new GenerationFailedError(
+              `agent run ended without a result (${message.subtype})`,
+            );
           }
         }
       }
@@ -283,7 +295,7 @@ export class ClaudeStepAnswerer implements StepAnswerer {
       }
       if (isAuthError(error)) {
         throw new AuthRequiredError(
-          "No Anthropic credentials found. Set an API key (HDTW: Set Anthropic API Key) or log in to Claude Code."
+          "No Anthropic credentials found. Set an API key (HDTW: Set Anthropic API Key) or log in to Claude Code.",
         );
       }
       throw error;
@@ -300,7 +312,9 @@ export class ClaudeStepAnswerer implements StepAnswerer {
 
 function isAuthError(error: unknown): boolean {
   const text = error instanceof Error ? error.message : String(error);
-  return /api key|authentication|unauthorized|401|not logged in|credential|billing/i.test(text);
+  return /api key|authentication|unauthorized|401|not logged in|credential|billing/i.test(
+    text,
+  );
 }
 ```
 
@@ -323,6 +337,7 @@ git commit -m "feat(engine-server): add StepAnswerer port, prompt builder, fake 
 ### Task 3: engine-server — `runStepAnswer` orchestration + `askAboutStep` handler + e2e
 
 **Files:**
+
 - Create: `src/engine/server/src/stepAnswerPipeline.ts`
 - Modify: `src/engine/server/src/main.ts`
 - Test: `src/engine/server/tests/askAboutStep.e2e.test.ts`
@@ -348,7 +363,9 @@ import { ClaudeStepAnswerer } from "./claudeStepAnswerer.js";
 const DEFAULT_MAX_BUDGET_USD = 2;
 
 export function createStepAnswerer(): StepAnswerer {
-  return process.env.HDTW_GENERATOR === "fake" ? new FakeStepAnswerer() : new ClaudeStepAnswerer();
+  return process.env.HDTW_GENERATOR === "fake"
+    ? new FakeStepAnswerer()
+    : new ClaudeStepAnswerer();
 }
 
 export async function runStepAnswer(
@@ -356,7 +373,7 @@ export async function runStepAnswer(
   answerer: StepAnswerer,
   observer: Observer,
   onProgress: (progress: GenerationProgressParams) => void,
-  cancelSignal: AbortSignal
+  cancelSignal: AbortSignal,
 ): Promise<AskAboutStepResult> {
   const maxBudgetUsd = params.maxBudgetUsd ?? DEFAULT_MAX_BUDGET_USD;
   const abort = new AbortController();
@@ -368,7 +385,10 @@ export async function runStepAnswer(
   const forwardAbort = () => abort.abort();
   cancelSignal.addEventListener("abort", forwardAbort, { once: true });
 
-  observer.logger.info("qa.asked", { file: params.context.file, question: params.question });
+  observer.logger.info("qa.asked", {
+    file: params.context.file,
+    question: params.question,
+  });
 
   try {
     const hooks: GenerationHooks = {
@@ -376,7 +396,9 @@ export async function runStepAnswer(
       observer,
       onProgress: (progress) => {
         onProgress(progress);
-        if (progress.estimatedCostUsd > maxBudgetUsd && budgetBreachedAtUsd === undefined) {
+        if (progress.estimatedCostUsd > maxBudgetUsd
+            && budgetBreachedAtUsd === undefined
+        ) {
           budgetBreachedAtUsd = progress.estimatedCostUsd;
           abort.abort();
         }
@@ -389,14 +411,16 @@ export async function runStepAnswer(
         params.workspaceRoot,
         params.context,
         params.question,
-        params.model && params.model.trim().length > 0 ? params.model : undefined,
-        hooks
+        params.model && params.model.trim().length > 0
+          ? params.model
+          : undefined,
+        hooks,
       );
     } catch (error) {
       if (budgetBreachedAtUsd !== undefined) {
         throw new BudgetExceededError(
           `answer aborted: estimated cost $${budgetBreachedAtUsd.toFixed(2)} exceeded budget $${maxBudgetUsd.toFixed(2)}`,
-          budgetBreachedAtUsd
+          budgetBreachedAtUsd,
         );
       }
       if (cancelSignal.aborted || abort.signal.aborted) {
@@ -416,6 +440,7 @@ export async function runStepAnswer(
 (NOTE: `StepAnswerer` is re-exported below from `tourGenerator.js` per Step 2 — adjust the import if you instead import it from `./stepAnswerer.js`. Prefer importing `StepAnswerer` from `./stepAnswerer.js` and the error classes + `GenerationHooks` from `./tourGenerator.js`.)
 
 Correct the imports to:
+
 ```ts
 import {
   BudgetExceededError,
@@ -473,19 +498,29 @@ test("askAboutStep returns an answer and emits an answering progress event", asy
   });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   const progress: GenerationProgressParams[] = [];
-  connection.onNotification(GENERATION_PROGRESS_NOTIFICATION, (p: GenerationProgressParams) =>
-    progress.push(p)
+  connection.onNotification(
+    GENERATION_PROGRESS_NOTIFICATION,
+    (p: GenerationProgressParams) => progress.push(p),
   );
   connection.listen();
 
-  const result = await connection.sendRequest<AskAboutStepResult>(ASK_ABOUT_STEP_METHOD, {
-    workspaceRoot,
-    question: "why stdio?",
-    context: { file: "README.md", startLine: 1, endLine: 1, narration: "n", tourTitle: "T" },
-  });
+  const result = await connection.sendRequest<AskAboutStepResult>(
+    ASK_ABOUT_STEP_METHOD,
+    {
+      workspaceRoot,
+      question: "why stdio?",
+      context: {
+        file: "README.md",
+        startLine: 1,
+        endLine: 1,
+        narration: "n",
+        tourTitle: "T",
+      },
+    },
+  );
 
   expect(result.answer).toBe("Fake answer to: why stdio?");
   expect(progress.map((p) => p.phase)).toContain("answering");
@@ -504,24 +539,39 @@ connection.onRequest(
   ASK_ABOUT_STEP_METHOD,
   async (params: AskAboutStepParams, token: CancellationToken) => {
     const abort = new AbortController();
-    const cancelSubscription = token.onCancellationRequested(() => abort.abort());
+    const cancelSubscription = token.onCancellationRequested(() =>
+      abort.abort(),
+    );
     try {
       return await runStepAnswer(
         params,
         createStepAnswerer(),
         observer,
-        (progress) => connection.sendNotification(GENERATION_PROGRESS_NOTIFICATION, progress),
-        abort.signal
+        (progress) =>
+          connection.sendNotification(
+            GENERATION_PROGRESS_NOTIFICATION,
+            progress,
+          ),
+        abort.signal,
       );
     } catch (error) {
       if (error instanceof GenerationCancelledError) {
-        throw new ResponseError(REQUEST_CANCELLED_ERROR_CODE, "answer cancelled");
+        throw new ResponseError(
+          REQUEST_CANCELLED_ERROR_CODE,
+          "answer cancelled",
+        );
       }
       if (error instanceof AuthRequiredError) {
-        throw new ResponseError(GENERATION_AUTH_REQUIRED_ERROR_CODE, error.message);
+        throw new ResponseError(
+          GENERATION_AUTH_REQUIRED_ERROR_CODE,
+          error.message,
+        );
       }
       if (error instanceof BudgetExceededError) {
-        throw new ResponseError(GENERATION_BUDGET_EXCEEDED_ERROR_CODE, error.message);
+        throw new ResponseError(
+          GENERATION_BUDGET_EXCEEDED_ERROR_CODE,
+          error.message,
+        );
       }
       if (error instanceof GenerationFailedError) {
         throw new ResponseError(GENERATION_FAILED_ERROR_CODE, error.message);
@@ -530,7 +580,7 @@ connection.onRequest(
     } finally {
       cancelSubscription.dispose();
     }
-  }
+  },
 );
 ```
 
@@ -553,6 +603,7 @@ git commit -m "feat(engine-server): add askAboutStep over stdio with budget + ca
 ### Task 4: VS Code — client method + WalkController reply handling
 
 **Files:**
+
 - Modify: `src/clients/vscode/src/engineClient.ts`
 - Modify: `src/clients/vscode/src/walkController.ts`
 
@@ -592,21 +643,24 @@ git commit -m "feat(engine-server): add askAboutStep over stdio with budget + ca
 - [ ] **Step 2: Extend `WalkController` (`src/clients/vscode/src/walkController.ts`).**
 
 (a) Add the import:
+
 ```ts
 import type { StepQaContext } from "@made-i-t/hdtw-protocol";
 ```
 
 (b) In the constructor, after creating the comment controller, set the reply prompt:
+
 ```ts
-    this.commentController.options = {
-      prompt: "Ask a follow-up about this step…",
-      placeHolder: "e.g. why is it done this way?",
-    };
+this.commentController.options = {
+  prompt: "Ask a follow-up about this step…",
+  placeHolder: "e.g. why is it done this way?",
+};
 ```
 
 (c) Enable replies: change `this.thread.canReply = false;` (in `renderCurrentStep`) to `this.thread.canReply = true;`.
 
 (d) Add `activeStepContext` + `askWhy` methods (near the other public methods):
+
 ```ts
   activeStepContext(): StepQaContext | undefined {
     if (this.stack.length === 0) {
@@ -683,17 +737,20 @@ git commit -m "feat(vscode): repliable narration thread + askWhy on the walk con
 ### Task 5: VS Code — reply command + manifest wiring
 
 **Files:**
+
 - Modify: `src/clients/vscode/package.json`
 - Modify: `src/clients/vscode/src/extension.ts`
 
 - [ ] **Step 1: Manifest — `src/clients/vscode/package.json`.**
 
 (a) Add the command to `contributes.commands`:
+
 ```json
-      { "command": "hdtw.askWhy", "title": "HDTW: Ask About This Step" }
+{ "command": "hdtw.askWhy", "title": "HDTW: Ask About This Step" }
 ```
 
 (b) Add a `comments/commentThread/context` menu so the reply box shows a submit button on the tour's threads (add the key to `contributes.menus` if absent):
+
 ```json
       "comments/commentThread/context": [
         { "command": "hdtw.askWhy", "when": "commentController == hdtw-tour", "group": "inline" }
@@ -703,11 +760,13 @@ git commit -m "feat(vscode): repliable narration thread + askWhy on the walk con
 - [ ] **Step 2: Wire `src/clients/vscode/src/extension.ts`.**
 
 (a) Register the command in the `context.subscriptions.push(...)` block:
+
 ```ts
     vscode.commands.registerCommand("hdtw.askWhy", (reply: vscode.CommentReply) => askWhy(reply)),
 ```
 
 (b) Add the `askWhy` function (near `followRelated`/`reanchorStep`):
+
 ```ts
 async function askWhy(reply: vscode.CommentReply): Promise<void> {
   const root = workspaceRoot();
@@ -721,19 +780,29 @@ async function askWhy(reply: vscode.CommentReply): Promise<void> {
   const maxBudgetUsd = config.get<number>("maxBudgetUsd", 2);
   await walk.askWhy(question, (ctx) =>
     vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: "HDTW: answering", cancellable: true },
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "HDTW: answering",
+        cancellable: true,
+      },
       async (progress, token) => {
         const { answer } = await client!.askAboutStep(
-          { workspaceRoot: root, question, context: ctx, model: model || undefined, maxBudgetUsd },
+          {
+            workspaceRoot: root,
+            question,
+            context: ctx,
+            model: model || undefined,
+            maxBudgetUsd,
+          },
           (update) =>
             progress.report({
               message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
             }),
-          token
+          token,
         );
         return answer;
-      }
-    )
+      },
+    ),
   );
 }
 ```
@@ -755,6 +824,7 @@ git commit -m "feat(vscode): Why-detour reply command wired to askAboutStep"
 ### Task 6: Docs
 
 **Files:**
+
 - Modify: `docs/product-roadmap.md`
 - Modify: `AGENTS.md`
 
@@ -785,4 +855,7 @@ git commit -m "docs: mark Why detours (chunk 3b) shipped; V1 complete"
 3. The placeholder is replaced by a grounded answer.
 4. Press **Next** → the Q&A is gone (ephemeral) and the walk continues.
 5. (No-auth check) With no key + no Claude Code login, asking shows the "Set your Anthropic API key" message in the thread.
+
+```
+
 ```
