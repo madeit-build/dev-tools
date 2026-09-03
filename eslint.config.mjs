@@ -27,7 +27,13 @@ export default tseslint.config(
         {
           patterns: [
             {
-              group: ["prettier", "prettier/*", "typescript", "node:*", "@made-i-t/*"],
+              group: [
+                "prettier",
+                "prettier/*",
+                "typescript",
+                "node:*",
+                "@made-i-t/*",
+              ],
               message:
                 "@made-i-t/hang-core imports nothing -- see src/hang/AGENTS.md.",
             },

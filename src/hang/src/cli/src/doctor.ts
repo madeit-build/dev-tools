@@ -68,7 +68,8 @@ export async function collectChecks(root: string): Promise<Check[]> {
   let config: ResolvedConfig = {};
   let configError: unknown = null;
   try {
-    config = ((await prettier.resolveConfig(`${root}/index.ts`)) ?? {}) as ResolvedConfig;
+    config = ((await prettier.resolveConfig(`${root}/index.ts`))
+      ?? {}) as ResolvedConfig;
   } catch (error) {
     configError = error;
   }

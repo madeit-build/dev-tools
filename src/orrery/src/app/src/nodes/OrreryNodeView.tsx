@@ -11,10 +11,12 @@ export interface OrreryNodeData extends Record<string, unknown> {
 // The meta line answers "what is this" in the fewest characters that are still
 // true, and differs by type because the useful fact differs by type.
 function meta(node: OrreryNode): string {
-  if (node.type === "service") return String(node.attrs.user ?? node.attrs.lifecycle ?? "");
+  if (node.type === "service")
+    return String(node.attrs.user ?? node.attrs.lifecycle ?? "");
   if (node.type === "host") return String(node.attrs.kind ?? "");
   if (node.type === "module") return "module";
-  if (node.type === "option") return `${node.attrs.definitions ?? 0} definitions`;
+  if (node.type === "option")
+    return `${node.attrs.definitions ?? 0} definitions`;
   return node.type;
 }
 

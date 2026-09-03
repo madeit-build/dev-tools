@@ -71,13 +71,13 @@ Packages follow the existing convention: `@made-i-t/hang-core`,
 
 ```ts
 type RejectReason =
-  | "bad-indent"        // continuation not indented past its head
-  | "nested-content"    // a link carries its own multi-line content
-  | "opens-delimiter"   // head ends with its own unclosed opening delimiter
-  | "over-budget"       // hung form would exceed hangWidth
-  | "single-link"       // only one link: nothing to align by joining it up
-  | "use-tabs"          // useTabs is set; column arithmetic can't handle it
-  | "verify-rejected";  // the guard rejected the edit as meaning-changing
+  | "bad-indent" // continuation not indented past its head
+  | "nested-content" // a link carries its own multi-line content
+  | "opens-delimiter" // head ends with its own unclosed opening delimiter
+  | "over-budget" // hung form would exceed hangWidth
+  | "single-link" // only one link: nothing to align by joining it up
+  | "use-tabs" // useTabs is set; column arithmetic can't handle it
+  | "verify-rejected"; // the guard rejected the edit as meaning-changing
 
 type Decision =
   | { line: number; applied: true; anchor: number; links: number }

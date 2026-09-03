@@ -10,17 +10,39 @@ import { GenerationFailedError } from "./tourGenerator.js";
 let root: string;
 beforeEach(async () => {
   root = await mkdtemp(path.join(tmpdir(), "qa-"));
-  await writeFile(path.join(root, "a.ts"), "export function foo() { return 1; }\n");
+  await writeFile(
+    path.join(root, "a.ts"),
+    "export function foo() { return 1; }\n",
+  );
 });
-afterEach(async () => { await rm(root, { recursive: true, force: true }); });
+afterEach(async () => {
+  await rm(root, { recursive: true, force: true });
+});
 
 const observer = createObserver({ sink: { record() {} }, minLevel: "info" });
-const hooks = () => ({ onProgress: vi.fn(), signal: new AbortController().signal, observer });
-const ctx = { file: "a.ts", startLine: 1, endLine: 1, narration: "n", tourTitle: "T" };
+const hooks = () => ({
+  onProgress: vi.fn(),
+  signal: new AbortController().signal,
+  observer,
+});
+const ctx = {
+  file: "a.ts",
+  startLine: 1,
+  endLine: 1,
+  narration: "n",
+  tourTitle: "T",
+};
 
 test("returns the model's prose as the answer", async () => {
   const create = vi.fn().mockResolvedValue({
-    choices: [{ message: { role: "assistant", content: "Because it keeps the engine pure." } }],
+    choices: [
+      {
+        message: {
+          role: "assistant",
+          content: "Because it keeps the engine pure.",
+        },
+      },
+    ],
     usage: { prompt_tokens: 5, completion_tokens: 8 },
   });
   const client: ChatClient = { chat: { completions: { create } } };
@@ -30,8 +52,15 @@ test("returns the model's prose as the answer", async () => {
 });
 
 test("an empty answer throws GenerationFailedError", async () => {
-  const create = vi.fn().mockResolvedValue({ choices: [{ message: { role: "assistant", content: "   " } }], usage: {} });
+  const create = vi
+    .fn()
+    .mockResolvedValue({
+      choices: [{ message: { role: "assistant", content: "   " } }],
+      usage: {},
+    });
   const client: ChatClient = { chat: { completions: { create } } };
   const answerer = new OpenAiStepAnswerer(() => client, {});
-  await expect(answerer.answer(root, ctx, "why?", "gpt-test", hooks())).rejects.toBeInstanceOf(GenerationFailedError);
+  await expect(
+    answerer.answer(root, ctx, "why?", "gpt-test", hooks()),
+  ).rejects.toBeInstanceOf(GenerationFailedError);
 });

@@ -61,9 +61,10 @@ export function probeHunk(
     // first half alone would never trigger and the run would otherwise keep
     // extending through sibling statements at or below the head's own
     // indent, swallowing a perfectly good chain that follows.
-    if (next.trim() === ""
-        || indentOf(next) < contIndent
-        || indentOf(next) <= indentOf(head)
+    if (
+      next.trim() === ""
+      || indentOf(next) < contIndent
+      || indentOf(next) <= indentOf(head)
     ) {
       break;
     }

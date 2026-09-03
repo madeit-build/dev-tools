@@ -3,7 +3,11 @@ import { parseHash, toHash, type View } from "./route";
 
 describe("parseHash", () => {
   it("defaults to the fleet under the runtime lens when the hash is empty", () => {
-    expect(parseHash("")).toEqual({ path: [], lens: "runtime", selected: null });
+    expect(parseHash("")).toEqual({
+      path: [],
+      lens: "runtime",
+      selected: null,
+    });
   });
 
   it("reads a drill path", () => {
@@ -15,7 +19,9 @@ describe("parseHash", () => {
   });
 
   it("reads the selection", () => {
-    expect(parseHash("#/box?sel=service:box/caddy").selected).toBe("service:box/caddy");
+    expect(parseHash("#/box?sel=service:box/caddy").selected).toBe(
+      "service:box/caddy",
+    );
   });
 
   it("falls back to runtime for an unknown lens rather than rendering nothing", () => {
@@ -29,12 +35,18 @@ describe("parseHash", () => {
 
 describe("toHash", () => {
   it("round-trips through parseHash", () => {
-    const view: View = { path: ["box", "caddy"], lens: "declaration", selected: "service:box/caddy" };
+    const view: View = {
+      path: ["box", "caddy"],
+      lens: "declaration",
+      selected: "service:box/caddy",
+    };
     expect(parseHash(toHash(view))).toEqual(view);
   });
 
   it("omits the lens when it is the default, keeping the common URL short", () => {
-    expect(toHash({ path: ["box"], lens: "runtime", selected: null })).toBe("#/box");
+    expect(toHash({ path: ["box"], lens: "runtime", selected: null })).toBe(
+      "#/box",
+    );
   });
 
   it("renders the fleet view as a bare hash", () => {
@@ -42,7 +54,13 @@ describe("toHash", () => {
   });
 
   it("round-trips a vhost id, whose dots must survive", () => {
-    const view: View = { path: ["box"], lens: "runtime", selected: "vhost:box/chat.keep.madeit.build" };
-    expect(parseHash(toHash(view)).selected).toBe("vhost:box/chat.keep.madeit.build");
+    const view: View = {
+      path: ["box"],
+      lens: "runtime",
+      selected: "vhost:box/chat.keep.madeit.build",
+    };
+    expect(parseHash(toHash(view)).selected).toBe(
+      "vhost:box/chat.keep.madeit.build",
+    );
   });
 });

@@ -22,22 +22,24 @@ function wasmDir(): string {
 export function languageForPath(filePath: string): CodemapLanguage | undefined {
   if (filePath.endsWith(".tsx") || filePath.endsWith(".jsx")) return "tsx";
   if (
-    filePath.endsWith(".ts") ||
-    filePath.endsWith(".mts") ||
-    filePath.endsWith(".cts")
+    filePath.endsWith(".ts")
+    || filePath.endsWith(".mts")
+    || filePath.endsWith(".cts")
   )
     return "ts";
   if (
-    filePath.endsWith(".js") ||
-    filePath.endsWith(".mjs") ||
-    filePath.endsWith(".cjs")
+    filePath.endsWith(".js")
+    || filePath.endsWith(".mjs")
+    || filePath.endsWith(".cjs")
   )
     return "ts";
   return undefined;
 }
 
 /** Load and cache a grammar Language; idempotent. */
-export async function loadLanguage(language: CodemapLanguage): Promise<Language> {
+export async function loadLanguage(
+  language: CodemapLanguage,
+): Promise<Language> {
   initialized ??= Parser.init();
   await initialized;
   let pending = cache.get(language);

@@ -25,7 +25,8 @@ export const options = {
     type: "int",
     category: "Global",
     default: 100,
-    description: "Maximum width a hung continuation line may reach before the hang is skipped.",
+    description:
+      "Maximum width a hung continuation line may reach before the hang is skipped.",
   },
 };
 
@@ -69,7 +70,9 @@ export const printers = {
         // Fail closed: stock Prettier output beats damaged source. The message
         // is recorded for `hang doctor`; the source itself is never logged.
         lastFailure = error instanceof Error ? error.message : String(error);
-        process.stderr.write(`hang: fell back to Prettier output (${lastFailure})\n`);
+        process.stderr.write(
+          `hang: fell back to Prettier output (${lastFailure})\n`,
+        );
         return doc;
       }
     },

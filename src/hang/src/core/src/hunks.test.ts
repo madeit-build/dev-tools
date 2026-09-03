@@ -3,7 +3,8 @@ import { indentOf, probeHunk } from "./hunks.js";
 
 const TOKENS = [".", "&&", "||", "??"] as const;
 const BRANCH_TOKENS = ["?", ":"] as const;
-const probe = (lines: string[], at = 0) => probeHunk(lines, at, TOKENS, BRANCH_TOKENS);
+const probe = (lines: string[], at = 0) =>
+  probeHunk(lines, at, TOKENS, BRANCH_TOKENS);
 
 describe("indentOf", () => {
   it("counts leading spaces", () => {
@@ -17,8 +18,15 @@ describe("indentOf", () => {
 
 describe("probeHunk", () => {
   it("finds a two-link chain", () => {
-    const result = probe(["const t = regions", "    .filter(f)", "    .reduce(g, 0);"]);
-    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 2, contIndent: 4 } });
+    const result = probe([
+      "const t = regions",
+      "    .filter(f)",
+      "    .reduce(g, 0);",
+    ]);
+    expect(result).toEqual({
+      kind: "hunk",
+      hunk: { headIndex: 0, endIndex: 2, contIndent: 4 },
+    });
   });
 
   it("includes deeper lines in the run so ternary branches travel with it", () => {
@@ -29,17 +37,26 @@ describe("probeHunk", () => {
       "        ? trunc(p)",
       "        : FALLBACK;",
     ]);
-    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 4, contIndent: 4 } });
+    expect(result).toEqual({
+      kind: "hunk",
+      hunk: { headIndex: 0, endIndex: 4, contIndent: 4 },
+    });
   });
 
   it("stops the run at a blank line", () => {
     const result = probe(["const t = xs", "    .map(f)", "", "    .other()"]);
-    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 1, contIndent: 4 } });
+    expect(result).toEqual({
+      kind: "hunk",
+      hunk: { headIndex: 0, endIndex: 1, contIndent: 4 },
+    });
   });
 
   it("stops the run when indentation falls back", () => {
     const result = probe(["const t = xs", "    .map(f);", "const u = 2;"]);
-    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 1, contIndent: 4 } });
+    expect(result).toEqual({
+      kind: "hunk",
+      hunk: { headIndex: 0, endIndex: 1, contIndent: 4 },
+    });
   });
 
   it("skips a line whose successor starts no continuation token", () => {
@@ -77,12 +94,18 @@ describe("probeHunk", () => {
 
   it("still finds a real member-access dot later in the run past a spread-like line", () => {
     const result = probe(["const a = obj", "    ...extra", "    .filter(x);"]);
-    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 2, contIndent: 4 } });
+    expect(result).toEqual({
+      kind: "hunk",
+      hunk: { headIndex: 0, endIndex: 2, contIndent: 4 },
+    });
   });
 
   it("finds the token when it first appears on the third line of the run", () => {
     const result = probe(["const t = xs", "    a", "    b", "    .map(f);"]);
-    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 3, contIndent: 4 } });
+    expect(result).toEqual({
+      kind: "hunk",
+      hunk: { headIndex: 0, endIndex: 3, contIndent: 4 },
+    });
   });
 
   it("rejects a run whose deeper-indented line is a call's own wrapped argument, not a branch token", () => {
@@ -93,7 +116,11 @@ describe("probeHunk", () => {
       "    )",
       "    .map((r) => r.fields);",
     ]);
-    expect(result).toEqual({ kind: "reject", reason: "nested-content", endIndex: 4 });
+    expect(result).toEqual({
+      kind: "reject",
+      reason: "nested-content",
+      endIndex: 4,
+    });
   });
 
   it("rejects a run whose deeper-indented lines are a callback's own multi-line JSX body", () => {
@@ -106,7 +133,11 @@ describe("probeHunk", () => {
       "            </div>",
       "        ))}",
     ]);
-    expect(result).toEqual({ kind: "reject", reason: "nested-content", endIndex: 6 });
+    expect(result).toEqual({
+      kind: "reject",
+      reason: "nested-content",
+      endIndex: 6,
+    });
   });
 
   it("still hangs when every deeper-indented line begins with a branch token", () => {
@@ -117,7 +148,10 @@ describe("probeHunk", () => {
       "        ? trunc(p)",
       "        : FALLBACK;",
     ]);
-    expect(result).toEqual({ kind: "hunk", hunk: { headIndex: 0, endIndex: 4, contIndent: 4 } });
+    expect(result).toEqual({
+      kind: "hunk",
+      hunk: { headIndex: 0, endIndex: 4, contIndent: 4 },
+    });
   });
 
   it("rejects nested content even when it appears after a branch-token line", () => {
@@ -130,7 +164,11 @@ describe("probeHunk", () => {
       "            deeper,",
       "        )",
     ]);
-    expect(result).toEqual({ kind: "reject", reason: "nested-content", endIndex: 6 });
+    expect(result).toEqual({
+      kind: "reject",
+      reason: "nested-content",
+      endIndex: 6,
+    });
   });
 
   it("rejects a run whose head ends with its own unclosed opening paren", () => {
@@ -176,6 +214,10 @@ describe("probeHunk", () => {
       "    .b()",
       "    .c();",
     ]);
-    expect(result).toEqual({ kind: "reject", reason: "bad-indent", endIndex: 1 });
+    expect(result).toEqual({
+      kind: "reject",
+      reason: "bad-indent",
+      endIndex: 1,
+    });
   });
 });

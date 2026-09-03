@@ -34,20 +34,29 @@ function startServer(extraEnv: Record<string, string> = {}): MessageConnection {
   });
   const conn = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
-  conn.onNotification(GENERATION_PROGRESS_NOTIFICATION, (p: GenerationProgressParams) =>
-    progress.push(p)
+  conn.onNotification(
+    GENERATION_PROGRESS_NOTIFICATION,
+    (p: GenerationProgressParams) => progress.push(p),
   );
   conn.listen();
   return conn;
 }
 
-function askParams(overrides: Partial<AskAboutStepParams> = {}): AskAboutStepParams {
+function askParams(
+  overrides: Partial<AskAboutStepParams> = {},
+): AskAboutStepParams {
   return {
     workspaceRoot,
     question: "why stdio?",
-    context: { file: "README.md", startLine: 1, endLine: 1, narration: "n", tourTitle: "T" },
+    context: {
+      file: "README.md",
+      startLine: 1,
+      endLine: 1,
+      narration: "n",
+      tourTitle: "T",
+    },
     ...overrides,
   };
 }
@@ -70,7 +79,7 @@ test("askAboutStep returns an answer and emits an answering progress event", asy
 
   const result = await connection.sendRequest<AskAboutStepResult>(
     ASK_ABOUT_STEP_METHOD,
-    askParams()
+    askParams(),
   );
 
   expect(result.answer).toBe("Fake answer to: why stdio?");
@@ -81,7 +90,10 @@ test("askAboutStep maps an auth failure to GENERATION_AUTH_REQUIRED", async () =
   connection = startServer({ HDTW_FAKE_AUTH_ERROR: "1" });
 
   await expect(
-    connection.sendRequest<AskAboutStepResult>(ASK_ABOUT_STEP_METHOD, askParams())
+    connection.sendRequest<AskAboutStepResult>(
+      ASK_ABOUT_STEP_METHOD,
+      askParams(),
+    ),
   ).rejects.toMatchObject({ code: GENERATION_AUTH_REQUIRED_ERROR_CODE });
 });
 
@@ -92,8 +104,8 @@ test("askAboutStep maps a budget breach to GENERATION_BUDGET_EXCEEDED", async ()
   await expect(
     connection.sendRequest<AskAboutStepResult>(
       ASK_ABOUT_STEP_METHOD,
-      askParams({ maxBudgetUsd: 0.001 })
-    )
+      askParams({ maxBudgetUsd: 0.001 }),
+    ),
   ).rejects.toMatchObject({ code: GENERATION_BUDGET_EXCEEDED_ERROR_CODE });
 });
 
@@ -102,7 +114,7 @@ test("askAboutStep with provider: openai still returns fake answer when HDTW_GEN
 
   const result = await connection.sendRequest<AskAboutStepResult>(
     ASK_ABOUT_STEP_METHOD,
-    askParams({ provider: "openai", baseUrl: "http://localhost:11434/v1" })
+    askParams({ provider: "openai", baseUrl: "http://localhost:11434/v1" }),
   );
 
   expect(result.answer).toBe("Fake answer to: why stdio?");

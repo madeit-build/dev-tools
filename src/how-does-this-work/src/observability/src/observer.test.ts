@@ -2,7 +2,10 @@ import { describe, expect, test } from "vitest";
 import type { ObservabilityRecord, ObservabilitySink } from "./records.js";
 import { createNoopObserver, createObserver, fanoutSink } from "./observer.js";
 
-function capturing(): { sink: ObservabilitySink; records: ObservabilityRecord[] } {
+function capturing(): {
+  sink: ObservabilitySink;
+  records: ObservabilityRecord[];
+} {
   const records: ObservabilityRecord[] = [];
   return { sink: { record: (r) => records.push(r) }, records };
 }
@@ -13,7 +16,13 @@ describe("createObserver", () => {
     const observer = createObserver({ sink, now: () => 1000 });
     observer.logger.info("generate.start", { topic: "x" });
     expect(records).toEqual([
-      { kind: "log", ts: 1000, level: "info", event: "generate.start", fields: { topic: "x" } },
+      {
+        kind: "log",
+        ts: 1000,
+        level: "info",
+        event: "generate.start",
+        fields: { topic: "x" },
+      },
     ]);
   });
 
@@ -31,8 +40,20 @@ describe("createObserver", () => {
     observer.metrics.count("verify.drift", 2);
     observer.metrics.timing("generate.duration_ms", 1800);
     expect(records).toEqual([
-      { kind: "metric", ts: 5, metric: "count", name: "verify.drift", value: 2 },
-      { kind: "metric", ts: 5, metric: "timing", name: "generate.duration_ms", value: 1800 },
+      {
+        kind: "metric",
+        ts: 5,
+        metric: "count",
+        name: "verify.drift",
+        value: 2,
+      },
+      {
+        kind: "metric",
+        ts: 5,
+        metric: "timing",
+        name: "generate.duration_ms",
+        value: 1800,
+      },
     ]);
   });
 
@@ -40,7 +61,11 @@ describe("createObserver", () => {
     const { sink, records } = capturing();
     const observer = createObserver({ sink, now: () => 0 });
     observer.metrics.count("repair.round");
-    expect(records[0]).toMatchObject({ metric: "count", name: "repair.round", value: 1 });
+    expect(records[0]).toMatchObject({
+      metric: "count",
+      name: "repair.round",
+      value: 1,
+    });
   });
 
   test("startSpan emits a timing metric on end using elapsed time", () => {
@@ -82,7 +107,9 @@ describe("fanoutSink", () => {
       },
     };
     const fan = fanoutSink([bad, good.sink]);
-    expect(() => fan.record({ kind: "log", ts: 0, level: "info", event: "x" })).not.toThrow();
+    expect(() =>
+      fan.record({ kind: "log", ts: 0, level: "info", event: "x" }),
+    ).not.toThrow();
     expect(good.records).toHaveLength(1);
   });
 });

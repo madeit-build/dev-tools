@@ -39,7 +39,10 @@ describe("resolveFormatOptions", () => {
   it("hangs a chain even when the project's config never lists the plugin", async () => {
     const file = join(unconfigured, "input.ts");
     const options = await resolveFormatOptions(file);
-    const out = await prettier.format(CHAIN, { ...options, parser: "typescript" });
+    const out = await prettier.format(CHAIN, {
+      ...options,
+      parser: "typescript",
+    });
     expect(out).toBe(
       "const taken = regions.filter((region) => !region.growing)\n"
         + "                     .reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n",

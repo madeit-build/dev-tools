@@ -7,7 +7,8 @@ const byLine = (a: Decision, b: Decision): number => a.line - b.line;
 /** Detects the input's own line ending so the engine can restore it: geometry.ts
  * always splits and joins on bare "\n", so a CRLF input would otherwise come
  * back with its \r stripped from every touched line but kept on untouched ones. */
-const detectEol = (text: string): "\r\n" | "\n" => (text.includes("\r\n") ? "\r\n" : "\n");
+const detectEol = (text: string): "\r\n" | "\n" =>
+  text.includes("\r\n") ? "\r\n" : "\n";
 
 const withEol = (text: string, eol: "\r\n" | "\n"): string =>
   eol === "\n" ? text : text.replace(/\n/g, eol);
@@ -30,7 +31,12 @@ function collect(
   let index = 0;
 
   while (index < lines.length) {
-    const probe = probeHunk(lines, index, adapter.continuationTokens, adapter.branchTokens);
+    const probe = probeHunk(
+      lines,
+      index,
+      adapter.continuationTokens,
+      adapter.branchTokens,
+    );
     if (probe.kind === "skip") {
       index += 1;
       continue;
@@ -66,7 +72,11 @@ function collect(
       continue;
     }
     if (replacement.lines.some((line) => line.length > options.hangWidth)) {
-      decisions.push({ line: index + 1, applied: false, reason: "over-budget" });
+      decisions.push({
+        line: index + 1,
+        applied: false,
+        reason: "over-budget",
+      });
       // A run that is over budget as a whole is not retried as a smaller
       // sub-run: skip past it entirely instead of re-probing from inside it,
       // which would just re-hit its equal-indent continuation lines as a
@@ -84,11 +94,16 @@ function collect(
   return { candidates, decisions };
 }
 
-export function hangAlign(text: string, adapter: Adapter, options: HangOptions): HangResult {
+export function hangAlign(
+  text: string,
+  adapter: Adapter,
+  options: HangOptions,
+): HangResult {
   const eol = detectEol(text);
   const lines = text.split(/\r?\n/);
   const { candidates, decisions } = collect(lines, adapter, options);
-  if (candidates.length === 0) return { text, decisions: decisions.sort(byLine) };
+  if (candidates.length === 0)
+    return { text, decisions: decisions.sort(byLine) };
 
   const batch = withEol(renderApplied(lines, candidates), eol);
   if (adapter.verify(text, batch)) {
@@ -98,11 +113,20 @@ export function hangAlign(text: string, adapter: Adapter, options: HangOptions):
 
   const kept: Applied[] = [];
   for (const candidate of candidates) {
-    if (adapter.verify(text, withEol(renderApplied(lines, [...kept, candidate]), eol))) {
+    if (
+      adapter.verify(
+        text,
+        withEol(renderApplied(lines, [...kept, candidate]), eol),
+      )
+    ) {
       kept.push(candidate);
       decisions.push(appliedDecision(candidate));
     } else {
-      decisions.push({ line: candidate.hunk.headIndex + 1, applied: false, reason: "verify-rejected" });
+      decisions.push({
+        line: candidate.hunk.headIndex + 1,
+        applied: false,
+        reason: "verify-rejected",
+      });
     }
   }
 

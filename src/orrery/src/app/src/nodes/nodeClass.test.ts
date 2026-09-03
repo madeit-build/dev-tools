@@ -3,8 +3,13 @@ import { nodeClass } from "./nodeClass";
 import type { OrreryNode } from "@made-i-t/orrery-model";
 
 const n = (over: Partial<OrreryNode>): OrreryNode => ({
-  id: "service:box/x", type: "service", label: "x", host: "box",
-  attrs: {}, provenance: { files: [] }, ...over,
+  id: "service:box/x",
+  type: "service",
+  label: "x",
+  host: "box",
+  attrs: {},
+  provenance: { files: [] },
+  ...over,
 });
 
 describe("nodeClass", () => {
@@ -13,7 +18,9 @@ describe("nodeClass", () => {
   });
 
   it("carries a modifier for the node type", () => {
-    expect(nodeClass(n({ type: "vhost" }), false)).toContain("orrery-node--vhost");
+    expect(nodeClass(n({ type: "vhost" }), false)).toContain(
+      "orrery-node--vhost",
+    );
   });
 
   it("marks a oneshot service as a job rather than as a service", () => {
@@ -22,7 +29,9 @@ describe("nodeClass", () => {
   });
 
   it("does not mark a long-running service as a job", () => {
-    expect(nodeClass(n({ attrs: { lifecycle: "running" } }), false)).not.toContain("--job");
+    expect(
+      nodeClass(n({ attrs: { lifecycle: "running" } }), false),
+    ).not.toContain("--job");
   });
 
   it("adds the selected modifier only when selected", () => {
@@ -31,7 +40,13 @@ describe("nodeClass", () => {
   });
 
   it("never emits a class encoding a color, since the brand is monochrome", () => {
-    for (const type of ["host", "service", "vhost", "module", "input"] as const) {
+    for (const type of [
+      "host",
+      "service",
+      "vhost",
+      "module",
+      "input",
+    ] as const) {
       const c = nodeClass(n({ type }), false);
       expect(c).not.toMatch(/red|green|blue|amber|warn|error|success/i);
     }

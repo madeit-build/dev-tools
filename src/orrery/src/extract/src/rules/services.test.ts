@@ -4,10 +4,18 @@ import raw from "../fixtures/box-services.json";
 
 const fixture = raw as unknown as Record<string, RawService>;
 
-const only = (unit: string, over: Partial<RawService> = {}): Record<string, RawService> => ({
+const only = (
+  unit: string,
+  over: Partial<RawService> = {},
+): Record<string, RawService> => ({
   [unit]: {
-    description: "d", wantedBy: [], after: [], exec: "/nix/store/aaa/bin/x",
-    user: null, type: "simple", ...over,
+    description: "d",
+    wantedBy: [],
+    after: [],
+    exec: "/nix/store/aaa/bin/x",
+    user: null,
+    type: "simple",
+    ...over,
   },
 });
 
@@ -23,8 +31,12 @@ describe("normalizeExec", () => {
   // systemd's reset idiom: an empty entry clears the ExecStart list before it,
   // and NixOS passes it through. caddy on the real box arrives exactly so.
   it("drops the empty reset entry a list-form ExecStart leads with", () => {
-    expect(normalizeExec(["", "/nix/store/aaa-caddy/bin/caddy run --config /etc/caddy/x"]))
-      .toBe("/nix/store/aaa-caddy/bin/caddy run --config /etc/caddy/x");
+    expect(
+      normalizeExec([
+        "",
+        "/nix/store/aaa-caddy/bin/caddy run --config /etc/caddy/x",
+      ]),
+    ).toBe("/nix/store/aaa-caddy/bin/caddy run --config /etc/caddy/x");
   });
 
   it("joins several real entries, since systemd runs them in order", () => {
@@ -57,7 +69,13 @@ describe("servicesRule", () => {
     const r = servicesRule("box", only("dbus", { exec: null }));
     expect(r.nodes).toHaveLength(0);
     expect(r.ledger).toEqual([
-      { candidate: "dbus", host: "box", rule: "services", reason: "no-exec", detail: "no ExecStart" },
+      {
+        candidate: "dbus",
+        host: "box",
+        rule: "services",
+        reason: "no-exec",
+        detail: "no ExecStart",
+      },
     ]);
   });
 
@@ -72,8 +90,11 @@ describe("servicesRule", () => {
     const r = servicesRule("box", only("caddy"));
     expect(r.edges).toContainEqual({
       id: "contains:host:box->service:box/caddy",
-      from: "host:box", to: "service:box/caddy",
-      type: "contains", source: "declared", evidence: null,
+      from: "host:box",
+      to: "service:box/caddy",
+      type: "contains",
+      source: "declared",
+      evidence: null,
     });
   });
 
@@ -87,22 +108,33 @@ describe("servicesRule", () => {
     const dep = r.edges.filter((e) => e.type === "depends-on");
     expect(dep).toHaveLength(1);
     expect(dep[0]).toMatchObject({
-      from: "service:box/grafana", to: "service:box/postgresql", source: "declared",
+      from: "service:box/grafana",
+      to: "service:box/postgresql",
+      source: "declared",
     });
   });
 
   it("draws no depends-on edge to a unit that did not survive the filter", () => {
-    const r = servicesRule("box", only("grafana", { after: ["postgresql.service"] }));
+    const r = servicesRule(
+      "box",
+      only("grafana", { after: ["postgresql.service"] }),
+    );
     expect(r.edges.filter((e) => e.type === "depends-on")).toHaveLength(0);
   });
 
   it("ignores a .target in after=, since a target is not a service node", () => {
-    const r = servicesRule("box", only("grafana", { after: ["network.target"] }));
+    const r = servicesRule(
+      "box",
+      only("grafana", { after: ["network.target"] }),
+    );
     expect(r.edges.filter((e) => e.type === "depends-on")).toHaveLength(0);
   });
 
   it("marks a Type=oneshot unit as a job rather than a running service", () => {
-    const r = servicesRule("box", only("claude-mem-db-password", { type: "oneshot" }));
+    const r = servicesRule(
+      "box",
+      only("claude-mem-db-password", { type: "oneshot" }),
+    );
     expect(r.nodes[0].attrs.lifecycle).toBe("oneshot");
   });
 
@@ -124,7 +156,9 @@ describe("servicesRule", () => {
   describe("against the real captured fleet", () => {
     it("accounts for every single candidate: kept plus dropped equals input", () => {
       const r = servicesRule("box", fixture);
-      expect(r.nodes.length + r.ledger.length).toBe(Object.keys(fixture).length);
+      expect(r.nodes.length + r.ledger.length).toBe(
+        Object.keys(fixture).length,
+      );
     });
 
     // Measured against box on 2026-08-21: 121 units in, 16 templates and 29
@@ -149,7 +183,9 @@ describe("servicesRule", () => {
       const r = servicesRule("box", fixture);
       const byId = new Map(r.nodes.map((n) => [n.id, n]));
       for (const unit of ["caddy", "ollama", "postgresql", "nats"]) {
-        expect(byId.get(`service:box/${unit}`)?.attrs.lifecycle, unit).toBe("running");
+        expect(byId.get(`service:box/${unit}`)?.attrs.lifecycle, unit).toBe(
+          "running",
+        );
       }
     });
 
@@ -164,7 +200,8 @@ describe("servicesRule", () => {
     it("never emits a non-scalar attribute, which the schema would reject", () => {
       for (const n of servicesRule("box", fixture).nodes) {
         for (const [k, v] of Object.entries(n.attrs)) {
-          const ok = v === null || ["string", "number", "boolean"].includes(typeof v);
+          const ok =
+            v === null || ["string", "number", "boolean"].includes(typeof v);
           expect(ok, `${n.id}.${k} is ${typeof v}`).toBe(true);
         }
       }
@@ -185,7 +222,12 @@ describe("servicesRule", () => {
     it("gives every ledger row a reason from the known set", () => {
       const r = servicesRule("box", fixture);
       for (const row of r.ledger) {
-        expect(["no-exec", "filtered-by-rule", "rule-error", "eval-failed"]).toContain(row.reason);
+        expect([
+          "no-exec",
+          "filtered-by-rule",
+          "rule-error",
+          "eval-failed",
+        ]).toContain(row.reason);
       }
     });
   });

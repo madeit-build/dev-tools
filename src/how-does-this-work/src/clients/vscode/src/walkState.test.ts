@@ -16,8 +16,26 @@ const tour: Tour = {
   title: "T",
   summary: "",
   steps: [
-    { title: "one", anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:a" }, narration: "1" },
-    { title: "two", anchor: { file: "b.ts", startLine: 2, endLine: 3, snippetHash: "sha256:b" }, narration: "2" },
+    {
+      title: "one",
+      anchor: {
+        file: "a.ts",
+        startLine: 1,
+        endLine: 1,
+        snippetHash: "sha256:a",
+      },
+      narration: "1",
+    },
+    {
+      title: "two",
+      anchor: {
+        file: "b.ts",
+        startLine: 2,
+        endLine: 3,
+        snippetHash: "sha256:b",
+      },
+      narration: "2",
+    },
   ],
 };
 

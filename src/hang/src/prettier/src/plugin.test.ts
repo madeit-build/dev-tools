@@ -283,8 +283,9 @@ describe("the plugin", () => {
         "const taken = regions.filter((region) => !region.growing)\n"
           + "                     .reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n",
       );
-      expect(await prettier.format(out, { ...withPlugin, endOfLine: "crlf" }))
-        .toBe(out);
+      expect(
+        await prettier.format(out, { ...withPlugin, endOfLine: "crlf" }),
+      ).toBe(out);
     });
 
     it("does not double the line ending when endOfLine is auto and the source is CRLF", async () => {
@@ -295,8 +296,9 @@ describe("the plugin", () => {
       });
       expect(out).not.toMatch(/\r\r\n/);
       expect(out).toMatch(/\r\n/);
-      expect(await prettier.format(out, { ...withPlugin, endOfLine: "auto" }))
-        .toBe(out);
+      expect(
+        await prettier.format(out, { ...withPlugin, endOfLine: "auto" }),
+      ).toBe(out);
     });
   });
 

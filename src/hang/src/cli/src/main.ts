@@ -39,7 +39,11 @@ async function explain(files: string[]): Promise<void> {
     // Deliberately without the plugin: this reproduces the exact text the
     // plugin hands to hangAlign, so the decisions describe the real run.
     const plain = await prettier.format(source, { ...options, plugins: [] });
-    const { decisions } = hangAlign(plain, createAdapter(file), resolveHangOptions(options));
+    const { decisions } = hangAlign(
+      plain,
+      createAdapter(file),
+      resolveHangOptions(options),
+    );
     process.stdout.write(`${formatDecisions(file, decisions)}\n`);
   }
 }
@@ -53,7 +57,9 @@ async function main(): Promise<number> {
   if (positionals[0] === "doctor") return runDoctor(process.cwd());
 
   if (values.write && values.explain) {
-    process.stderr.write("hang: --write and --explain are mutually exclusive\n");
+    process.stderr.write(
+      "hang: --write and --explain are mutually exclusive\n",
+    );
     return 2;
   }
 
@@ -75,7 +81,9 @@ async function main(): Promise<number> {
   }
   if (values.write) {
     const changed = await write(files);
-    process.stdout.write(`hang: ${changed} file${changed === 1 ? "" : "s"} changed\n`);
+    process.stdout.write(
+      `hang: ${changed} file${changed === 1 ? "" : "s"} changed\n`,
+    );
     return 0;
   }
 
@@ -86,7 +94,9 @@ async function main(): Promise<number> {
 main().then(
   (code) => process.exit(code),
   (error: unknown) => {
-    process.stderr.write(`hang: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.stderr.write(
+      `hang: ${error instanceof Error ? error.message : String(error)}\n`,
+    );
     process.exit(1);
   },
 );
