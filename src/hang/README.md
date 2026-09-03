@@ -55,9 +55,9 @@ on. The tool looks fully configured and simply does nothing to those lines.
 `.` chains are unaffected either way.
 
 **The guard needs `typescript@^5.8`.** TypeScript 7 removed the compiler API
-from its main entry, exposing only `version`. Without `createScanner`, the
-synchronous safety guard has nothing to verify against, so pin the range and
-don't widen it.
+from its main entry, exposing only `version`. Without `createSourceFile` (and
+the other parser entry points the guard uses), the synchronous safety guard
+has nothing to verify against, so pin the range and don't widen it.
 
 **`useTabs: true` disables hang entirely, refusing every candidate.** Column
 arithmetic counts characters, not visual columns, so a tab-indented head and
@@ -100,7 +100,7 @@ this hang."
 
 `doctor` exits 0 only when every check passes: Prettier resolves, the
 installed Prettier supports `experimentalOperatorPosition`, the plugin is
-actually loaded (not just listed), the TypeScript scanner is available, both
+actually loaded (not just listed), the TypeScript compiler API is available, both
 config keys above are set to values that will actually produce a hang, and
 `useTabs` isn't set.
 

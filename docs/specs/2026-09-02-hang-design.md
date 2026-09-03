@@ -128,9 +128,17 @@ together. This is why the operator and ternary cases need no separate code path.
 
 ### Verification (load-bearing decision)
 
-Prettier's printers are synchronous, so the guard must be too. It compares token
-streams from TypeScript's own scanner: identical streams mean the edit changed
-only whitespace that carries no meaning.
+Prettier's printers are synchronous, so the guard must be too. It compares
+token streams walked out of `ts.createSourceFile`'s own parse tree: identical
+streams mean the edit changed only whitespace that carries no meaning.
+
+This has been parser-based since `395a9bc`, not scanner-based: an earlier
+version drove `ts.createScanner` a token at a time and approximated context
+(whether `/` starts a regex or divides, whether `}` resumes a template) by
+hand, and each attempt at that approximation closed one shape while missing
+the next. `ts.createSourceFile` resolves all of this correctly because
+disambiguating it is the parser's actual job. Nothing has called
+`ts.createScanner` since.
 
 Verification is optimistic. Apply every hunk, verify the file once, and the
 common case costs a single lexer pass. Only on failure does it fall back to
@@ -185,9 +193,12 @@ through `getSupportInfo` rather than comparing version strings, so it reports
 what the installed Prettier can actually do.
 
 TypeScript 7 removed the compiler API from its main entry, exposing only
-`version`. The guard's scanner would go missing without a word. The package
-depends on `typescript@^5.8`, and `doctor` checks for `createScanner` directly
-rather than trusting the version string.
+`version`. The guard's parser would go missing without a word. The package
+depends on `typescript@^5.8`, and `doctor` checks for the exact symbols the
+guard actually calls (`createSourceFile`, `ScriptKind`, `ScriptTarget`,
+`getLeadingCommentRanges`, `getTrailingCommentRanges`) rather than trusting
+the version string or probing `createScanner`, which nothing has used since
+the parser rewrite.
 
 ## Overflow policy
 

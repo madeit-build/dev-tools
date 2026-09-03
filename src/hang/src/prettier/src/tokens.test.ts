@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import Module from "node:module";
-import { sameTokens, hasScanner } from "./tokens.js";
+import { sameTokens, hasCompilerApi } from "./tokens.js";
 
 const same = (before: string, after: string) =>
   sameTokens(before, after, "standard");
@@ -93,7 +93,7 @@ describe("sameTokens", () => {
     expect(same(before, after)).toBe(true);
   });
 
-  it("hasScanner survives import under a TS7-shaped typescript module", async () => {
+  it("hasCompilerApi survives import under a TS7-shaped typescript module", async () => {
     // TS7 drops the compiler API, exposing only version/versionMajorMinor.
     // Patching Node's own module loader is the only way to simulate that
     // shape here: createRequire resolves through Node's real CJS loader,
@@ -117,14 +117,14 @@ describe("sameTokens", () => {
     };
     try {
       const ts7Module = await import("./tokens.js?ts7-shaped-module-test");
-      expect(ts7Module.hasScanner()).toBe(false);
+      expect(ts7Module.hasCompilerApi()).toBe(false);
     } finally {
       moduleWithLoad._load = originalLoad;
     }
   });
 
-  it("hasScanner reports true against the real, pinned typescript", () => {
-    expect(hasScanner()).toBe(true);
+  it("hasCompilerApi reports true against the real, pinned typescript", () => {
+    expect(hasCompilerApi()).toBe(true);
   });
 
   describe("after a template substitution (historical: swallowed the tail as code)", () => {

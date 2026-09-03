@@ -21,7 +21,7 @@ describe("collectChecks", () => {
       "prettier resolves",
       "operator position supported",
       "plugin loaded",
-      "typescript scanner available",
+      "typescript compiler api available",
       "operator position configured",
       "hangWidth at least printWidth",
       "useTabs not set",
@@ -145,7 +145,7 @@ describe("collectChecks against a broken environment", () => {
       "prettier config parses",
       "prettier resolves",
       "operator position supported",
-      "typescript scanner available",
+      "typescript compiler api available",
     ]);
   });
 

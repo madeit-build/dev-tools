@@ -1,4 +1,7 @@
-import { hasScanner, options as pluginOptions } from "@made-i-t/hang-prettier";
+import {
+  hasCompilerApi,
+  options as pluginOptions,
+} from "@made-i-t/hang-prettier";
 import * as prettier from "prettier";
 
 export interface Check {
@@ -175,11 +178,11 @@ export async function collectChecks(root: string): Promise<Check[]> {
     {
       needsConfig: false,
       check: {
-        name: "typescript scanner available",
-        ok: hasScanner(),
-        detail: hasScanner()
-          ? "createScanner present"
-          : "createScanner missing",
+        name: "typescript compiler api available",
+        ok: hasCompilerApi(),
+        detail: hasCompilerApi()
+          ? "createSourceFile present"
+          : "createSourceFile missing",
         fix: "pin typescript to ^5.8: version 7 removed the compiler API from its main entry",
       },
     },

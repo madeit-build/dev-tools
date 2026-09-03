@@ -4,5 +4,5 @@ export {
   CONTINUATION_TOKENS,
   BRANCH_TOKENS,
 } from "./adapter.js";
-export { sameTokens, hasScanner } from "./tokens.js";
+export { sameTokens, hasCompilerApi } from "./tokens.js";
 export type { ScanVariant } from "./tokens.js";

@@ -20,14 +20,14 @@ the `Program` node only.
 
 ```
 core     join-and-shift, hunk finding, budget, decision log   (imports nothing)
-prettier the adapter (TypeScript scanner guard) and the plugin
+prettier the adapter (TypeScript parser-based guard) and the plugin
 cli      hang --write, --explain, doctor
 ```
 
 Dependency rule: `@made-i-t/hang-core` imports nothing — not `prettier`, not
 `typescript`, not `node:*`. It takes text and an injected `Adapter` and
 returns text plus a `Decision[]`. `@made-i-t/hang-prettier` supplies that
-adapter (a synchronous token-stream comparison over TypeScript's scanner) and
+adapter (a synchronous token-stream comparison over TypeScript's parser) and
 the Prettier plugin. `@made-i-t/hang-cli` is the only package that touches the
 filesystem.
 
@@ -53,8 +53,10 @@ deeper-indented members of the same run.
 ### The synchronous guard
 
 Prettier's printers are synchronous, so verification has to be too. The
-guard compares TypeScript scanner token streams of the text before and after
-an edit: identical streams mean only whitespace changed. It's optimistic —
+guard compares token streams of the text before and after an edit, walked out
+of `ts.createSourceFile`'s parse tree (not `ts.createScanner`, which nothing
+has used since the parser rewrite in 395a9bc): identical streams mean only
+whitespace changed. It's optimistic —
 apply every hunk, verify once, and only on failure fall back to verifying one
 hunk at a time to isolate and reject the bad one, naming it in `decisions`
 with a line number.
@@ -88,11 +90,14 @@ than an error, so anyone touching this tool needs to know them going in:
   comparing Prettier version strings, because that's what tells you whether
   the _installed_ Prettier can do it.
 - **TypeScript must stay `^5.8`.** TypeScript 7 removed the compiler API from
-  its main entry — `require("typescript").createScanner` is `undefined`,
+  its main entry — `require("typescript").createSourceFile` is `undefined`,
   `Object.keys()` on the namespace yields only `["version",
-"versionMajorMinor"]`. Without a scanner the safety guard has nothing to
-  compare, so `doctor` checks `createScanner` directly rather than trusting
-  the version string.
+"versionMajorMinor"]`. Without it the safety guard has nothing to compare,
+  so `doctor`'s "typescript compiler api available" check probes the exact
+  symbols the guard actually calls (`createSourceFile`, `ScriptKind`,
+  `ScriptTarget`, `getLeadingCommentRanges`, `getTrailingCommentRanges`)
+  rather than the `createScanner` entry point nothing has used since the
+  parser rewrite, and rather than trusting the version string.
 - **`useTabs: true` silently refuses every candidate.** `indentOf` (hunks.ts)
   counts characters, not visual columns, so a tab-indented head plus a
   space-indented continuation (or the reverse) would misalign by
@@ -111,10 +116,16 @@ Also worth knowing, since they're real and easy to mistake for bugs:
   left in Prettier's block form and recorded as `over-budget` — not an error,
   just a decision. `doctor` and `--explain` both read the same declared
   default rather than each computing their own guess at it.
-- `hang --explain` is a printer over data the run already produced, not a
-  separate analysis path. `decisions` is populated on every run
-  unconditionally, so "why didn't this hang" never requires adding
-  instrumentation and re-running.
+- `hang --explain` is not a printer over data the plugin's own run produced —
+  there is no channel back out of a Prettier plugin for that, and the plugin
+  discards `decisions` once it hands text back to Prettier. `--explain`
+  instead reruns the pipeline itself: it formats the file with `plugins: []`
+  to get the exact text the plugin would have handed to `hangAlign`, then
+  calls `hangAlign` directly to recompute `decisions`. `plugin.test.ts`'s
+  "feeds hangAlign exactly what Prettier alone produces" tests are what prove
+  this reproduces the plugin's real decisions rather than approximating them.
+  `decisions` is populated on every run unconditionally either way, so "why
+  didn't this hang" never requires adding instrumentation.
 
 ## Repository layout
 

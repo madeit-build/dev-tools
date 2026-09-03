@@ -120,6 +120,20 @@ export function sameTokens(
   return a.length === b.length && a.every((token, index) => token === b[index]);
 }
 
-export function hasScanner(): boolean {
-  return typeof (ts as Partial<typeof TS>).createScanner === "function";
+/**
+ * Probes the exact symbols streamOf actually calls, not createScanner: the
+ * guard has been parser-based (ts.createSourceFile) since the rewrite in
+ * 395a9bc, and nothing has called ts.createScanner since. A probe for a
+ * symbol the guard no longer uses can pass while the guard is actually
+ * broken, or fail while the guard would have worked fine.
+ */
+export function hasCompilerApi(): boolean {
+  const partial = ts as Partial<typeof TS>;
+  return (
+    typeof partial.createSourceFile === "function"
+    && partial.ScriptKind !== undefined
+    && partial.ScriptTarget !== undefined
+    && typeof partial.getLeadingCommentRanges === "function"
+    && typeof partial.getTrailingCommentRanges === "function"
+  );
 }
