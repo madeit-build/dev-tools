@@ -40,7 +40,17 @@ export const printers = {
       if (path.node?.type !== "Program") return doc;
 
       try {
-        const rendered = printer.printDocToString(doc, opts).formatted;
+        // Render at "lf" regardless of the caller's endOfLine: hangAlign and
+        // the literalline join below both split on a bare "\n", and Prettier's
+        // own outer printDocToString (the one that turns this whole Doc into
+        // the final file, after this printer returns) is what actually stamps
+        // opts.endOfLine onto every line break exactly once. Rendering CRLF
+        // here too would leave a "\r" on each split piece that the outer pass
+        // then adds its own "\r\n" after, doubling every hung line's ending.
+        const rendered = printer.printDocToString(doc, {
+          ...opts,
+          endOfLine: "lf",
+        }).formatted;
         const { text } = hangAlign(rendered, createAdapter(opts.filepath), {
           printWidth: opts.printWidth,
           // Defensive fallback for a caller that bypasses Prettier's option normalization,

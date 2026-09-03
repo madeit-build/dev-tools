@@ -263,6 +263,42 @@ describe("the plugin", () => {
     }
   });
 
+  describe("endOfLine handling", () => {
+    // Regression: printDocToString honors opts.endOfLine and returned CRLF
+    // text; the plugin then split that text on a bare "\n", leaving a
+    // dangling "\r" on every piece, and literalline's own join re-added the
+    // real line ending on top of it -- doubling every hung line's terminator
+    // to "\r\r\n". The existing engine-level CRLF test never goes through
+    // the plugin, so it never saw this. Neither test can catch a regression
+    // by matching its own broken output, since each pins an exact expected
+    // string containing the correct single terminator.
+    it("does not double the line ending when endOfLine is crlf", async () => {
+      const out = await prettier.format(CHAIN, {
+        ...withPlugin,
+        endOfLine: "crlf",
+      });
+      expect(out).not.toMatch(/\r\r\n/);
+      expect(out.split("\r\n").join("\n")).toBe(
+        "const taken = regions.filter((region) => !region.growing)\n"
+          + "                     .reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n",
+      );
+      expect(await prettier.format(out, { ...withPlugin, endOfLine: "crlf" }))
+        .toBe(out);
+    });
+
+    it("does not double the line ending when endOfLine is auto and the source is CRLF", async () => {
+      const crlfSource = CHAIN.replace(/\n/g, "\r\n");
+      const out = await prettier.format(crlfSource, {
+        ...withPlugin,
+        endOfLine: "auto",
+      });
+      expect(out).not.toMatch(/\r\r\n/);
+      expect(out).toMatch(/\r\n/);
+      expect(await prettier.format(out, { ...withPlugin, endOfLine: "auto" }))
+        .toBe(out);
+    });
+  });
+
   it("formats a .tsx file end-to-end: a closing tag survives alongside a hung chain", async () => {
     const src =
       "function List() {\n"
