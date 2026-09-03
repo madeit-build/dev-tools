@@ -17,6 +17,26 @@ function ignoredTriviaKinds(): Set<number> {
   return ignoredTrivia;
 }
 
+interface ScanStream {
+  tokens: string[];
+  /**
+   * True when the template brace stack was not empty at end of scan, meaning
+   * some "}" was misattributed and the token stream desynced. The known
+   * cause: a regex literal containing a bare, non-quantifier "{" (e.g.
+   * `/x{/`) is indistinguishable from division by a plain scan() that never
+   * calls reScanSlashToken, so its brace gets pushed as if it were an
+   * ordinary code brace and never finds a matching close -- which leaves a
+   * TemplateHead permanently stuck on the stack. Regex-versus-division
+   * context tracking was deliberately not added: this is the third distinct
+   * ambiguity to defeat a hand-rolled special case in this function, and the
+   * next shape nobody thought of would walk straight through a fourth. An
+   * empty-stack-at-EOF invariant closes the whole class instead of the one
+   * case: any desync that leaves brace accounting unbalanced is caught,
+   * structurally, without enumerating what caused it.
+   */
+  desynced: boolean;
+}
+
 /**
  * A plain scan() has no way to know that the "}" closing a "${...}"
  * substitution should resume as template text rather than ordinary code: it
@@ -32,7 +52,7 @@ function ignoredTriviaKinds(): Set<number> {
  * matching "}" pops without triggering a rescan, and only a "}" whose stack
  * top is TemplateHead calls reScanTemplateToken.
  */
-function streamOf(text: string, variant: ScanVariant): string[] {
+function streamOf(text: string, variant: ScanVariant): ScanStream {
   const ignored = ignoredTriviaKinds();
   const scanner = ts.createScanner(
     ts.ScriptTarget.Latest,
@@ -62,7 +82,7 @@ function streamOf(text: string, variant: ScanVariant): string[] {
     if (ignored.has(kind)) continue;
     tokens.push(`${kind}:${scanner.getTokenText()}`);
   }
-  return tokens;
+  return { tokens, desynced: templateStack.length > 0 };
 }
 
 /**
@@ -78,11 +98,22 @@ function streamOf(text: string, variant: ScanVariant): string[] {
  * "&&", "||", "??") can never legally follow a restricted-production
  * keyword. Adding an arithmetic or comparison operator to
  * CONTINUATION_TOKENS must not happen without re-checking this boundary.
+ *
+ * Either side desyncing its template brace stack (see ScanStream) is treated
+ * as untrustworthy and rejected outright, independent of whether the two
+ * token arrays would otherwise have compared equal. This is a structural
+ * catch-all, not a proof of soundness: it catches any desync that leaves
+ * brace accounting unbalanced, but it would not catch a hypothetical
+ * mis-tokenization that happens to stay balanced. No such case is known; none
+ * is claimed to be ruled out.
  */
 export function sameTokens(before: string, after: string, variant: ScanVariant): boolean {
   const a = streamOf(before, variant);
   const b = streamOf(after, variant);
-  return a.length === b.length && a.every((token, index) => token === b[index]);
+  if (a.desynced || b.desynced) return false;
+  return (
+    a.tokens.length === b.tokens.length && a.tokens.every((token, index) => token === b.tokens[index])
+  );
 }
 
 export function hasScanner(): boolean {
