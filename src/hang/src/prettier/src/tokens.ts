@@ -21,9 +21,9 @@ export type ScanVariant = "standard" | "jsx";
  *
  * Comments are the one thing missing from the resulting tree: they are
  * trivia, not nodes. They are read out of the gap between the end of one
- * emitted token and the start of the next, which is safe precisely because a
- * gap between two real tokens can only ever contain whitespace and comments
- * -- nothing else is lexically possible there. Reading the gap takes both of
+ * emitted token and the start of the next, which is safe because a gap
+ * between two real tokens can (with one documented exception below) only
+ * ever contain whitespace and comments. Reading the gap takes both of
  * TypeScript's own comment-range functions, not just one: a same-line
  * comment right after the previous token (`1; // keep`, nothing else on the
  * line) is "trailing" and invisible to `getLeadingCommentRanges` called at
@@ -31,6 +31,18 @@ export type ScanVariant = "standard" | "jsx";
  * though the comment is sitting right in the gap. `getTrailingCommentRanges`
  * is checked first and consumed past, then `getLeadingCommentRanges` picks up
  * anything further on its own line before the next real token.
+ *
+ * Not covered, and known not to be: a shebang line (`#!...`) at the very
+ * start of the file. `ts.createSourceFile` consumes it as ShebangTrivia
+ * before the tree begins, so it is never a node this walk visits, and it
+ * matches neither comment-range function, so `emitCommentsBefore` silently
+ * advances the cursor past it. A before/after pair differing only in the
+ * shebang -- changing the interpreter, or deleting it entirely -- is
+ * therefore ACCEPTED. This does not bite today: `engine.ts` passes the whole
+ * file to `verify` on both sides and nothing in the transform ever touches
+ * line 1, so the shebang is byte-identical in every real comparison this
+ * guard is asked to make. It would need revisiting only if that stopped
+ * being true.
  */
 function streamOf(text: string, variant: ScanVariant): string[] {
   const scriptKind = variant === "jsx" ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
@@ -91,6 +103,10 @@ function streamOf(text: string, variant: ScanVariant): string[] {
  * "&&", "||", "??") can never legally follow a restricted-production
  * keyword. Adding an arithmetic or comparison operator to
  * CONTINUATION_TOKENS must not happen without re-checking this boundary.
+ *
+ * Also not covered: a shebang line at the start of the file (see streamOf's
+ * doc comment for why). It does not bite today because the transform never
+ * touches line 1 and the whole file is always compared on both sides.
  */
 export function sameTokens(before: string, after: string, variant: ScanVariant): boolean {
   const a = streamOf(before, variant);

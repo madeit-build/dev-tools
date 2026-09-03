@@ -255,10 +255,23 @@ describe("sameTokens", () => {
     // watched brace balance) had nothing to catch. The swallowed span then
     // runs forward and can absorb a real, later corruption.
     //
-    // Exploit 2: a regex brace inside a substitution whose trailing template
-    // text itself contains a literal "}" can pop the hand-rolled stack back
-    // to balanced, so the invariant sees nothing wrong even though the
-    // token stream desynced along the way.
+    // Exploit 2, AS ORIGINALLY REPORTED (a regex brace inside a substitution
+    // whose trailing template text itself contains a literal "}"), has no
+    // known minimal STANDALONE repro against round 2: reconstructing round
+    // 2's hand-rolled stack and testing directly shows the lone extra "{"
+    // from `/x{/` gets pushed and then immediately popped by the very next
+    // "}" (the regex's own trailing slash sits right before it), so the
+    // stack happens to land back on the real TemplateHead by the time the
+    // substitution's actual close arrives -- accidentally correct, by dumb
+    // luck of that specific brace count, not because round 2 understood
+    // anything. It only produces a genuine wrong ACCEPT once an exploit-1
+    // style backtick-bearing regex is ALSO present earlier in the same
+    // template: that regex's backtick gets misread as opening a bogus
+    // template first, and everything downstream -- including exploit 2's own
+    // brace juggling -- is then read inside that already-corrupted span. This
+    // is also why the fuzz harness (tokens.fuzz.test.ts) only ever hit this
+    // failure when its random noise happened to also supply a backtick-
+    // bearing regex nearby, not from the exploit-2 shape alone.
     //
     // Both are closed by the same parser-based rewrite that closed the
     // round-2 defect: `ts.createSourceFile` resolves regex-versus-division
@@ -278,15 +291,19 @@ describe("sameTokens", () => {
       expect(sameTokens(before, after, "jsx")).toBe(false);
     });
 
-    it("exploit 2: a regex brace whose substitution's trailing text has a literal } does not rebalance past a real corruption (standard)", () => {
-      const before = "const msg = `hi ${/x{/} end } there`;\nconst m = `a\n    .b not a chain`;\n";
-      const after = "const msg = `hi ${/x{/} end } there`;\nconst m = `a.b not a chain`;\n";
+    it("exploit 2 combined with exploit 1's backtick regex: genuinely fails against round 2, correctly rejects here (standard)", () => {
+      // Confirmed by reconstructing round 2's streamOf from git history
+      // (commit 28fd0d5) and running it side by side with the current
+      // implementation: round 2 returns true (accepts the corruption) for
+      // this exact pair; the current implementation returns false.
+      const before = "const r = /`/;\nconst msg = `hi ${/x{/} end } there\n    .b not a chain`;\n";
+      const after = "const r = /`/;\nconst msg = `hi ${/x{/} end } there.b not a chain`;\n";
       expect(same(before, after)).toBe(false);
     });
 
-    it("exploit 2: a regex brace whose substitution's trailing text has a literal } does not rebalance past a real corruption (jsx)", () => {
-      const before = "const msg = `hi ${/x{/} end } there`;\nconst m = `a\n    .b not a chain`;\n";
-      const after = "const msg = `hi ${/x{/} end } there`;\nconst m = `a.b not a chain`;\n";
+    it("exploit 2 combined with exploit 1's backtick regex: genuinely fails against round 2, correctly rejects here (jsx)", () => {
+      const before = "const r = /`/;\nconst msg = `hi ${/x{/} end } there\n    .b not a chain`;\n";
+      const after = "const r = /`/;\nconst msg = `hi ${/x{/} end } there.b not a chain`;\n";
       expect(sameTokens(before, after, "jsx")).toBe(false);
     });
 
@@ -295,8 +312,10 @@ describe("sameTokens", () => {
       const after1 = "const r = /`/;\nif (a\n    && b\n) {\n  c();\n}\n";
       expect(same(before1, after1)).toBe(true);
 
-      const before2 = "const msg = `hi ${/x{/} end } there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n";
-      const after2 = "const msg = `hi ${/x{/} end } there`;\nif (a\n    && b\n) {\n  c();\n}\n";
+      const before2 =
+        "const r = /`/;\nconst msg = `hi ${/x{/} end } there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n";
+      const after2 =
+        "const r = /`/;\nconst msg = `hi ${/x{/} end } there`;\nif (a\n    && b\n) {\n  c();\n}\n";
       expect(same(before2, after2)).toBe(true);
     });
   });
