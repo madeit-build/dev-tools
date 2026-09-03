@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import {
   mkdtemp,
   mkdir,
@@ -57,5 +57,24 @@ describe("expand", () => {
   it("returns files under the root and drops the escaping symlink", async () => {
     const found = await expand(["*.ts"], root);
     expect(found).toEqual([join(root, "inside.ts")]);
+  });
+
+  it("redacts the escaping path in its stderr warning instead of leaking it", async () => {
+    // doctor.ts goes to lengths to redact absolute paths out of every
+    // message it builds; this warning used to print the real resolved path
+    // of whatever the symlink pointed to unredacted, right next to that
+    // effort.
+    const stderrWrite = vi.spyOn(process.stderr, "write")
+                          .mockImplementation(() => true);
+    try {
+      await expand(["*.ts"], root);
+      const written = stderrWrite.mock.calls.map(([chunk]) => String(chunk))
+                                            .join("");
+      expect(written).toContain("refusing path outside the project root");
+      expect(written).not.toContain(outside);
+      expect(written).not.toContain(root);
+    } finally {
+      stderrWrite.mockRestore();
+    }
   });
 });

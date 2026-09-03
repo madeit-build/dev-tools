@@ -172,6 +172,18 @@ pnpm build && pnpm test && pnpm lint     # whole monorepo, from the root
 node src/hang/src/cli/dist/main.js doctor
 ```
 
+`dist/` is gitignored in every package here, but the root `.prettierrc.json`
+loads the plugin as `"@made-i-t/hang-prettier"`, which resolves through that
+package's `main` field to `dist/index.js`. A fresh clone has no `dist/` yet,
+so formatting anything with the root config fails to find the plugin until
+`pnpm build` runs at least once. The same applies within a single package
+during development: `pnpm --filter <pkg> test` does not rebuild that
+package's own dependencies first, so a source change in `hang-core` is
+invisible to `hang-prettier`'s or `hang-cli`'s tests until `hang-core` is
+rebuilt (`turbo`'s `test` task depends on `build` and handles this
+automatically when run from the root; a single `pnpm --filter` invocation
+does not).
+
 ## Current state
 
 - **Design spec:** `docs/specs/2026-09-02-hang-design.md`.

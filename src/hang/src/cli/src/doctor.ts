@@ -3,6 +3,7 @@ import {
   options as pluginOptions,
 } from "@made-i-t/hang-prettier";
 import * as prettier from "prettier";
+import { redactPaths } from "./redact.js";
 
 export interface Check {
   name: string;
@@ -17,27 +18,6 @@ interface ResolvedConfig {
   hangWidth?: number;
   experimentalOperatorPosition?: string;
   useTabs?: boolean;
-}
-
-// Matches only a token that BEGINS a path - at the start of the string or
-// right after whitespace, a quote, or a paren - never a "/" in the middle
-// of a token. That distinction is load-bearing: a scoped package name like
-// "@made-i-t/hang-prettier" has a slash in the middle and must survive
-// intact, while an absolute path (POSIX, a Windows drive path, or a UNC
-// share) starts a token and must be fully redacted. Applied to every
-// message this file builds from prettier/Node error text or from a
-// resolved (already-normalized) config, since resolveConfig itself
-// rewrites a relative plugin specifier to an absolute path before any
-// error is ever thrown - naming the specifier the user wrote is not enough
-// on its own to avoid leaking one.
-const POSIX_PATH = /(?<=^|[\s'"(])\/[^\s'")]+/g;
-const WINDOWS_DRIVE_PATH = /(?<=^|[\s'"(])[A-Za-z]:\\[^\s'")]+/g;
-const UNC_PATH = /(?<=^|[\s'"(])\\\\[^\s'")]+/g;
-
-function redactPaths(text: string): string {
-  return text.replace(POSIX_PATH, "<path>")
-             .replace(WINDOWS_DRIVE_PATH, "<path>")
-             .replace(UNC_PATH, "<path>");
 }
 
 // prettier.resolveConfig's JSON parse failure embeds both the config's

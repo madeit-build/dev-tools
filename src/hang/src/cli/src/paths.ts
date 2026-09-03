@@ -1,5 +1,6 @@
 import { realpath } from "node:fs/promises";
 import { glob } from "tinyglobby";
+import { redactPaths } from "./redact.js";
 
 /** True only if `candidate` resolves to `root` itself or something beneath it. */
 export async function insideRoot(
@@ -28,7 +29,7 @@ export async function expand(
     if (await insideRoot(match, root)) safe.push(match);
     else
       process.stderr.write(
-        `hang: refusing path outside the project root: ${match}\n`,
+        `hang: refusing path outside the project root: ${redactPaths(match)}\n`,
       );
   }
   return safe.sort();

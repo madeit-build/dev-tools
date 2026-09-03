@@ -97,13 +97,22 @@ const CORRUPTING_SHAPES: readonly Shape[] = [
   },
 ];
 
-// Same constructs, no corruption at all: before === after. These exist so
-// the fuzz can catch a regression in the OTHER direction -- an ambiguous
-// construct that makes the guard over-reject a change that never happened.
+// Same constructs, no corruption at all: the shape's own construct stays
+// byte-identical, but a real whitespace-only hang -- joining a member chain
+// up onto its receiver, the exact transformation this tool performs -- is
+// appended after it. These exist so the fuzz can catch a regression in the
+// OTHER direction: an ambiguous construct earlier in the file that makes the
+// guard over-reject a real, unrelated whitespace-only change later in it.
+//
+// Comparing shape.after to itself byte-for-byte here previously made this
+// check unable to fail: sameTokens(x, x, ...) is trivially true for any x,
+// since identical text always tokenizes identically. Appending a genuine
+// before/after pair means the guard has to actually recompute and compare
+// two different token streams, not just short-circuit on equal input.
 const NEUTRAL_SHAPES: readonly Shape[] = CORRUPTING_SHAPES.map((shape) => ({
-  name: shape.name + " (neutral, no corruption)",
-  before: shape.after,
-  after: shape.after,
+  name: shape.name + " (neutral, real whitespace-only hang)",
+  before: `${shape.after}const chained = value\n    .method();\n`,
+  after: `${shape.after}const chained = value.method();\n`,
 }));
 
 const NOISE_BLOCKS: readonly string[] = [
