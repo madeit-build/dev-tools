@@ -39,7 +39,7 @@ afterEach(async () => {
 test("generateTour with fake generator: symbol-anchor topic produces resolved step", async () => {
   await writeFile(
     path.join(workspaceRoot, "sample.ts"),
-    "export function sample() {\n  return 1;\n}\n"
+    "export function sample() {\n  return 1;\n}\n",
   );
   serverProcess = spawn(process.execPath, [serverEntry], {
     stdio: ["pipe", "pipe", "inherit"],
@@ -47,15 +47,18 @@ test("generateTour with fake generator: symbol-anchor topic produces resolved st
   });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   connection.listen();
 
-  const result = await connection.sendRequest<GenerateTourResult>(GENERATE_TOUR_METHOD, {
-    workspaceRoot,
-    topic: "symbol:sample.ts:sample",
-    save: false,
-  });
+  const result = await connection.sendRequest<GenerateTourResult>(
+    GENERATE_TOUR_METHOD,
+    {
+      workspaceRoot,
+      topic: "symbol:sample.ts:sample",
+      save: false,
+    },
+  );
 
   const step = result.tour.steps[0];
   expect(step.anchor.symbol).toBe("sample");
@@ -71,16 +74,19 @@ test("generateTour with provider=openai still returns fake tour when HDTW_GENERA
   });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   connection.listen();
 
-  const result = await connection.sendRequest<GenerateTourResult>(GENERATE_TOUR_METHOD, {
-    workspaceRoot,
-    topic: "how does the readme work",
-    provider: "openai",
-    save: false,
-  });
+  const result = await connection.sendRequest<GenerateTourResult>(
+    GENERATE_TOUR_METHOD,
+    {
+      workspaceRoot,
+      topic: "how does the readme work",
+      provider: "openai",
+      save: false,
+    },
+  );
 
   expect(result.tour.id).toBe("fake-tour");
 });
@@ -92,23 +98,27 @@ test("generateTour over stdio with the fake generator: progress + saved tour", a
   });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   const progress: GenerationProgressParams[] = [];
-  connection.onNotification(GENERATION_PROGRESS_NOTIFICATION, (p: GenerationProgressParams) =>
-    progress.push(p)
+  connection.onNotification(
+    GENERATION_PROGRESS_NOTIFICATION,
+    (p: GenerationProgressParams) => progress.push(p),
   );
   connection.listen();
 
-  const result = await connection.sendRequest<GenerateTourResult>(GENERATE_TOUR_METHOD, {
-    workspaceRoot,
-    topic: "how does the readme work",
-  });
+  const result = await connection.sendRequest<GenerateTourResult>(
+    GENERATE_TOUR_METHOD,
+    {
+      workspaceRoot,
+      topic: "how does the readme work",
+    },
+  );
 
   expect(result.tour.id).toBe("fake-tour");
   expect(result.savedPath).toBe(".hdtw/tours/fake-tour.tour.json");
   const onDisk = JSON.parse(
-    await readFile(path.join(workspaceRoot, result.savedPath), "utf8")
+    await readFile(path.join(workspaceRoot, result.savedPath), "utf8"),
   );
   expect(onDisk.steps[0].anchor.snippetHash).toMatch(/^sha256:/);
   expect(progress.map((p) => p.phase)).toContain("exploring");

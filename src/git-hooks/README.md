@@ -3,8 +3,8 @@
 Git hooks that catch the mistakes agents make quietly. Plain POSIX `sh`, no
 build, no dependencies beyond [`gh`](https://cli.github.com).
 
-| Hook | What it does |
-| --- | --- |
+| Hook                                 | What it does                                         |
+| ------------------------------------ | ---------------------------------------------------- |
 | [`hooks/pre-push`](./hooks/pre-push) | Refuses to push a branch whose PR is already merged. |
 
 ## pre-push: merged-PR guard

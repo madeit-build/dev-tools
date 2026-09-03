@@ -26,7 +26,9 @@ export function nextStep(state: WalkState): WalkState {
 }
 
 export function previousStep(state: WalkState): WalkState {
-  return hasPrevious(state) ? { ...state, stepIndex: state.stepIndex - 1 } : state;
+  return hasPrevious(state)
+    ? { ...state, stepIndex: state.stepIndex - 1 }
+    : state;
 }
 
 export function progressLabel(state: WalkState): string {

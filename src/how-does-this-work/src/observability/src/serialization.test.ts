@@ -36,6 +36,9 @@ describe("NDJSON round-trip", () => {
       name: "verify.drift",
       value: 2,
     });
-    expect(parseRecord(line)).toMatchObject({ kind: "metric", name: "verify.drift" });
+    expect(parseRecord(line)).toMatchObject({
+      kind: "metric",
+      name: "verify.drift",
+    });
   });
 });

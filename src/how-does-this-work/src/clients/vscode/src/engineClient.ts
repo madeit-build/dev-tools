@@ -100,7 +100,7 @@ export class EngineClient {
 
     const connection = createMessageConnection(
       new StreamMessageReader(serverProcess.stdout),
-      new StreamMessageWriter(serverProcess.stdin)
+      new StreamMessageWriter(serverProcess.stdin),
     );
     this.connection = connection;
     connection.listen();
@@ -115,7 +115,11 @@ export class EngineClient {
     // the generic handshake timeout.
     return new Promise<PingResult>((resolve, reject) => {
       const timer = setTimeout(() => {
-        reject(new Error(`engine handshake timed out after ${HANDSHAKE_TIMEOUT_MS}ms`));
+        reject(
+          new Error(
+            `engine handshake timed out after ${HANDSHAKE_TIMEOUT_MS}ms`,
+          ),
+        );
       }, HANDSHAKE_TIMEOUT_MS);
       const settleWith = (callback: () => void) => {
         clearTimeout(timer);
@@ -123,16 +127,25 @@ export class EngineClient {
       };
 
       serverProcess.on("error", (error) =>
-        settleWith(() => reject(new Error(`engine process failed to spawn: ${error.message}`)))
+        settleWith(() =>
+          reject(new Error(`engine process failed to spawn: ${error.message}`)),
+        ),
       );
       serverProcess.on("exit", (code) =>
         settleWith(() =>
-          reject(new Error(`engine process exited before handshake completed (code ${code})`))
-        )
+          reject(
+            new Error(
+              `engine process exited before handshake completed (code ${code})`,
+            ),
+          ),
+        ),
       );
       connection.sendRequest<PingResult>(PING_METHOD, params).then(
         (result) => settleWith(() => resolve(result)),
-        (error) => settleWith(() => reject(error instanceof Error ? error : new Error(String(error))))
+        (error) =>
+          settleWith(() =>
+            reject(error instanceof Error ? error : new Error(String(error))),
+          ),
       );
     });
   }
@@ -147,37 +160,51 @@ export class EngineClient {
     return this.request<GetTourResult>(GET_TOUR_METHOD, params);
   }
 
-  async checkTourDrift(workspaceRoot: string, tourId: string): Promise<CheckTourDriftResult> {
-    return this.request<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, { workspaceRoot, tourId });
+  async checkTourDrift(
+    workspaceRoot: string,
+    tourId: string,
+  ): Promise<CheckTourDriftResult> {
+    return this.request<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
+      workspaceRoot,
+      tourId,
+    });
   }
 
   async reanchorStep(
     workspaceRoot: string,
     tourId: string,
-    stepIndex: number
+    stepIndex: number,
   ): Promise<ReanchorStepResult> {
-    return this.request<ReanchorStepResult>(REANCHOR_STEP_METHOD, { workspaceRoot, tourId, stepIndex });
+    return this.request<ReanchorStepResult>(REANCHOR_STEP_METHOD, {
+      workspaceRoot,
+      tourId,
+      stepIndex,
+    });
   }
 
   async generateTour(
     params: GenerateTourParams,
     onProgress: (progress: GenerationProgressParams) => void,
-    cancellation: { onCancellationRequested(listener: () => void): { dispose(): void } }
+    cancellation: {
+      onCancellationRequested(listener: () => void): { dispose(): void };
+    },
   ): Promise<GenerateTourResult> {
     if (!this.connection) {
       throw new Error("engine not connected");
     }
     const progressSubscription = this.connection.onNotification(
       GENERATION_PROGRESS_NOTIFICATION,
-      onProgress
+      onProgress,
     );
     const source = new CancellationTokenSource();
-    const cancelSubscription = cancellation.onCancellationRequested(() => source.cancel());
+    const cancelSubscription = cancellation.onCancellationRequested(() =>
+      source.cancel(),
+    );
     try {
       return await this.connection.sendRequest<GenerateTourResult>(
         GENERATE_TOUR_METHOD,
         params,
-        source.token
+        source.token,
       );
     } finally {
       progressSubscription.dispose();
@@ -189,22 +216,26 @@ export class EngineClient {
   async askAboutStep(
     params: AskAboutStepParams,
     onProgress: (progress: GenerationProgressParams) => void,
-    cancellation: { onCancellationRequested(listener: () => void): { dispose(): void } }
+    cancellation: {
+      onCancellationRequested(listener: () => void): { dispose(): void };
+    },
   ): Promise<AskAboutStepResult> {
     if (!this.connection) {
       throw new Error("engine not connected");
     }
     const progressSubscription = this.connection.onNotification(
       GENERATION_PROGRESS_NOTIFICATION,
-      onProgress
+      onProgress,
     );
     const source = new CancellationTokenSource();
-    const cancelSubscription = cancellation.onCancellationRequested(() => source.cancel());
+    const cancelSubscription = cancellation.onCancellationRequested(() =>
+      source.cancel(),
+    );
     try {
       return await this.connection.sendRequest<AskAboutStepResult>(
         ASK_ABOUT_STEP_METHOD,
         params,
-        source.token
+        source.token,
       );
     } finally {
       progressSubscription.dispose();
@@ -214,7 +245,10 @@ export class EngineClient {
   }
 
   async saveTour(workspaceRoot: string, tour: Tour): Promise<SaveTourResult> {
-    return this.request<SaveTourResult>(SAVE_TOUR_METHOD, { workspaceRoot, tour });
+    return this.request<SaveTourResult>(SAVE_TOUR_METHOD, {
+      workspaceRoot,
+      tour,
+    });
   }
 
   private request<T>(method: string, params: unknown): Promise<T> {

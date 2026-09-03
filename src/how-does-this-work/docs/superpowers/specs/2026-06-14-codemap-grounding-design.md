@@ -18,7 +18,7 @@ This is the **foundation-first slice**: a syntactic (tree-sitter) structural ind
 - **Symbol-relative anchors, with line-anchors retained.** Two anchor kinds coexist: symbol-anchors (whole named declaration, self-healing) and today's line-anchors (hash-window drift, unchanged). Each anchor is one kind or the other. (User pick: "Symbol + line-anchor fallback.")
 - **WASM tree-sitter (`web-tree-sitter`), not native bindings.** The engine runs on arbitrary user machines; WASM avoids per-platform native builds. Standard choice for editor tooling.
 - **V1 language scope: TypeScript/JavaScript only** (`.ts/.tsx/.js/.jsx`, one grammar). The package is structured so adding a grammar later is a registration, not a redesign.
-- **The engine still owns every line number.** The agent proposes a *symbol name*; the engine resolves it to a range via the code-map. The "never trust agent-supplied anchors" rule is preserved and strengthened.
+- **The engine still owns every line number.** The agent proposes a _symbol name_; the engine resolves it to a range via the code-map. The "never trust agent-supplied anchors" rule is preserved and strengthened.
 
 ## Architecture
 
@@ -60,6 +60,7 @@ Anchor gains an optional `symbol` field — additive, so `schemaVersion` stays `
 - `parseTour` validates: a symbol-anchor still requires valid `startLine`/`endLine`/`snippetHash` (the cache) plus a non-empty `symbol` string.
 
 **Symbol identity = qualified path** within the file (`ClassName.method`, or top-level `name`). Ambiguity handling:
+
 - At **generation**, `findSymbol` returns the candidate list so the agent qualifies further; if the emitted anchor's symbol is still ambiguous, verification errors → existing repair round.
 - At **verify/drift** of an existing anchor, ties break toward the candidate nearest the cached range.
 
@@ -105,7 +106,7 @@ Anchor gains an optional `symbol` field — additive, so `schemaVersion` stays `
 - Semantic call graphs, entrypoint detection, cross-file definition/reference resolution (the LSP-grade layer — its own chunk).
 - Languages beyond TS/JS.
 - Repo-wide map / index tools for the agent (V1 ships per-file `fileOutline`/`findSymbol` only).
-- Symbol-relative *sub-ranges* (a symbol + line offset) — sub-regions use line-anchors in V1.
+- Symbol-relative _sub-ranges_ (a symbol + line offset) — sub-regions use line-anchors in V1.
 
 ## Known V1 limitations (parse layer)
 
