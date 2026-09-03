@@ -9,7 +9,6 @@
 **Tech Stack:** TypeScript 5.x, pnpm workspaces, Turborepo 2.x, vscode-jsonrpc 8.x, Vitest 3.x, ESLint 9 (flat config) + typescript-eslint, Prettier.
 
 **Conventions used throughout:**
-
 - All commands run from the repository root.
 - The spec names the extension package `@hdtw/vscode`, but VS Code extension manifests cannot use npm scopes (the extension ID is `publisher.name`). The package is therefore named `hdtw-vscode` with publisher `madeit` (Made I.T.), giving the full extension ID `madeit.hdtw-vscode`. This is the only intentional deviation from the spec.
 - Unit tests are co-located with source (`src/foo.test.ts`) and excluded from `tsc` builds.
@@ -19,7 +18,6 @@
 ### Task 1: Root workspace and tooling configuration
 
 **Files:**
-
 - Create: `package.json`
 - Create: `pnpm-workspace.yaml`
 - Create: `turbo.json`
@@ -108,7 +106,7 @@ export default tseslint.config(
   {
     ignores: ["**/dist/**", "**/node_modules/**", "**/.turbo/**"],
   },
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.recommended
 );
 ```
 
@@ -159,7 +157,6 @@ git commit -m "chore: add pnpm + turborepo workspace tooling"
 ### Task 2: `@hdtw/protocol` package
 
 **Files:**
-
 - Create: `src/protocol/package.json`
 - Create: `src/protocol/tsconfig.json`
 - Create: `src/protocol/src/index.ts`
@@ -259,7 +256,6 @@ git commit -m "feat(protocol): add ping/pong handshake contract"
 ### Task 3: `@hdtw/engine-core` package
 
 **Files:**
-
 - Create: `src/engine/core/package.json`
 - Create: `src/engine/core/tsconfig.json`
 - Create: `src/engine/core/src/index.ts`
@@ -346,7 +342,6 @@ git commit -m "feat(engine-core): add engine info domain stub"
 ### Task 4: `@hdtw/engine-server` package
 
 **Files:**
-
 - Create: `src/engine/server/package.json`
 - Create: `src/engine/server/tsconfig.json`
 - Create: `src/engine/server/src/pingHandler.ts`
@@ -408,10 +403,7 @@ import { PROTOCOL_VERSION } from "@hdtw/protocol";
 import { handlePing } from "./pingHandler";
 
 test("handlePing returns engine identity and protocol version", () => {
-  const result = handlePing({
-    clientName: "test",
-    protocolVersion: PROTOCOL_VERSION,
-  });
+  const result = handlePing({ clientName: "test", protocolVersion: PROTOCOL_VERSION });
   expect(result).toEqual({
     engineName: "hdtw-engine",
     engineVersion: "0.0.1",
@@ -429,11 +421,7 @@ Expected: FAIL — cannot find module `./pingHandler`.
 
 ```ts
 import { getEngineInfo } from "@hdtw/engine-core";
-import {
-  PROTOCOL_VERSION,
-  type PingParams,
-  type PingResult,
-} from "@hdtw/protocol";
+import { PROTOCOL_VERSION, type PingParams, type PingResult } from "@hdtw/protocol";
 
 export function handlePing(_params: PingParams): PingResult {
   const engineInfo = getEngineInfo();
@@ -479,7 +467,7 @@ test("engine server responds to ping over stdio JSON-RPC", async () => {
   });
   const connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!),
+    new StreamMessageWriter(serverProcess.stdin!)
   );
   connection.listen();
 
@@ -515,7 +503,7 @@ import { handlePing } from "./pingHandler";
 
 const connection = createMessageConnection(
   new StreamMessageReader(process.stdin),
-  new StreamMessageWriter(process.stdout),
+  new StreamMessageWriter(process.stdout)
 );
 
 connection.onRequest(PING_METHOD, (params: PingParams) => handlePing(params));
@@ -540,7 +528,6 @@ git commit -m "feat(engine-server): add stdio JSON-RPC server with ping handshak
 ### Task 5: VS Code extension (thin client)
 
 **Files:**
-
 - Create: `src/clients/vscode/package.json`
 - Create: `src/clients/vscode/tsconfig.json`
 - Create: `src/clients/vscode/src/extension.ts`
@@ -582,7 +569,7 @@ The extension has no automated tests yet (per spec, `@vscode/test-electron` is d
 }
 ```
 
-Note: `@hdtw/engine-server` is a dependency only so the client can _locate the server binary_ via `require.resolve` — it never imports engine code. The protocol-only dependency rule applies to code-level imports.
+Note: `@hdtw/engine-server` is a dependency only so the client can *locate the server binary* via `require.resolve` — it never imports engine code. The protocol-only dependency rule applies to code-level imports.
 
 - [ ] **Step 2: Create `src/clients/vscode/tsconfig.json`**
 
@@ -629,19 +616,15 @@ const HANDSHAKE_TIMEOUT_MS = 5000;
 let engineProcess: childProcess.ChildProcess | undefined;
 let engineConnection: MessageConnection | undefined;
 
-export async function activate(
-  _context: vscode.ExtensionContext,
-): Promise<void> {
+export async function activate(_context: vscode.ExtensionContext): Promise<void> {
   try {
     const result = await connectToEngine();
     void vscode.window.showInformationMessage(
-      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`,
+      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(
-      `HDTW engine failed to start: ${message}`,
-    );
+    void vscode.window.showErrorMessage(`HDTW engine failed to start: ${message}`);
   }
 }
 
@@ -664,7 +647,7 @@ async function connectToEngine(): Promise<PingResult> {
 
   engineConnection = createMessageConnection(
     new StreamMessageReader(engineProcess.stdout),
-    new StreamMessageWriter(engineProcess.stdin),
+    new StreamMessageWriter(engineProcess.stdin)
   );
   engineConnection.listen();
 
@@ -675,13 +658,8 @@ async function connectToEngine(): Promise<PingResult> {
   const ping = engineConnection.sendRequest<PingResult>(PING_METHOD, params);
   const timeout = new Promise<never>((_resolve, reject) => {
     setTimeout(
-      () =>
-        reject(
-          new Error(
-            `engine handshake timed out after ${HANDSHAKE_TIMEOUT_MS}ms`,
-          ),
-        ),
-      HANDSHAKE_TIMEOUT_MS,
+      () => reject(new Error(`engine handshake timed out after ${HANDSHAKE_TIMEOUT_MS}ms`)),
+      HANDSHAKE_TIMEOUT_MS
     );
   });
   return Promise.race([ping, timeout]);
@@ -712,7 +690,6 @@ git commit -m "feat(vscode): add thin client extension with engine handshake"
 ### Task 6: F5 launch configuration and manual end-to-end verification
 
 **Files:**
-
 - Create: `.vscode/launch.json`
 - Create: `.vscode/tasks.json`
 
@@ -726,9 +703,7 @@ git commit -m "feat(vscode): add thin client extension with engine handshake"
       "name": "Run Extension",
       "type": "extensionHost",
       "request": "launch",
-      "args": [
-        "--extensionDevelopmentPath=${workspaceFolder}/src/clients/vscode"
-      ],
+      "args": ["--extensionDevelopmentPath=${workspaceFolder}/src/clients/vscode"],
       "preLaunchTask": "build"
     }
   ]
@@ -776,7 +751,6 @@ git commit -m "chore: add F5 extension launch configuration"
 ### Task 7: Lint pass and AGENTS.md current-state update
 
 **Files:**
-
 - Modify: `AGENTS.md` (the "Current state" and "Commands" sections)
 
 - [ ] **Step 1: Run lint across the workspace and fix anything it reports**

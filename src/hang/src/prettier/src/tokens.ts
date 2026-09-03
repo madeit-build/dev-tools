@@ -13,10 +13,7 @@ export type ScanVariant = "standard" | "jsx";
 let ignoredTrivia: Set<number> | undefined;
 
 function ignoredTriviaKinds(): Set<number> {
-  ignoredTrivia ??= new Set<number>([
-    ts.SyntaxKind.WhitespaceTrivia,
-    ts.SyntaxKind.NewLineTrivia,
-  ]);
+  ignoredTrivia ??= new Set<number>([ts.SyntaxKind.WhitespaceTrivia, ts.SyntaxKind.NewLineTrivia]);
   return ignoredTrivia;
 }
 
@@ -29,11 +26,7 @@ function streamOf(text: string, variant: ScanVariant): string[] {
     text,
   );
   const tokens: string[] = [];
-  for (
-    let kind = scanner.scan();
-    kind !== ts.SyntaxKind.EndOfFileToken;
-    kind = scanner.scan()
-  ) {
+  for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan()) {
     if (ignored.has(kind)) continue;
     tokens.push(`${kind}:${scanner.getTokenText()}`);
   }
@@ -54,11 +47,7 @@ function streamOf(text: string, variant: ScanVariant): string[] {
  * keyword. Adding an arithmetic or comparison operator to
  * CONTINUATION_TOKENS must not happen without re-checking this boundary.
  */
-export function sameTokens(
-  before: string,
-  after: string,
-  variant: ScanVariant,
-): boolean {
+export function sameTokens(before: string, after: string, variant: ScanVariant): boolean {
   const a = streamOf(before, variant);
   const b = streamOf(after, variant);
   return a.length === b.length && a.every((token, index) => token === b[index]);

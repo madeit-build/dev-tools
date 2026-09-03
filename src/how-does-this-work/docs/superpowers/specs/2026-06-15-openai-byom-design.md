@@ -104,7 +104,4 @@ All additive under `hdtw.generation` (Claude users change nothing — defaults p
 ## Conventions carried forward
 
 `@made-i-t/hdtw-*` scope; engine-server stays the only impure home (new `openai` dependency lives there); engine-core untouched (pure); the engine never trusts agent-supplied anchors (every backend only drafts; the engine resolves/verifies); read-only, path-guarded exploration tools; observability via the injected observer; clients import code only from the protocol package; additive protocol/config (no `schemaVersion` bump; Claude defaults unchanged).
-
-```
-
 ```

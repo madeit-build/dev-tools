@@ -3,20 +3,10 @@ import { layoutGraph } from "./layout";
 import type { OrreryEdge, OrreryNode } from "@made-i-t/orrery-model";
 
 const node = (id: string): OrreryNode => ({
-  id,
-  type: "service",
-  label: id,
-  host: "box",
-  attrs: {},
-  provenance: { files: [] },
+  id, type: "service", label: id, host: "box", attrs: {}, provenance: { files: [] },
 });
 const edge = (from: string, to: string): OrreryEdge => ({
-  id: `${from}->${to}`,
-  from,
-  to,
-  type: "depends-on",
-  source: "declared",
-  evidence: null,
+  id: `${from}->${to}`, from, to, type: "depends-on", source: "declared", evidence: null,
 });
 
 describe("layoutGraph", () => {

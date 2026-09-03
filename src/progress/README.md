@@ -41,24 +41,24 @@ box-deploy: box now runs abc1234 (2m59s)
 
 ## API
 
-| Function                             | What it does                                                                                                                                 |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `progress_begin "<title>"`           | Start a session and the clock. Picks rich or plain once.                                                                                     |
-| `progress_phase "<label>"`           | Open a phase for inline work. Auto-closes the previous as done.                                                                              |
+| Function | What it does |
+| --- | --- |
+| `progress_begin "<title>"` | Start a session and the clock. Picks rich or plain once. |
+| `progress_phase "<label>"` | Open a phase for inline work. Auto-closes the previous as done. |
 | `progress_run "<label>" -- <cmd...>` | Run an opaque child: live-tail it, tee full output to a log, return the child's exit code (so `set -e` still applies). The `--` is required. |
-| `progress_fail "<reason>"`           | Close the current phase as failed with a reason.                                                                                             |
-| `progress_end ["<summary>"]`         | Close any open phase, print a summary and total elapsed.                                                                                     |
+| `progress_fail "<reason>"` | Close the current phase as failed with a reason. |
+| `progress_end ["<summary>"]` | Close any open phase, print a summary and total elapsed. |
 
 `progress_run` tees the child's full output to a `mktemp` log; on failure it
 prints the last 20 lines and the log path.
 
 ## Environment
 
-| Variable               | Effect                                               |
-| ---------------------- | ---------------------------------------------------- |
-| `PROGRESS_PLAIN=1`     | Force plain mode even on a TTY.                      |
-| `NO_COLOR`             | Any value forces plain mode (honored by convention). |
-| `TERM` empty or `dumb` | Plain mode.                                          |
+| Variable | Effect |
+| --- | --- |
+| `PROGRESS_PLAIN=1` | Force plain mode even on a TTY. |
+| `NO_COLOR` | Any value forces plain mode (honored by convention). |
+| `TERM` empty or `dumb` | Plain mode. |
 
 Plain mode is also automatic whenever stdout is not a terminal.
 

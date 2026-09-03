@@ -1,13 +1,7 @@
 import { describe, expect, test } from "vitest";
 import type { Tour } from "@made-i-t/hdtw-protocol";
 import { startWalk } from "./walkState.js";
-import {
-  activeWalk,
-  advance,
-  breadcrumbLabel,
-  pushWalk,
-  retreat,
-} from "./walkStack.js";
+import { activeWalk, advance, breadcrumbLabel, pushWalk, retreat } from "./walkStack.js";
 
 function tour(id: string, steps: number): Tour {
   return {
@@ -18,12 +12,7 @@ function tour(id: string, steps: number): Tour {
     steps: Array.from({ length: steps }, (_unused, index) => ({
       title: `${id}-${index}`,
       narration: "n",
-      anchor: {
-        file: "a.ts",
-        startLine: 1,
-        endLine: 1,
-        snippetHash: "sha256:aa",
-      },
+      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
     })),
   };
 }

@@ -19,7 +19,6 @@ The core logic (codebase analysis, rails/tour engine) runs as a **separate proce
 Rationale: IDEs do not share a runtime (VS Code is Node, JetBrains is JVM, Visual Studio is .NET). A process boundary with a typed protocol is the only sharing strategy that scales across all of them. It also lets the engine team and client teams ship independently.
 
 Alternatives considered:
-
 - **Shared TS core embedded per-IDE** — fastest for VS Code alone, but JetBrains would need an embedded Node runtime or a port. Rejected.
 - **Independent per-IDE implementations** — every feature rebuilt per IDE. Rejected.
 

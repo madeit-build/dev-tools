@@ -22,9 +22,9 @@ export const REFUSALS: Record<string, string> = {
    * the nested-content check in hunks.ts refuses the whole run.
    */
   chainLinkWithWrappedArguments:
-    "const dropped = observed\n"
-    + '  .filter((r) => r.kind === "log" && (r as { event: string }).event === "verify.related_dropped")\n'
-    + "  .map((r) => (r as { fields?: { tourId?: string } }).fields?.tourId);\n",
+    "const dropped = observed\n" +
+    '  .filter((r) => r.kind === "log" && (r as { event: string }).event === "verify.related_dropped")\n' +
+    "  .map((r) => (r as { fields?: { tourId?: string } }).fields?.tourId);\n",
 
   /**
    * Found during the same dogfood, in src/orrery/src/app/src/Inspector.tsx.
@@ -34,20 +34,20 @@ export const REFUSALS: Record<string, string> = {
    * anchor column, indenting the JSX far past any of its siblings.
    */
   chainLinkReturningMultilineJsx:
-    "function View({ attrs }: { attrs: Record<string, unknown> }) {\n"
-    + "  return (\n"
-    + "    <div>\n"
-    + "      {Object.entries(attrs)\n"
-    + "        .filter(([, v]) => v !== null)\n"
-    + "        .map(([k, v]) => (\n"
-    + '          <div key={k} className="panel__row">\n'
-    + '            <span className="panel__key">{k}: </span>\n'
-    + "            <span>{String(v)}</span>\n"
-    + "          </div>\n"
-    + "        ))}\n"
-    + "    </div>\n"
-    + "  );\n"
-    + "}\n",
+    "function View({ attrs }: { attrs: Record<string, unknown> }) {\n" +
+    "  return (\n" +
+    "    <div>\n" +
+    "      {Object.entries(attrs)\n" +
+    "        .filter(([, v]) => v !== null)\n" +
+    "        .map(([k, v]) => (\n" +
+    '          <div key={k} className="panel__row">\n' +
+    '            <span className="panel__key">{k}: </span>\n' +
+    "            <span>{String(v)}</span>\n" +
+    "          </div>\n" +
+    "        ))}\n" +
+    "    </div>\n" +
+    "  );\n" +
+    "}\n",
 
   /**
    * A `.map` callback returning a multi-line object literal. Prettier breaks

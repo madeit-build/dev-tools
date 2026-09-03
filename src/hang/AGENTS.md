@@ -14,7 +14,7 @@ Prettier plugin plus a CLI (`--write`, `--explain`, `doctor`).
 ## Architecture (the one thing to internalize)
 
 `hang` never reprints a node. Prettier already decided every line break; the
-tool's whole job is text arithmetic performed _after_ Prettier renders its
+tool's whole job is text arithmetic performed *after* Prettier renders its
 document to a string, and the result replaces Prettier's output wholesale for
 the `Program` node only.
 
@@ -86,11 +86,11 @@ than an error, so anyone touching this tool needs to know them going in:
   even though `.` chains still work and the config otherwise looks correct.
   `doctor` probes for the option through `getSupportInfo` rather than
   comparing Prettier version strings, because that's what tells you whether
-  the _installed_ Prettier can do it.
+  the *installed* Prettier can do it.
 - **TypeScript must stay `^5.8`.** TypeScript 7 removed the compiler API from
   its main entry — `require("typescript").createScanner` is `undefined`,
   `Object.keys()` on the namespace yields only `["version",
-"versionMajorMinor"]`. Without a scanner the safety guard has nothing to
+  "versionMajorMinor"]`. Without a scanner the safety guard has nothing to
   compare, so `doctor` checks `createScanner` directly rather than trusting
   the version string.
 

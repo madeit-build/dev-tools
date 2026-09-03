@@ -7,37 +7,23 @@ function guard(workspaceRoot: string, file: string): string | undefined {
   if (path.isAbsolute(file)) return undefined;
   const root = path.resolve(workspaceRoot);
   const resolved = path.resolve(root, ...file.split("/"));
-  if (resolved !== root && !resolved.startsWith(root + path.sep))
-    return undefined;
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) return undefined;
   return resolved;
 }
 
-export async function runFileOutlineTool(
-  workspaceRoot: string,
-  file: string,
-): Promise<string> {
+export async function runFileOutlineTool(workspaceRoot: string, file: string): Promise<string> {
   const resolved = guard(workspaceRoot, file);
   if (!resolved) return `Error: ${file} is outside the workspace.`;
   try {
     const symbols = await fileOutline(resolved);
-    if (symbols.length === 0)
-      return `No symbols found in ${file} (unsupported type or empty).`;
-    return symbols
-      .map(
-        (s) =>
-          `${s.qualifiedName} (${s.kind}) lines ${s.startLine}-${s.endLine}`,
-      )
-      .join("\n");
+    if (symbols.length === 0) return `No symbols found in ${file} (unsupported type or empty).`;
+    return symbols.map((s) => `${s.qualifiedName} (${s.kind}) lines ${s.startLine}-${s.endLine}`).join("\n");
   } catch {
     return `Error: could not read ${file} (not found or unreadable).`;
   }
 }
 
-export async function runFindSymbolTool(
-  workspaceRoot: string,
-  file: string,
-  name: string,
-): Promise<string> {
+export async function runFindSymbolTool(workspaceRoot: string, file: string, name: string): Promise<string> {
   const resolved = guard(workspaceRoot, file);
   if (!resolved) return `Error: ${file} is outside the workspace.`;
   try {
@@ -62,19 +48,10 @@ export function createCodemapMcpServer(workspaceRoot: string) {
       tool(
         "fileOutline",
         "List the named symbols (functions, classes, methods, consts) in a TS/JS file with their line ranges.",
-        {
-          file: z
-            .string()
-            .describe("Workspace-relative path, POSIX separators."),
-        },
+        { file: z.string().describe("Workspace-relative path, POSIX separators.") },
         async (args) => ({
-          content: [
-            {
-              type: "text",
-              text: await runFileOutlineTool(workspaceRoot, args.file),
-            },
-          ],
-        }),
+          content: [{ type: "text", text: await runFileOutlineTool(workspaceRoot, args.file) }],
+        })
       ),
       tool(
         "findSymbol",
@@ -84,14 +61,10 @@ export function createCodemapMcpServer(workspaceRoot: string) {
           content: [
             {
               type: "text",
-              text: await runFindSymbolTool(
-                workspaceRoot,
-                args.file,
-                args.name,
-              ),
+              text: await runFindSymbolTool(workspaceRoot, args.file, args.name),
             },
           ],
-        }),
+        })
       ),
     ],
   });

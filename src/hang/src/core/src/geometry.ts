@@ -22,10 +22,7 @@ const MEMBER_ACCESS = /^(\?\.|\.(?!\.))/;
  * inside it, so a ternary's branches keep their distance from the operands
  * above them without any special handling.
  */
-export function buildReplacement(
-  lines: readonly string[],
-  hunk: Hunk,
-): Replacement {
+export function buildReplacement(lines: readonly string[], hunk: Hunk): Replacement {
   const head = lines[hunk.headIndex].trimEnd();
   const first = lines[hunk.headIndex + 1].trim();
   const glue = MEMBER_ACCESS.test(first) ? "" : " ";
@@ -34,21 +31,12 @@ export function buildReplacement(
 
   const rest = lines
     .slice(hunk.headIndex + 2, hunk.endIndex + 1)
-    .map(
-      (line) => " ".repeat(Math.max(0, indentOf(line) + shift)) + line.trim(),
-    );
+    .map((line) => " ".repeat(Math.max(0, indentOf(line) + shift)) + line.trim());
 
-  return {
-    lines: [head + glue + first, ...rest],
-    anchor,
-    links: rest.length + 1,
-  };
+  return { lines: [head + glue + first, ...rest], anchor, links: rest.length + 1 };
 }
 
-export function renderApplied(
-  original: readonly string[],
-  applied: readonly Applied[],
-): string {
+export function renderApplied(original: readonly string[], applied: readonly Applied[]): string {
   const out: string[] = [];
   let cursor = 0;
   for (const { hunk, replacement } of applied) {

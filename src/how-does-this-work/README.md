@@ -2,25 +2,25 @@
 
 > Guided, rails-driven explanations of how a codebase works — from entrypoint to exit — the way a principal engineer walks a new hire through the platform.
 
-**How Does This Work** is an IDE extension that turns "how does this codebase actually work?" into a guided walk through real code. An AI agent explores the repository, then produces a **tour**: an ordered set of steps, each anchored to specific lines in specific files, narrated with the architecture and the _why_ behind the code. Anyone on the team can then walk that tour on rails — step by step, with the narration pinned inline beneath the code — with no agent and no tokens.
+**How Does This Work** is an IDE extension that turns "how does this codebase actually work?" into a guided walk through real code. An AI agent explores the repository, then produces a **tour**: an ordered set of steps, each anchored to specific lines in specific files, narrated with the architecture and the *why* behind the code. Anyone on the team can then walk that tour on rails — step by step, with the narration pinned inline beneath the code — with no agent and no tokens.
 
 VS Code is the first target IDE; the architecture is built to expand to others (JetBrains next).
 
 ## The two ideas that shape everything
 
-1. **Generation and playback are different products.** An agent (expensive, occasional) _generates_ a tour; the rails experience _replays_ it deterministically — free, offline, instant, no LLM. **One person generates; the whole team walks.**
+1. **Generation and playback are different products.** An agent (expensive, occasional) *generates* a tour; the rails experience *replays* it deterministically — free, offline, instant, no LLM. **One person generates; the whole team walks.**
 2. **Tours are the universal currency.** A tour is a plain `.hdtw/tours/*.tour.json` file committed alongside your source. Sharing a walkthrough is just `git pull`. Generating one, asking for one in conversation, or hand-authoring one all produce the same artifact.
 
 ## Current status
 
-| Chunk | Capability                                                                                   | Status                                       |
-| ----- | -------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| 0     | Monorepo skeleton — engine process + thin clients                                            | ✅ shipped                                   |
-| 1     | Tour artifacts + rails playback (sidebar, inline narration, drift-tolerant)                  | ✅ shipped                                   |
-| 2     | Embedded agent tour generation (Claude Agent SDK, budget, cancellation, anchor verification) | ✅ shipped                                   |
-| 3     | Conversational walks (ask-first ephemeral walk) + mid-walk "Why?" detours (in-thread Q&A)    | ✅ shipped                                   |
-| 4     | Grounding — code-map tools + anchor drift detection                                          | ✅ shipped (4a drift; 4b code-map candidate) |
-| 5     | Team & beyond — freshness CI, JetBrains client, monetization                                 | ⬜ planned                                   |
+| Chunk | Capability | Status |
+|---|---|---|
+| 0 | Monorepo skeleton — engine process + thin clients | ✅ shipped |
+| 1 | Tour artifacts + rails playback (sidebar, inline narration, drift-tolerant) | ✅ shipped |
+| 2 | Embedded agent tour generation (Claude Agent SDK, budget, cancellation, anchor verification) | ✅ shipped |
+| 3 | Conversational walks (ask-first ephemeral walk) + mid-walk "Why?" detours (in-thread Q&A) | ✅ shipped |
+| 4 | Grounding — code-map tools + anchor drift detection | ✅ shipped (4a drift; 4b code-map candidate) |
+| 5 | Team & beyond — freshness CI, JetBrains client, monetization | ⬜ planned |
 
 See [`docs/product-roadmap.md`](docs/product-roadmap.md) for the full feature set, the decisions log, and per-chunk detail.
 
@@ -64,7 +64,7 @@ Open the repo in VS Code and press **F5** (the `dogfood.code-workspace` launch c
 - **Walk a tour:** click a tour in the sidebar — the included `monorepo-architecture` tour walks this repo's own design.
 - **Ask a "why?" mid-walk:** while walking any tour, reply to the narration thread with a follow-up question. A read-only, budget-capped agent answers in the context of that step and appends the answer to the thread. Hit **Next ▶** and the Q&A is gone; the walk continues untouched.
 - **Ask-first conversation:** run **"HDTW: Ask…"**, type a question, and walk the agent's answer as an ephemeral tour. Save it to the catalog if it's worth keeping.
-- **Generate a tour:** click the ✨ button, type a topic, and watch the agent explore. Authentication resolves in order: an API key set via **"HDTW: Set Anthropic API Key"** (stored in VS Code SecretStorage), then your Claude Code CLI login. Tour _consumers_ never need credentials.
+- **Generate a tour:** click the ✨ button, type a topic, and watch the agent explore. Authentication resolves in order: an API key set via **"HDTW: Set Anthropic API Key"** (stored in VS Code SecretStorage), then your Claude Code CLI login. Tour *consumers* never need credentials.
 
 ### Useful commands
 

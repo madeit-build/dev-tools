@@ -5,9 +5,7 @@ import { options as pluginOptions } from "@made-i-t/hang-prettier";
 
 describe("formatDecisions", () => {
   it("reports an applied hang with its anchor column", () => {
-    const decisions: Decision[] = [
-      { line: 12, applied: true, anchor: 21, links: 3 },
-    ];
+    const decisions: Decision[] = [{ line: 12, applied: true, anchor: 21, links: 3 }];
     expect(formatDecisions("src/a.ts", decisions)).toBe(
       "src/a.ts\n  line 12  hung      3 links at column 21",
     );
@@ -36,9 +34,7 @@ describe("formatDecisions", () => {
   });
 
   it("never includes source text", () => {
-    const decisions: Decision[] = [
-      { line: 1, applied: true, anchor: 4, links: 2 },
-    ];
+    const decisions: Decision[] = [{ line: 1, applied: true, anchor: 4, links: 2 }];
     expect(formatDecisions("src/d.ts", decisions)).not.toMatch(/[{}();=]/);
   });
 });
@@ -50,11 +46,7 @@ describe("resolveHangOptions", () => {
     // Regressing to that formula here would make this assertion fail.
     const resolved = resolveHangOptions({ printWidth: 60, tabWidth: 4 });
     expect(resolved.hangWidth).toBe(pluginOptions.hangWidth.default);
-    expect(resolved).toEqual({
-      printWidth: 60,
-      hangWidth: pluginOptions.hangWidth.default,
-      tabWidth: 4,
-    });
+    expect(resolved).toEqual({ printWidth: 60, hangWidth: pluginOptions.hangWidth.default, tabWidth: 4 });
   });
 
   it("defaults printWidth to 80 and tabWidth to 2 when prettier.resolveConfig found neither", () => {
@@ -69,11 +61,7 @@ describe("resolveHangOptions", () => {
     // Derived from the live default rather than a fixed literal, so this stays
     // a genuinely different value even if the plugin's default ever changes.
     const configured = pluginOptions.hangWidth.default + 40;
-    const resolved = resolveHangOptions({
-      printWidth: 80,
-      hangWidth: configured,
-      tabWidth: 2,
-    });
+    const resolved = resolveHangOptions({ printWidth: 80, hangWidth: configured, tabWidth: 2 });
     expect(resolved.hangWidth).toBe(configured);
     expect(resolved.hangWidth).not.toBe(pluginOptions.hangWidth.default);
   });

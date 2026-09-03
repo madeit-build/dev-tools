@@ -1,8 +1,4 @@
-import type {
-  GenerationProgressParams,
-  RelatedTour,
-  TourSummary,
-} from "@made-i-t/hdtw-protocol";
+import type { GenerationProgressParams, RelatedTour, TourSummary } from "@made-i-t/hdtw-protocol";
 import type { Observer } from "@made-i-t/hdtw-observability";
 
 export interface DraftAnchor {
@@ -39,7 +35,7 @@ export interface TourGenerator {
     topic: string,
     model: string | undefined,
     catalog: TourSummary[],
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour>;
   /** One repair round: same topic, prior draft, and the anchor errors to fix. */
   repair(
@@ -49,7 +45,7 @@ export interface TourGenerator {
     catalog: TourSummary[],
     draft: DraftTour,
     anchorErrors: string[],
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour>;
 }
 
@@ -60,7 +56,7 @@ export class GenerationFailedError extends Error {}
 export class BudgetExceededError extends Error {
   constructor(
     message: string,
-    public readonly spentUsd: number,
+    public readonly spentUsd: number
   ) {
     super(message);
   }

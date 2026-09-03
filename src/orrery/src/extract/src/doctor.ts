@@ -36,16 +36,10 @@ const realDeps: DoctorDeps = {
       return null;
     }
   },
-  resolveFlake: async (ref) => {
-    await flakeMetadata(ref);
-    return true;
-  },
+  resolveFlake: async (ref) => { await flakeMetadata(ref); return true; },
   discover: (ref) => discoverHosts(ref),
   probe: (ref, host) =>
-    nixEval<string>(
-      ref,
-      `nixosConfigurations.${host}.config.networking.hostName`,
-    ),
+    nixEval<string>(ref, `nixosConfigurations.${host}.config.networking.hostName`),
   lastGraph: async (out) => {
     try {
       return JSON.parse(await readFile(resolve(out, "graph.json"), "utf8"));
@@ -57,11 +51,7 @@ const realDeps: DoctorDeps = {
 
 // Ordered by what is most likely to be wrong. Each check assumes the ones
 // above it passed, which is why runChecks stops at the first failure.
-export function buildChecks(
-  flakeRef: string,
-  deps: DoctorDeps = realDeps,
-  out = "out",
-): Check[] {
+export function buildChecks(flakeRef: string, deps: DoctorDeps = realDeps, out = "out"): Check[] {
   let hosts: HostRef[] = [];
 
   return [
@@ -98,10 +88,7 @@ export function buildChecks(
       run: async () => {
         try {
           hosts = await deps.discover(flakeRef);
-          return {
-            ok: true,
-            detail: hosts.map((h) => `${h.name} (${h.kind})`).join(", "),
-          };
+          return { ok: true, detail: hosts.map((h) => `${h.name} (${h.kind})`).join(", ") };
         } catch (err) {
           return {
             ok: false,
@@ -115,14 +102,10 @@ export function buildChecks(
       name: "probe evaluation",
       run: async () => {
         const first = hosts.find((h) => h.kind === "nixos");
-        if (!first)
-          return { ok: true, detail: "no nixos host to probe, skipped" };
+        if (!first) return { ok: true, detail: "no nixos host to probe, skipped" };
         try {
           const name = await deps.probe(flakeRef, first.name);
-          return {
-            ok: true,
-            detail: `${first.name} evaluates, hostName=${name}`,
-          };
+          return { ok: true, detail: `${first.name} evaluates, hostName=${name}` };
         } catch (err) {
           return {
             ok: false,
@@ -158,15 +141,10 @@ export async function runChecks(checks: Check[]): Promise<number> {
     try {
       result = await check.run();
     } catch (err) {
-      result = {
-        ok: false,
-        detail: err instanceof Error ? err.message : String(err),
-      };
+      result = { ok: false, detail: err instanceof Error ? err.message : String(err) };
     }
 
-    process.stdout.write(
-      `${result.ok ? "ok  " : "FAIL"}  ${check.name}: ${result.detail}\n`,
-    );
+    process.stdout.write(`${result.ok ? "ok  " : "FAIL"}  ${check.name}: ${result.detail}\n`);
 
     // Stop at the first failure. Every later check assumes this one passed,
     // so running them would produce cascading noise around one real cause.

@@ -16,7 +16,12 @@ export const GENERATION_FAILED_ERROR_CODE = -32003;
 export const GENERATION_BUDGET_EXCEEDED_ERROR_CODE = -32004;
 
 export type GenerationPhase =
-  "exploring" | "drafting" | "verifying" | "repairing" | "saving" | "answering";
+  | "exploring"
+  | "drafting"
+  | "verifying"
+  | "repairing"
+  | "saving"
+  | "answering";
 
 export interface GenerateTourParams {
   workspaceRoot: string;

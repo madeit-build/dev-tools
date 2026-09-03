@@ -1,13 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { runChecks, buildChecks } from "./doctor";
 
-const ok = (name: string) => ({
-  name,
-  run: async () => ({ ok: true, detail: "fine" }),
-});
+const ok = (name: string) => ({ name, run: async () => ({ ok: true, detail: "fine" }) });
 const bad = (name: string) => ({
-  name,
-  run: async () => ({ ok: false, detail: "broken", fix: `fix ${name}` }),
+  name, run: async () => ({ ok: false, detail: "broken", fix: `fix ${name}` }),
 });
 
 describe("runChecks", () => {
@@ -26,12 +22,7 @@ describe("runChecks", () => {
   });
 
   it("treats a thrown check as a failure rather than crashing the command", async () => {
-    const thrower = {
-      name: "boom",
-      run: async () => {
-        throw new Error("kaboom");
-      },
-    };
+    const thrower = { name: "boom", run: async () => { throw new Error("kaboom"); } };
     expect(await runChecks([thrower])).toBe(1);
   });
 });
@@ -72,9 +63,7 @@ describe("buildChecks", () => {
   it("reports the flake ref it could not resolve, with a reproducing command", async () => {
     const checks = buildChecks("/nope", {
       ...deps,
-      resolveFlake: async () => {
-        throw new Error("cannot find flake");
-      },
+      resolveFlake: async () => { throw new Error("cannot find flake"); },
     });
     const r = await checks[1].run();
     expect(r.ok).toBe(false);

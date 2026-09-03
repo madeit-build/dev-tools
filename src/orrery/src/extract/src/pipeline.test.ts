@@ -13,15 +13,12 @@ import parts from "./fixtures/box-parts.json";
 // assembly is therefore testable with no nix on the machine.
 const deps = {
   discover: async () => [{ name: "box", kind: "nixos" as const }],
-  metadata: async () => ({
-    locks: { nodes: { root: { inputs: { nixpkgs: "nixpkgs" } } } },
-  }),
+  metadata: async () => ({ locks: { nodes: { root: { inputs: { nixpkgs: "nixpkgs" } } } } }),
   evaluate: async (_ref: string, attr: string, apply?: string) => {
     if (attr.includes("options.services.caddy.virtualHosts")) return provenance;
     if (attr.endsWith("config.services.caddy.virtualHosts")) return vhosts;
     if (attr.endsWith("config.services")) return servicePorts;
-    if (attr.endsWith("config.virtualisation.oci-containers.containers"))
-      return containers;
+    if (attr.endsWith("config.virtualisation.oci-containers.containers")) return containers;
     if (attr.endsWith("config.systemd.services")) {
       if (apply?.includes("environment")) return env;
       if (apply?.includes("StateDirectory")) return parts;
@@ -47,14 +44,8 @@ describe("buildGraph", () => {
   it("contains the whole zoom chain from fleet down to a service", async () => {
     const g = await buildGraph(".", deps);
     const contains = g.edges.filter((e) => e.type === "contains");
-    expect(
-      contains.some((e) => e.from === "fleet:fleet" && e.to === "host:box"),
-    ).toBe(true);
-    expect(
-      contains.some(
-        (e) => e.from === "host:box" && e.to === "service:box/caddy",
-      ),
-    ).toBe(true);
+    expect(contains.some((e) => e.from === "fleet:fleet" && e.to === "host:box")).toBe(true);
+    expect(contains.some((e) => e.from === "host:box" && e.to === "service:box/caddy")).toBe(true);
   });
 
   it("carries both declared and inferred edges, so the distinction is exercised", async () => {
@@ -87,9 +78,7 @@ describe("buildGraph", () => {
   it("is deterministic: two runs of the same input produce identical bytes", async () => {
     const a = await buildGraph(".", deps);
     const b = await buildGraph(".", deps);
-    expect(JSON.stringify({ ...a, generatedAt: "" })).toBe(
-      JSON.stringify({ ...b, generatedAt: "" }),
-    );
+    expect(JSON.stringify({ ...a, generatedAt: "" })).toBe(JSON.stringify({ ...b, generatedAt: "" }));
   });
 
   // The drop ledger surfaced this against the real fleet: tier 2 of the port
@@ -98,8 +87,7 @@ describe("buildGraph", () => {
   it("resolves a vhost upstream that only services.<n>.port can explain", async () => {
     const g = await buildGraph(".", deps);
     const edge = g.edges.find(
-      (e) => e.type === "proxies-to"
-             && e.from === "vhost:box/chat.keep.madeit.build",
+      (e) => e.type === "proxies-to" && e.from === "vhost:box/chat.keep.madeit.build",
     );
     expect(edge?.to).toBe("service:box/open-webui");
     expect(edge?.source).toBe("inferred");
@@ -107,15 +95,10 @@ describe("buildGraph", () => {
 
   it("reaches the fourth zoom level, so drilling into a service is not empty", async () => {
     const g = await buildGraph(".", deps);
-    const leaves = g.nodes.filter(
-      (n) => n.type === "datastore" || n.type === "port",
-    );
+    const leaves = g.nodes.filter((n) => n.type === "datastore" || n.type === "port");
     expect(leaves.length).toBeGreaterThan(0);
     for (const p of leaves) {
-      expect(
-        g.edges.some((e) => e.type === "contains" && e.to === p.id),
-        p.id,
-      ).toBe(true);
+      expect(g.edges.some((e) => e.type === "contains" && e.to === p.id), p.id).toBe(true);
     }
   });
 
@@ -130,8 +113,7 @@ describe("buildGraph", () => {
   it("attributes a vhost to the module that declared it, end to end", async () => {
     const g = await buildGraph(".", deps);
     const edge = g.edges.find(
-      (e) => e.type === "declared-by"
-             && e.from === "vhost:box/chat.keep.madeit.build",
+      (e) => e.type === "declared-by" && e.from === "vhost:box/chat.keep.madeit.build",
     );
     expect(edge?.to).toBe("module:nix/nixos/chat.nix");
   });
@@ -140,15 +122,12 @@ describe("buildGraph", () => {
     const broken = {
       ...deps,
       evaluate: async (ref: string, attr: string, apply?: string) => {
-        if (attr.endsWith("config.services.caddy.virtualHosts"))
-          throw new Error("boom");
+        if (attr.endsWith("config.services.caddy.virtualHosts")) throw new Error("boom");
         return deps.evaluate(ref, attr, apply);
       },
     };
     const g = await buildGraph(".", broken);
     expect(g.nodes.some((n) => n.type === "service")).toBe(true);
-    expect(
-      g.ledger.some((r) => r.reason === "eval-failed" && r.rule === "vhosts"),
-    ).toBe(true);
+    expect(g.ledger.some((r) => r.reason === "eval-failed" && r.rule === "vhosts")).toBe(true);
   });
 });

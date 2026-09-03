@@ -15,7 +15,6 @@
 ### Task 1: `@made-i-t/hdtw-observability` package
 
 **Files:**
-
 - Modify: `pnpm-workspace.yaml`
 - Create: `src/observability/package.json`
 - Create: `src/observability/tsconfig.json`
@@ -117,10 +116,7 @@ import { describe, expect, test } from "vitest";
 import type { ObservabilityRecord, ObservabilitySink } from "./records.js";
 import { createNoopObserver, createObserver, fanoutSink } from "./observer.js";
 
-function capturing(): {
-  sink: ObservabilitySink;
-  records: ObservabilityRecord[];
-} {
+function capturing(): { sink: ObservabilitySink; records: ObservabilityRecord[] } {
   const records: ObservabilityRecord[] = [];
   return { sink: { record: (r) => records.push(r) }, records };
 }
@@ -131,13 +127,7 @@ describe("createObserver", () => {
     const observer = createObserver({ sink, now: () => 1000 });
     observer.logger.info("generate.start", { topic: "x" });
     expect(records).toEqual([
-      {
-        kind: "log",
-        ts: 1000,
-        level: "info",
-        event: "generate.start",
-        fields: { topic: "x" },
-      },
+      { kind: "log", ts: 1000, level: "info", event: "generate.start", fields: { topic: "x" } },
     ]);
   });
 
@@ -155,20 +145,8 @@ describe("createObserver", () => {
     observer.metrics.count("verify.drift", 2);
     observer.metrics.timing("generate.duration_ms", 1800);
     expect(records).toEqual([
-      {
-        kind: "metric",
-        ts: 5,
-        metric: "count",
-        name: "verify.drift",
-        value: 2,
-      },
-      {
-        kind: "metric",
-        ts: 5,
-        metric: "timing",
-        name: "generate.duration_ms",
-        value: 1800,
-      },
+      { kind: "metric", ts: 5, metric: "count", name: "verify.drift", value: 2 },
+      { kind: "metric", ts: 5, metric: "timing", name: "generate.duration_ms", value: 1800 },
     ]);
   });
 
@@ -176,11 +154,7 @@ describe("createObserver", () => {
     const { sink, records } = capturing();
     const observer = createObserver({ sink, now: () => 0 });
     observer.metrics.count("repair.round");
-    expect(records[0]).toMatchObject({
-      metric: "count",
-      name: "repair.round",
-      value: 1,
-    });
+    expect(records[0]).toMatchObject({ metric: "count", name: "repair.round", value: 1 });
   });
 
   test("startSpan emits a timing metric on end using elapsed time", () => {
@@ -222,9 +196,7 @@ describe("fanoutSink", () => {
       },
     };
     const fan = fanoutSink([bad, good.sink]);
-    expect(() =>
-      fan.record({ kind: "log", ts: 0, level: "info", event: "x" }),
-    ).not.toThrow();
+    expect(() => fan.record({ kind: "log", ts: 0, level: "info", event: "x" })).not.toThrow();
     expect(good.records).toHaveLength(1);
   });
 });
@@ -270,11 +242,7 @@ export interface Logger {
 
 export interface Metrics {
   count(name: string, value?: number, fields?: Record<string, unknown>): void;
-  timing(
-    name: string,
-    milliseconds: number,
-    fields?: Record<string, unknown>,
-  ): void;
+  timing(name: string, milliseconds: number, fields?: Record<string, unknown>): void;
   startSpan(name: string, fields?: Record<string, unknown>): Span;
 }
 
@@ -298,32 +266,24 @@ export function createObserver(options: CreateObserverOptions): Observer {
     options.sink.record(record);
   };
 
-  const log = (
-    level: LogLevel,
-    event: string,
-    fields?: Record<string, unknown>,
-  ): void => {
+  const log = (level: LogLevel, event: string, fields?: Record<string, unknown>): void => {
     if (LOG_LEVEL_ORDER[level] < threshold) {
       return;
     }
-    emit(
-      fields === undefined
-        ? { kind: "log", ts: now(), level, event }
-        : { kind: "log", ts: now(), level, event, fields },
-    );
+    emit(fields === undefined
+      ? { kind: "log", ts: now(), level, event }
+      : { kind: "log", ts: now(), level, event, fields });
   };
 
   const metric = (
     kind: "count" | "timing",
     name: string,
     value: number,
-    fields?: Record<string, unknown>,
+    fields?: Record<string, unknown>
   ): void => {
-    emit(
-      fields === undefined
-        ? { kind: "metric", ts: now(), metric: kind, name, value }
-        : { kind: "metric", ts: now(), metric: kind, name, value, fields },
-    );
+    emit(fields === undefined
+      ? { kind: "metric", ts: now(), metric: kind, name, value }
+      : { kind: "metric", ts: now(), metric: kind, name, value, fields });
   };
 
   return {
@@ -336,8 +296,7 @@ export function createObserver(options: CreateObserverOptions): Observer {
     },
     metrics: {
       count: (name, value = 1, fields) => metric("count", name, value, fields),
-      timing: (name, milliseconds, fields) =>
-        metric("timing", name, milliseconds, fields),
+      timing: (name, milliseconds, fields) => metric("timing", name, milliseconds, fields),
       startSpan: (name, startFields) => {
         const startedAt = now();
         return {
@@ -347,7 +306,7 @@ export function createObserver(options: CreateObserverOptions): Observer {
               "timing",
               name,
               now() - startedAt,
-              Object.keys(merged).length > 0 ? merged : undefined,
+              Object.keys(merged).length > 0 ? merged : undefined
             );
           },
         };
@@ -416,10 +375,7 @@ describe("NDJSON round-trip", () => {
       name: "verify.drift",
       value: 2,
     });
-    expect(parseRecord(line)).toMatchObject({
-      kind: "metric",
-      name: "verify.drift",
-    });
+    expect(parseRecord(line)).toMatchObject({ kind: "metric", name: "verify.drift" });
   });
 });
 ```
@@ -453,16 +409,14 @@ export function parseRecord(line: string): ObservabilityRecord | null {
     return null;
   }
   const candidate = parsed as Record<string, unknown>;
-  if ( candidate.kind === "log"
-       && typeof candidate.event === "string"
-       && typeof candidate.ts === "number"
-  ) {
+  if (candidate.kind === "log" && typeof candidate.event === "string" && typeof candidate.ts === "number") {
     return parsed as ObservabilityRecord;
   }
-  if ( candidate.kind === "metric"
-       && typeof candidate.name === "string"
-       && typeof candidate.value === "number"
-       && typeof candidate.ts === "number"
+  if (
+    candidate.kind === "metric" &&
+    typeof candidate.name === "string" &&
+    typeof candidate.value === "number" &&
+    typeof candidate.ts === "number"
   ) {
     return parsed as ObservabilityRecord;
   }
@@ -495,7 +449,6 @@ git commit -m "feat(observability): add logging + metrics interface package"
 ### Task 2: Thread an Observer through engine-server generation
 
 **Files:**
-
 - Modify: `src/engine/server/package.json` (add observability dep)
 - Create: `src/engine/server/src/stderrSink.ts`
 - Modify: `src/engine/server/src/tourGenerator.ts` (add `observer` to `GenerationHooks`)
@@ -509,11 +462,7 @@ git commit -m "feat(observability): add logging + metrics interface package"
 - [ ] **Step 2: Create `src/engine/server/src/stderrSink.ts`**
 
 ```ts
-import {
-  serializeRecord,
-  type ObservabilityRecord,
-  type ObservabilitySink,
-} from "@made-i-t/hdtw-observability";
+import { serializeRecord, type ObservabilityRecord, type ObservabilitySink } from "@made-i-t/hdtw-observability";
 
 /** Writes each record as one NDJSON line to stderr (stdout is the JSON-RPC channel). */
 export class StderrSink implements ObservabilitySink {
@@ -564,10 +513,7 @@ In `beforeEach` add: `observed = [];`
 Change the `run` helper to construct an observer wired to a capturing sink and pass it into `runGeneration`:
 
 ```ts
-function run(
-  generator: FakeTourGenerator,
-  options: { maxBudgetUsd?: number; signal?: AbortSignal } = {},
-) {
+function run(generator: FakeTourGenerator, options: { maxBudgetUsd?: number; signal?: AbortSignal } = {}) {
   const controller = new AbortController();
   const observer = createObserver({
     sink: { record: (r) => observed.push(r) },
@@ -575,15 +521,11 @@ function run(
     now: () => 0,
   });
   return runGeneration(
-    {
-      workspaceRoot,
-      topic: "how does it work",
-      maxBudgetUsd: options.maxBudgetUsd,
-    },
+    { workspaceRoot, topic: "how does it work", maxBudgetUsd: options.maxBudgetUsd },
     generator,
     observer,
     (p) => progress.push(p),
-    options.signal ?? controller.signal,
+    options.signal ?? controller.signal
   );
 }
 ```
@@ -591,24 +533,21 @@ function run(
 Add a new test at the end of the `describe("runGeneration", ...)` block:
 
 ```ts
-test("emits observability records across the run", async () => {
-  await run(new FakeTourGenerator());
-  const logEvents = observed.filter((r) => r.kind === "log")
-                            .map((r) => (r as { event: string }).event);
-  expect(logEvents).toContain("generate.start");
-  expect(logEvents).toContain("verify.step");
-  expect(logEvents).toContain("generate.done");
-  const metricNames = observed.filter((r) => r.kind === "metric")
-                              .map((r) => (r as { name: string }).name);
-  expect(metricNames).toContain("generate.duration_ms");
-});
+  test("emits observability records across the run", async () => {
+    await run(new FakeTourGenerator());
+    const logEvents = observed.filter((r) => r.kind === "log").map((r) => (r as { event: string }).event);
+    expect(logEvents).toContain("generate.start");
+    expect(logEvents).toContain("verify.step");
+    expect(logEvents).toContain("generate.done");
+    const metricNames = observed.filter((r) => r.kind === "metric").map((r) => (r as { name: string }).name);
+    expect(metricNames).toContain("generate.duration_ms");
+  });
 
-test("repair round is logged", async () => {
-  await run(new FakeTourGenerator({ draft: BAD_DRAFT }));
-  const logEvents = observed.filter((r) => r.kind === "log")
-                            .map((r) => (r as { event: string }).event);
-  expect(logEvents).toContain("repair.round");
-});
+  test("repair round is logged", async () => {
+    await run(new FakeTourGenerator({ draft: BAD_DRAFT }));
+    const logEvents = observed.filter((r) => r.kind === "log").map((r) => (r as { event: string }).event);
+    expect(logEvents).toContain("repair.round");
+  });
 ```
 
 - [ ] **Step 5: Run tests to verify they fail**
@@ -639,39 +578,35 @@ export async function runGeneration(
 At the very start of the function body (after the `maxBudgetUsd` line), add:
 
 ```ts
-const span = observer.metrics.startSpan("generate.duration_ms", {
-  topic: params.topic,
-});
-observer.logger.info("generate.start", {
-  topic: params.topic,
-  model: params.model ?? "(default)",
-  maxBudgetUsd,
-});
+  const span = observer.metrics.startSpan("generate.duration_ms", { topic: params.topic });
+  observer.logger.info("generate.start", {
+    topic: params.topic,
+    model: params.model ?? "(default)",
+    maxBudgetUsd,
+  });
 ```
 
 Add `observer` to the `hooks` object so generators can log:
 
 ```ts
-const hooks = {
-  signal: abort.signal,
-  observer,
-  onProgress: (progress: GenerationProgressParams) => {
-    onProgress(progress);
-    if ( progress.estimatedCostUsd > maxBudgetUsd
-         && budgetBreachedAtUsd === undefined
-    ) {
-      budgetBreachedAtUsd = progress.estimatedCostUsd;
-      abort.abort();
-    }
-  },
-};
+  const hooks = {
+    signal: abort.signal,
+    observer,
+    onProgress: (progress: GenerationProgressParams) => {
+      onProgress(progress);
+      if (progress.estimatedCostUsd > maxBudgetUsd && budgetBreachedAtUsd === undefined) {
+        budgetBreachedAtUsd = progress.estimatedCostUsd;
+        abort.abort();
+      }
+    },
+  };
 ```
 
 When the repair round runs, before the `generator.repair(...)` call add:
 
 ```ts
-observer.logger.info("repair.round", { errors: verified.errors });
-observer.metrics.count("generate.repair_rounds");
+      observer.logger.info("repair.round", { errors: verified.errors });
+      observer.metrics.count("generate.repair_rounds");
 ```
 
 In `verifyDraft`, after computing the per-step result, log it. Change `verifyDraft` to accept the observer and log each step. Update its signature and the two call sites to pass `observer`:
@@ -681,33 +616,19 @@ async function verifyDraft(
   workspaceRoot: string,
   draft: DraftTour,
   observer: Observer,
-  onProgress: (progress: GenerationProgressParams) => void,
+  onProgress: (progress: GenerationProgressParams) => void
 ): Promise<VerifiedDraft> {
-  onProgress({
-    phase: "verifying",
-    message: "Verifying anchors",
-    tokensIn: 0,
-    tokensOut: 0,
-    estimatedCostUsd: 0,
-  });
+  onProgress({ phase: "verifying", message: "Verifying anchors", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
   const errors: string[] = [];
   const steps: TourStep[] = [];
   for (const step of draft.steps) {
     const verifiedStep = await verifyStep(workspaceRoot, step);
     if (typeof verifiedStep === "string") {
-      observer.logger.warn("verify.step", {
-        ok: false,
-        file: step.anchor.file,
-        error: verifiedStep,
-      });
+      observer.logger.warn("verify.step", { ok: false, file: step.anchor.file, error: verifiedStep });
       observer.metrics.count("verify.drift");
       errors.push(verifiedStep);
     } else {
-      observer.logger.info("verify.step", {
-        ok: true,
-        title: step.title,
-        file: step.anchor.file,
-      });
+      observer.logger.info("verify.step", { ok: true, title: step.title, file: step.anchor.file });
       steps.push(verifiedStep);
     }
   }
@@ -720,21 +641,11 @@ Update both `verifyDraft(...)` call sites in `runGeneration` to pass `observer` 
 Before the final `return saveTour(...)`, end the span and log done. Change the tail of `runGeneration` to:
 
 ```ts
-onProgress({
-  phase: "saving",
-  message: "Saving tour",
-  tokensIn: 0,
-  tokensOut: 0,
-  estimatedCostUsd: 0,
-});
-const result = await saveTour(params.workspaceRoot, draft, verified.steps);
-observer.logger.info("generate.done", {
-  id: result.tour.id,
-  steps: result.tour.steps.length,
-  savedPath: result.savedPath,
-});
-span.end({ steps: result.tour.steps.length });
-return result;
+  onProgress({ phase: "saving", message: "Saving tour", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
+  const result = await saveTour(params.workspaceRoot, draft, verified.steps);
+  observer.logger.info("generate.done", { id: result.tour.id, steps: result.tour.steps.length, savedPath: result.savedPath });
+  span.end({ steps: result.tour.steps.length });
+  return result;
 ```
 
 (The `span.end` only runs on success; aborts/failures throw before it, which is acceptable — duration is only meaningful for completed runs.)
@@ -744,39 +655,33 @@ return result;
 Add imports:
 
 ```ts
-import { createObserver, type LogLevel } from "@made-i-t/hdtw-observability";
+import {
+  createObserver,
+  type LogLevel,
+} from "@made-i-t/hdtw-observability";
 import { StderrSink } from "./stderrSink.js";
 ```
 
 After the `connection` is created, build the observer:
 
 ```ts
-const VALID_LEVELS: readonly LogLevel[] = [
-  "trace",
-  "debug",
-  "info",
-  "warn",
-  "error",
-];
+const VALID_LEVELS: readonly LogLevel[] = ["trace", "debug", "info", "warn", "error"];
 const configuredLevel = process.env.HDTW_LOG_LEVEL as LogLevel | undefined;
 const minLevel: LogLevel =
-  configuredLevel && VALID_LEVELS.includes(configuredLevel)
-    ? configuredLevel
-    : "info";
+  configuredLevel && VALID_LEVELS.includes(configuredLevel) ? configuredLevel : "info";
 const observer = createObserver({ sink: new StderrSink(), minLevel });
 ```
 
 In the `GENERATE_TOUR_METHOD` handler, pass `observer` to `runGeneration` (after `createGenerator()`):
 
 ```ts
-return await runGeneration(
-  params,
-  createGenerator(),
-  observer,
-  (progress) =>
-    connection.sendNotification(GENERATION_PROGRESS_NOTIFICATION, progress),
-  abort.signal,
-);
+      return await runGeneration(
+        params,
+        createGenerator(),
+        observer,
+        (progress) => connection.sendNotification(GENERATION_PROGRESS_NOTIFICATION, progress),
+        abort.signal
+      );
 ```
 
 - [ ] **Step 8: Build and run all server tests**
@@ -796,7 +701,6 @@ git commit -m "feat(engine-server): thread observer through generation; emit rec
 ### Task 3: Instrument the Claude agent loop
 
 **Files:**
-
 - Modify: `src/engine/server/src/claudeTourGenerator.ts`
 
 No automated test exercises the real SDK path; instrumentation is verified by the F5 dogfood. `parseDraft` tests are unaffected.
@@ -804,43 +708,37 @@ No automated test exercises the real SDK path; instrumentation is verified by th
 - [ ] **Step 1: Log tool use, per-turn usage, and parse failures in `runQuery`** — in `src/engine/server/src/claudeTourGenerator.ts`, inside the `for await (const message of response)` loop, extend the handling so the agent's actions are observable. Replace the loop body with:
 
 ```ts
-for await (const message of response) {
-  if (message.type === "assistant") {
-    const usage = message.message.usage;
-    tokensIn += usage?.input_tokens ?? 0;
-    tokensOut += usage?.output_tokens ?? 0;
-    for (const block of message.message.content) {
-      if (block.type === "tool_use") {
-        hooks.observer.logger.debug("agent.tool", {
-          tool: block.name,
-          input: block.input,
-        });
+      for await (const message of response) {
+        if (message.type === "assistant") {
+          const usage = message.message.usage;
+          tokensIn += usage?.input_tokens ?? 0;
+          tokensOut += usage?.output_tokens ?? 0;
+          for (const block of message.message.content) {
+            if (block.type === "tool_use") {
+              hooks.observer.logger.debug("agent.tool", {
+                tool: block.name,
+                input: block.input,
+              });
+            }
+          }
+          hooks.observer.logger.debug("agent.usage", { phase, tokensIn, tokensOut });
+          hooks.onProgress({
+            phase,
+            message: phase === "exploring" ? "Agent exploring the codebase" : "Agent repairing anchors",
+            tokensIn,
+            tokensOut,
+            estimatedCostUsd:
+              tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN + tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
+          });
+        }
+        if (message.type === "result") {
+          if (message.subtype === "success") {
+            resultText = message.result;
+          } else {
+            throw new GenerationFailedError(`agent run ended without a result (${message.subtype})`);
+          }
+        }
       }
-    }
-    hooks.observer.logger.debug("agent.usage", { phase, tokensIn, tokensOut });
-    hooks.onProgress({
-      phase,
-      message:
-        phase === "exploring"
-          ? "Agent exploring the codebase"
-          : "Agent repairing anchors",
-      tokensIn,
-      tokensOut,
-      estimatedCostUsd:
-        tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN
-        + tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
-    });
-  }
-  if (message.type === "result") {
-    if (message.subtype === "success") {
-      resultText = message.result;
-    } else {
-      throw new GenerationFailedError(
-        `agent run ended without a result (${message.subtype})`,
-      );
-    }
-  }
-}
 ```
 
 If the installed SDK's assistant-message content block shape differs (e.g. the block union member name for tool calls is not `tool_use`, or `content` is not directly iterable), adapt the field access to the SDK's exported types and report the deviation — do not drop the `agent.tool` logging silently.
@@ -848,14 +746,14 @@ If the installed SDK's assistant-message content block shape differs (e.g. the b
 - [ ] **Step 2: Log a parse failure before throwing** — in `parseDraft`, the function currently throws on invalid JSON without surfacing the raw text. Since `parseDraft` is a free function without an observer, leave it as-is; instead, in `runQuery`, wrap the final `return parseDraft(resultText);` so a failure logs the raw output first:
 
 ```ts
-try {
-  return parseDraft(resultText);
-} catch (error) {
-  hooks.observer.logger.error("agent.parse_failed", {
-    resultPreview: resultText.slice(0, 2000),
-  });
-  throw error;
-}
+    try {
+      return parseDraft(resultText);
+    } catch (error) {
+      hooks.observer.logger.error("agent.parse_failed", {
+        resultPreview: resultText.slice(0, 2000),
+      });
+      throw error;
+    }
 ```
 
 - [ ] **Step 3: Build, test, lint**
@@ -875,7 +773,6 @@ git commit -m "feat(engine-server): log agent tool use, per-turn usage, and pars
 ### Task 4: VS Code Output channel + stderr ingestion + log level
 
 **Files:**
-
 - Modify: `src/clients/vscode/package.json` (observability dep + `hdtw.logLevel` setting)
 - Create: `src/clients/vscode/src/outputChannelSink.ts`
 - Modify: `src/clients/vscode/src/engineClient.ts` (stderr NDJSON ingestion; pass observer/sink in)
@@ -900,10 +797,7 @@ Run `pnpm install`.
 
 ```ts
 import * as vscode from "vscode";
-import type {
-  ObservabilityRecord,
-  ObservabilitySink,
-} from "@made-i-t/hdtw-observability";
+import type { ObservabilityRecord, ObservabilitySink } from "@made-i-t/hdtw-observability";
 
 /** Renders observability records into a native VS Code LogOutputChannel. */
 export class OutputChannelSink implements ObservabilitySink {
@@ -912,9 +806,7 @@ export class OutputChannelSink implements ObservabilitySink {
   record(record: ObservabilityRecord): void {
     try {
       if (record.kind === "metric") {
-        this.channel.debug(
-          `metric ${record.name}=${record.value}${formatFields(record.fields)}`,
-        );
+        this.channel.debug(`metric ${record.name}=${record.value}${formatFields(record.fields)}`);
         return;
       }
       const line = `${record.event}${formatFields(record.fields)}`;
@@ -976,22 +868,22 @@ Change the `EngineClient` constructor to accept the sink:
 Replace the existing stderr handler (the `serverProcess.stderr?.on("data", ...)` block that calls `console.error`) with a newline-buffered NDJSON reader:
 
 ```ts
-let stderrBuffer = "";
-serverProcess.stderr?.on("data", (chunk: Buffer) => {
-  stderrBuffer += chunk.toString();
-  let newlineIndex = stderrBuffer.indexOf("\n");
-  while (newlineIndex !== -1) {
-    const line = stderrBuffer.slice(0, newlineIndex);
-    stderrBuffer = stderrBuffer.slice(newlineIndex + 1);
-    const record = parseRecord(line);
-    if (record) {
-      this.sink.record(record);
-    } else if (line.trim().length > 0) {
-      this.sink.appendRaw(`[engine] ${line}`);
-    }
-    newlineIndex = stderrBuffer.indexOf("\n");
-  }
-});
+    let stderrBuffer = "";
+    serverProcess.stderr?.on("data", (chunk: Buffer) => {
+      stderrBuffer += chunk.toString();
+      let newlineIndex = stderrBuffer.indexOf("\n");
+      while (newlineIndex !== -1) {
+        const line = stderrBuffer.slice(0, newlineIndex);
+        stderrBuffer = stderrBuffer.slice(newlineIndex + 1);
+        const record = parseRecord(line);
+        if (record) {
+          this.sink.record(record);
+        } else if (line.trim().length > 0) {
+          this.sink.appendRaw(`[engine] ${line}`);
+        }
+        newlineIndex = stderrBuffer.indexOf("\n");
+      }
+    });
 ```
 
 - [ ] **Step 4: Build channel + observer, wire log level + instrument — `src/clients/vscode/src/extension.ts`**
@@ -999,7 +891,10 @@ serverProcess.stderr?.on("data", (chunk: Buffer) => {
 Add imports at the top:
 
 ```ts
-import { createObserver, type Observer } from "@made-i-t/hdtw-observability";
+import {
+  createObserver,
+  type Observer,
+} from "@made-i-t/hdtw-observability";
 import { OutputChannelSink } from "./outputChannelSink.js";
 ```
 
@@ -1014,41 +909,38 @@ let observer: Observer | undefined;
 At the very start of `activate` (before `if (client)`), build the channel/observer and add a helper to read the level:
 
 ```ts
-channel = channel ?? vscode.window.createOutputChannel("HDTW", { log: true });
-sink = sink ?? new OutputChannelSink(channel);
-const logLevel = vscode.workspace.getConfiguration("hdtw")
-                                 .get<string>("logLevel", "info");
-observer = createObserver({ sink, minLevel: normalizeLevel(logLevel) });
-context.subscriptions.push(channel);
+  channel = channel ?? vscode.window.createOutputChannel("HDTW", { log: true });
+  sink = sink ?? new OutputChannelSink(channel);
+  const logLevel = vscode.workspace.getConfiguration("hdtw").get<string>("logLevel", "info");
+  observer = createObserver({ sink, minLevel: normalizeLevel(logLevel) });
+  context.subscriptions.push(channel);
 ```
 
 Change the `EngineClient` construction to pass the sink:
 
 ```ts
-client = new EngineClient(sink);
+  client = new EngineClient(sink);
 ```
 
 Change the `connect` call to also pass the log level into the engine env (merge with the existing apiKey env):
 
 ```ts
-const apiKey = await context.secrets.get(API_KEY_SECRET);
-const env: Record<string, string> = { HDTW_LOG_LEVEL: logLevel };
-if (apiKey) {
-  env.ANTHROPIC_API_KEY = apiKey;
-}
-const result = await client.connect(env);
-observer.logger.info("engine.connected", {
-  engine: result.engineName,
-  version: result.engineVersion,
-});
+    const apiKey = await context.secrets.get(API_KEY_SECRET);
+    const env: Record<string, string> = { HDTW_LOG_LEVEL: logLevel };
+    if (apiKey) {
+      env.ANTHROPIC_API_KEY = apiKey;
+    }
+    const result = await client.connect(env);
+    observer.logger.info("engine.connected", {
+      engine: result.engineName,
+      version: result.engineVersion,
+    });
 ```
 
 Add the `normalizeLevel` helper near the bottom of the file:
 
 ```ts
-function normalizeLevel(
-  value: string,
-): "error" | "warn" | "info" | "debug" | "trace" {
+function normalizeLevel(value: string): "error" | "warn" | "info" | "debug" | "trace" {
   switch (value) {
     case "error":
     case "warn":
@@ -1065,22 +957,19 @@ function normalizeLevel(
 Instrument the generate flow: in `generateTour`, immediately after `if (!topic) { return; }`, add:
 
 ```ts
-observer?.logger.info("generate.requested", { topic });
+  observer?.logger.info("generate.requested", { topic });
 ```
 
 and in `handleGenerationError`, at the top of the function add:
 
 ```ts
-observer?.logger.error("generate.error", {
-  code: (error as { code?: number }).code,
-  message: error instanceof Error ? error.message : String(error),
-});
+  observer?.logger.error("generate.error", { code: (error as { code?: number }).code, message: error instanceof Error ? error.message : String(error) });
 ```
 
 In `startTour`, after a successful `getTour`, add:
 
 ```ts
-observer?.logger.info("tour.started", { tourId });
+    observer?.logger.info("tour.started", { tourId });
 ```
 
 (place it right after `const { tour } = await client.getTour(root, tourId);`)
@@ -1102,7 +991,6 @@ git commit -m "feat(vscode): render engine + client observability in an Output c
 ### Task 5: Docs
 
 **Files:**
-
 - Modify: `docs/product-roadmap.md`
 - Modify: `AGENTS.md`
 
@@ -1113,11 +1001,11 @@ git commit -m "feat(vscode): render engine + client observability in an Output c
 
 Spec: `docs/superpowers/specs/2026-06-13-observability-design.md`
 
-| Feature                                                                                      | Capability                                                                                             |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `@made-i-t/hdtw-observability` — injected `Logger` + `Metrics` + sink seam                   | Structured observability shared across packages; one seam for future telemetry export                  |
+| Feature | Capability |
+|---|---|
+| `@made-i-t/hdtw-observability` — injected `Logger` + `Metrics` + sink seam | Structured observability shared across packages; one seam for future telemetry export |
 | Engine emits NDJSON records to stderr; client renders them in a native "HDTW" Output channel | See the agent's tool use, anchor verification, repair rounds, and timings live — even on startup/crash |
-| `hdtw.logLevel` setting → `HDTW_LOG_LEVEL` engine env                                        | One control for engine + client verbosity                                                              |
+| `hdtw.logLevel` setting → `HDTW_LOG_LEVEL` engine env | One control for engine + client verbosity |
 ```
 
 - [ ] **Step 2: AGENTS.md** — in **Current state**, add after the Chunk 2 bullet:

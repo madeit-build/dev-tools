@@ -35,26 +35,15 @@ export async function main(argv: string[]): Promise<number> {
     await mkdir(dir, { recursive: true });
     const path = resolve(dir, "graph.json");
     await writeFile(path, JSON.stringify(graph, null, 2));
-    log("graph.written", {
-      path,
-      nodes: graph.nodes.length,
-      edges: graph.edges.length,
-      dropped: graph.ledger.length,
-    });
+    log("graph.written", { path, nodes: graph.nodes.length, edges: graph.edges.length, dropped: graph.ledger.length });
     return 0;
   } catch (err) {
-    log("run.failed", {
-      detail: err instanceof Error ? err.message : String(err),
-    });
-    process.stderr.write(
-      "\nRun 'orrery doctor' to check the most likely causes.\n",
-    );
+    log("run.failed", { detail: err instanceof Error ? err.message : String(err) });
+    process.stderr.write("\nRun 'orrery doctor' to check the most likely causes.\n");
     return 1;
   }
 }
 
 if (require.main === module) {
-  main(process.argv.slice(2)).then((code) => {
-    process.exitCode = code;
-  });
+  main(process.argv.slice(2)).then((code) => { process.exitCode = code; });
 }

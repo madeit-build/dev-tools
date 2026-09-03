@@ -17,13 +17,11 @@ export async function resolveSymbol(
   workspaceRoot: string,
   file: string,
   symbol: string,
-  cached: { startLine: number; endLine: number } | undefined,
+  cached: { startLine: number; endLine: number } | undefined
 ): Promise<ResolveSymbolResult> {
   const resolvedRoot = path.resolve(workspaceRoot);
   const resolved = path.resolve(resolvedRoot, ...file.split("/"));
-  if ( resolved !== resolvedRoot
-       && !resolved.startsWith(resolvedRoot + path.sep)
-  ) {
+  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
     return { kind: "file-missing" };
   }
 
@@ -34,9 +32,7 @@ export async function resolveSymbol(
     return { kind: "file-missing" };
   }
 
-  const matches = symbols.filter(
-    (s) => s.name === symbol || s.qualifiedName === symbol,
-  );
+  const matches = symbols.filter((s) => s.name === symbol || s.qualifiedName === symbol);
   const exact = matches.filter((s) => s.qualifiedName === symbol);
   const pool = exact.length > 0 ? exact : matches;
 
@@ -47,19 +43,11 @@ export async function resolveSymbol(
     chosen = pool[0];
   } else if (cached) {
     chosen = pool.reduce((best, s) =>
-      Math.abs(s.startLine - cached.startLine)
-      < Math.abs(best.startLine - cached.startLine)
-        ? s
-        : best,
+      Math.abs(s.startLine - cached.startLine) < Math.abs(best.startLine - cached.startLine) ? s : best
     );
   } else {
     return { kind: "ambiguous", candidates: pool };
   }
 
-  return {
-    kind: "resolved",
-    startLine: chosen.startLine,
-    endLine: chosen.endLine,
-    symbol: chosen,
-  };
+  return { kind: "resolved", startLine: chosen.startLine, endLine: chosen.endLine, symbol: chosen };
 }

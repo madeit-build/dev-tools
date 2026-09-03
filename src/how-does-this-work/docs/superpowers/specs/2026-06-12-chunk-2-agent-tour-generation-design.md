@@ -17,7 +17,7 @@ Conversational walks and mid-tour "Why?" detours (Chunk 3); bring-your-own-agent
 ## Key decisions
 
 - **Agent runtime:** `@anthropic-ai/claude-agent-sdk` runs **in-process in `engine-server`**. Intelligence stays in the engine, so every IDE client gets generation through the same protocol. Rejected: shelling out to headless `claude -p` (brittle bridge, CLI hard-dependency) and client-side generation (intelligence trapped in one IDE).
-- **The engine never trusts the agent's anchors.** The agent drafts steps _without hashes_; the engine independently reads each anchored file, validates ranges, and computes `snippetHash` itself. One repair round, then fail loudly. Hallucinated anchors are the product's biggest trust risk.
+- **The engine never trusts the agent's anchors.** The agent drafts steps *without hashes*; the engine independently reads each anchored file, validates ranges, and computes `snippetHash` itself. One repair round, then fail loudly. Hallucinated anchors are the product's biggest trust risk.
 - **BYOA seam reserved:** generation runs behind a narrow `TourGenerator` port so future chunks can add other agent backends (Codex, Copilot, etc.) without touching the pipeline, protocol, or clients.
 - **Landing flow:** save + auto-walk immediately. Git is the review mechanism; deleting the file is the rejection.
 
@@ -56,7 +56,7 @@ No preflight auth checks — the typed error is the flow. Tour consumers never n
 ## VS Code client
 
 - **Entry points:** sparkle button on the Tours view title + command palette **"HDTW: Generate Tour…"** → `showInputBox` for the topic (placeholder: a real example question).
-- **Progress:** `vscode.window.withProgress` (notification area, cancellable) updating from `hdtw/generationProgress`, e.g. _"Exploring codebase… (14k tokens · ~$0.11)"_. Cancel propagates JSON-RPC cancellation to the engine, which aborts the SDK loop; no file is written.
+- **Progress:** `vscode.window.withProgress` (notification area, cancellable) updating from `hdtw/generationProgress`, e.g. *"Exploring codebase… (14k tokens · ~$0.11)"*. Cancel propagates JSON-RPC cancellation to the engine, which aborts the SDK loop; no file is written.
 - **Success:** sidebar refreshes; the new tour auto-walks via the existing WalkController.
 - **Settings:** `hdtw.generation.model` (string, default current Sonnet), `hdtw.generation.maxBudgetUsd` (number, default 2).
 

@@ -1,5 +1,8 @@
 {
   "permissions": {
-    "allow": ["Skill(claude-api)", "WebFetch(domain:raw.githubusercontent.com)"]
+    "allow": [
+      "Skill(claude-api)",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
   }
 }

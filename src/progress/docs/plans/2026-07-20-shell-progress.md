@@ -21,12 +21,10 @@
 ### Task 1: Plain-mode session + phases (begin / phase / end)
 
 **Files:**
-
 - Create: `src/progress/progress.bash`
 - Create: `src/progress/test/progress_test.sh`
 
 **Interfaces:**
-
 - Produces: `progress_begin`, `progress_phase`, `progress_end`, and internal `_progress_now_ms`, `_progress_fmt_elapsed`, `_progress_mode`. Consumed by all later tasks.
 
 - [ ] **Step 1: Write the failing test**
@@ -149,12 +147,10 @@ git commit -m "feat(progress): plain-mode session and phases"
 ### Task 2: progress_run (plain) - child exec, exit-code propagation, log, failure output
 
 **Files:**
-
 - Modify: `src/progress/progress.bash`
 - Modify: `src/progress/test/progress_test.sh`
 
 **Interfaces:**
-
 - Consumes: Task 1 internals.
 - Produces: `progress_run "<label>" -- <cmd...>`, returns the child's exit code.
 
@@ -237,11 +233,9 @@ git commit -m "feat(progress): progress_run with exit-code propagation and failu
 ### Task 3: Rich TTY rendering - checklist, spinner, cursor-safe
 
 **Files:**
-
 - Modify: `src/progress/progress.bash`
 
 **Interfaces:**
-
 - Consumes: mode from Task 1.
 - Produces: rich rendering for `progress_phase`/`progress_end`. No API change.
 
@@ -287,11 +281,9 @@ git commit -m "feat(progress): rich TTY checklist + spinner, cursor-safe"
 ### Task 4: Live-tail for progress_run (rich mode)
 
 **Files:**
-
 - Modify: `src/progress/progress.bash`
 
 **Interfaces:**
-
 - Consumes: Tasks 2 and 3.
 - Produces: rich `progress_run` showing the child's last line under the spinner.
 
@@ -317,11 +309,9 @@ Then close the phase with `✓`/`✗` into `_PROGRESS_DONE_LINES` and `return "$
 - [ ] **Step 2: Test - failure still propagates in a forced-rich run**
 
 Run:
-
 ```bash
 script -q /dev/null bash -c 'source src/progress/progress.bash; progress_begin d; progress_run boom -- sh -c "exit 5"'; echo "rc=$?"
 ```
-
 Expected: output ends with `rc=5` (exit code survives the rich tail path; `script` fakes a TTY).
 
 - [ ] **Step 3: Commit**
@@ -336,7 +326,6 @@ git commit -m "feat(progress): live-tail opaque commands in rich mode"
 ### Task 5: README + shellcheck
 
 **Files:**
-
 - Create: `src/progress/README.md`
 
 - [ ] **Step 1: Write the README**

@@ -10,23 +10,23 @@ const base = { parser: "typescript" as const, tabWidth: 4, printWidth: 90 };
 const withPlugin = { ...base, plugins: [plugin] };
 
 const CHAIN =
-  "const taken = regions.filter((region) => !region.growing)"
-  + ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n";
+  "const taken = regions.filter((region) => !region.growing)" +
+  ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n";
 
 const MULTI_STATEMENT =
-  'const short = xs.map(f).join(",");\n'
-  + "const taken = regions.filter((region) => !region.growing)"
-  + ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n"
-  + "const alsoShort = ys.filter(g);\n";
+  'const short = xs.map(f).join(",");\n' +
+  "const taken = regions.filter((region) => !region.growing)" +
+  ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n" +
+  "const alsoShort = ys.filter(g);\n";
 
 const WITH_COMMENTS_AND_BLANKS =
-  "// leading file comment\n"
-  + "\n"
-  + "// a comment right before the chain\n"
-  + "const taken = regions.filter((region) => !region.growing)"
-  + ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n"
-  + "\n"
-  + "const other = 1;\n";
+  "// leading file comment\n" +
+  "\n" +
+  "// a comment right before the chain\n" +
+  "const taken = regions.filter((region) => !region.growing)" +
+  ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n" +
+  "\n" +
+  "const other = 1;\n";
 
 let forceHangAlignFailure = false;
 
@@ -51,8 +51,8 @@ describe("the plugin", () => {
   it("hangs a chain under its receiver", async () => {
     const out = await prettier.format(CHAIN, withPlugin);
     expect(out).toBe(
-      "const taken = regions.filter((region) => !region.growing)\n"
-        + "                     .reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n",
+      "const taken = regions.filter((region) => !region.growing)\n" +
+        "                     .reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n",
     );
   });
 
@@ -80,10 +80,7 @@ describe("the plugin", () => {
   });
 
   it("respects hangWidth from config", async () => {
-    const narrow = await prettier.format(CHAIN, {
-      ...withPlugin,
-      hangWidth: 60,
-    });
+    const narrow = await prettier.format(CHAIN, { ...withPlugin, hangWidth: 60 });
     expect(narrow).toBe(await prettier.format(CHAIN, base));
   });
 
@@ -119,56 +116,41 @@ describe("the plugin", () => {
         hangWidth: 100,
         tabWidth: 4,
       }).text;
-      expect(await prettier.format(WITH_COMMENTS_AND_BLANKS, withPlugin)).toBe(
-        viaCore,
-      );
+      expect(await prettier.format(WITH_COMMENTS_AND_BLANKS, withPlugin)).toBe(viaCore);
     });
 
     it("a non-default tabWidth and printWidth combination", async () => {
-      const narrow = {
-        parser: "typescript" as const,
-        tabWidth: 2,
-        printWidth: 60,
-      };
+      const narrow = { parser: "typescript" as const, tabWidth: 2, printWidth: 60 };
       const plain = await prettier.format(CHAIN, narrow);
       const viaCore = hangAlign(plain, createAdapter("x.ts"), {
         printWidth: 60,
         hangWidth: 100,
         tabWidth: 2,
       }).text;
-      expect(
-        await prettier.format(CHAIN, { ...narrow, plugins: [plugin] }),
-      ).toBe(viaCore);
+      expect(await prettier.format(CHAIN, { ...narrow, plugins: [plugin] })).toBe(viaCore);
     });
   });
 
   it("hangs inside a nested block, relative to that block's indent", async () => {
     const src =
-      "function f() {\n"
-      + "  const t = regions.filterOutTheGrowingOnes((r) => !r.growing).reduceToTotal((s, r) => s + r, 0);\n"
-      + "}\n";
+      "function f() {\n" +
+      "  const t = regions.filterOutTheGrowingOnes((r) => !r.growing).reduceToTotal((s, r) => s + r, 0);\n" +
+      "}\n";
     const out = await prettier.format(src, withPlugin);
     const lines = out.split("\n");
-    const head = lines.find((line) =>
-      line.includes(".filterOutTheGrowingOnes("),
-    );
-    const continuation = lines.find((line) =>
-      line.trimStart().startsWith(".reduceToTotal("),
-    );
+    const head = lines.find((line) => line.includes(".filterOutTheGrowingOnes("));
+    const continuation = lines.find((line) => line.trimStart().startsWith(".reduceToTotal("));
     expect(head).toBeDefined();
     expect(continuation).toBeDefined();
     const anchor = head!.indexOf(".filterOutTheGrowingOnes(");
-    expect(continuation!.length - continuation!.trimStart().length).toBe(
-      anchor,
-    );
+    expect(continuation!.length - continuation!.trimStart().length).toBe(anchor);
   });
 
   it("fails closed: a thrown error falls back to plain Prettier output and never logs source text", async () => {
     const DISTINCTIVE_SOURCE =
-      "const regionsMarkerXyzzy999 = regions.filter((region) => !region.growing)"
-      + ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n";
-    const stderrWrite = vi.spyOn(process.stderr, "write")
-                          .mockImplementation(() => true);
+      "const regionsMarkerXyzzy999 = regions.filter((region) => !region.growing)" +
+      ".reduce((sum, region) => sum + regionRows(region, rowsOf), 0);\n";
+    const stderrWrite = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     forceHangAlignFailure = true;
     try {
       const [viaPlugin, plain] = await Promise.all([
@@ -176,12 +158,9 @@ describe("the plugin", () => {
         prettier.format(DISTINCTIVE_SOURCE, base),
       ]);
       expect(viaPlugin).toBe(plain);
-      expect(plugin.getLastFailure()).toBe(
-        "forced failure for the fail-closed test",
-      );
+      expect(plugin.getLastFailure()).toBe("forced failure for the fail-closed test");
       expect(stderrWrite).toHaveBeenCalled();
-      const written = stderrWrite.mock.calls.map(([chunk]) => String(chunk))
-                                            .join("");
+      const written = stderrWrite.mock.calls.map(([chunk]) => String(chunk)).join("");
       expect(written).not.toContain("regionsMarkerXyzzy999");
     } finally {
       stderrWrite.mockRestore();
@@ -190,30 +169,21 @@ describe("the plugin", () => {
 
   it("formats a .tsx file end-to-end: a closing tag survives alongside a hung chain", async () => {
     const src =
-      "function List() {\n"
-      + "  return (\n"
-      + '    <div className="list">\n'
-      + "      {regions.filterOutTheGrowingOnes((r) => !r.growing).reduceToTotal((s, r) => s + r, 0)}\n"
-      + "    </div>\n"
-      + "  );\n"
-      + "}\n";
-    const out = await prettier.format(src, {
-      ...withPlugin,
-      filepath: "list.tsx",
-    });
+      "function List() {\n" +
+      "  return (\n" +
+      "    <div className=\"list\">\n" +
+      "      {regions.filterOutTheGrowingOnes((r) => !r.growing).reduceToTotal((s, r) => s + r, 0)}\n" +
+      "    </div>\n" +
+      "  );\n" +
+      "}\n";
+    const out = await prettier.format(src, { ...withPlugin, filepath: "list.tsx" });
     expect(out).toContain("</div>");
     const lines = out.split("\n");
-    const head = lines.find((line) =>
-      line.includes(".filterOutTheGrowingOnes("),
-    );
-    const continuation = lines.find((line) =>
-      line.trimStart().startsWith(".reduceToTotal("),
-    );
+    const head = lines.find((line) => line.includes(".filterOutTheGrowingOnes("));
+    const continuation = lines.find((line) => line.trimStart().startsWith(".reduceToTotal("));
     expect(head).toBeDefined();
     expect(continuation).toBeDefined();
     const anchor = head!.indexOf(".filterOutTheGrowingOnes(");
-    expect(continuation!.length - continuation!.trimStart().length).toBe(
-      anchor,
-    );
+    expect(continuation!.length - continuation!.trimStart().length).toBe(anchor);
   });
 });

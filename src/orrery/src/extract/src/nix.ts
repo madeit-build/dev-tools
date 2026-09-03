@@ -33,14 +33,8 @@ export class NixError extends Error {
 // (no darwinConfigurations) fail discovery instead of skipping the attribute.
 const PATTERNS: ReadonlyArray<[RegExp, NixErrorKind]> = [
   [/does not provide attribute|attribute '[^']+' missing/i, "missing-attr"],
-  [
-    /cannot coerce|is not allowed to refer to|derivationStrict/i,
-    "not-serializable",
-  ],
-  [
-    /cannot find flake|unable to download|Could not find source file|getting status of/i,
-    "bad-flake-ref",
-  ],
+  [/cannot coerce|is not allowed to refer to|derivationStrict/i, "not-serializable"],
+  [/cannot find flake|unable to download|Could not find source file|getting status of/i, "bad-flake-ref"],
 ];
 
 export function classifyNixError(stderr: string): NixErrorKind {
@@ -50,18 +44,8 @@ export function classifyNixError(stderr: string): NixErrorKind {
 
 // Both flags on every call. Evaluating a flake can otherwise rewrite
 // flake.lock, and a tool that dirties the tree it inspects is a defect.
-export function buildEvalArgs(
-  flakeRef: string,
-  attrPath: string,
-  apply: string | undefined,
-): string[] {
-  const args = [
-    "eval",
-    "--json",
-    "--read-only",
-    "--no-write-lock-file",
-    `${flakeRef}#${attrPath}`,
-  ];
+export function buildEvalArgs(flakeRef: string, attrPath: string, apply: string | undefined): string[] {
+  const args = ["eval", "--json", "--read-only", "--no-write-lock-file", `${flakeRef}#${attrPath}`];
   if (apply) args.push("--apply", apply);
   return args;
 }
@@ -91,28 +75,15 @@ export async function nixEval<T>(
     });
     return JSON.parse(stdout) as T;
   } catch (err) {
-    const e = err as NodeJS.ErrnoException & {
-      stderr?: string;
-      killed?: boolean;
-    };
+    const e = err as NodeJS.ErrnoException & { stderr?: string; killed?: boolean };
     if (e.code === "ENOENT") {
       throw new NixError("nix-not-found", "nix is not on PATH", attrPath, "");
     }
     if (e.killed) {
-      throw new NixError(
-        "timeout",
-        `evaluation of ${attrPath} timed out`,
-        attrPath,
-        e.stderr ?? "",
-      );
+      throw new NixError("timeout", `evaluation of ${attrPath} timed out`, attrPath, e.stderr ?? "");
     }
     const stderr = e.stderr ?? "";
-    throw new NixError(
-      classifyNixError(stderr),
-      `evaluation of ${attrPath} failed`,
-      attrPath,
-      stderr,
-    );
+    throw new NixError(classifyNixError(stderr), `evaluation of ${attrPath} failed`, attrPath, stderr);
   }
 }
 
@@ -134,24 +105,13 @@ export async function nixEvalOptional<T>(
 
 export interface FlakeMetadata {
   description?: string;
-  locks: {
-    nodes: Record<string, { inputs?: Record<string, string | string[]> }>;
-  };
+  locks: { nodes: Record<string, { inputs?: Record<string, string | string[]> }> };
 }
 
 // nix flake metadata does NOT accept --read-only. Verified 2026-08-21 against
 // `nix flake metadata --help`. Do not share a flag builder with nixEval.
-export async function flakeMetadata(
-  flakeRef: string,
-  opts: EvalOptions = {},
-): Promise<FlakeMetadata> {
-  const args = [
-    "flake",
-    "metadata",
-    "--json",
-    "--no-write-lock-file",
-    flakeRef,
-  ];
+export async function flakeMetadata(flakeRef: string, opts: EvalOptions = {}): Promise<FlakeMetadata> {
+  const args = ["flake", "metadata", "--json", "--no-write-lock-file", flakeRef];
   try {
     const { stdout } = await run("nix", args, {
       timeout: opts.timeoutMs ?? DEFAULT_TIMEOUT_MS,
@@ -161,18 +121,7 @@ export async function flakeMetadata(
     return JSON.parse(stdout) as FlakeMetadata;
   } catch (err) {
     const e = err as NodeJS.ErrnoException & { stderr?: string };
-    if (e.code === "ENOENT")
-      throw new NixError(
-        "nix-not-found",
-        "nix is not on PATH",
-        "<metadata>",
-        "",
-      );
-    throw new NixError(
-      classifyNixError(e.stderr ?? ""),
-      "flake metadata failed",
-      "<metadata>",
-      e.stderr ?? "",
-    );
+    if (e.code === "ENOENT") throw new NixError("nix-not-found", "nix is not on PATH", "<metadata>", "");
+    throw new NixError(classifyNixError(e.stderr ?? ""), "flake metadata failed", "<metadata>", e.stderr ?? "");
   }
 }

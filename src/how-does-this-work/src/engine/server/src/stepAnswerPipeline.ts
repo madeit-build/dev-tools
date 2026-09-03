@@ -21,21 +21,12 @@ const DEFAULT_MAX_BUDGET_USD = 2;
 export function createStepAnswerer(params: AskAboutStepParams): StepAnswerer {
   if (process.env.HDTW_GENERATOR === "fake") {
     // HDTW_FAKE_AUTH_ERROR lets e2e tests exercise the auth → error-code mapping.
-    return new FakeStepAnswerer({
-      throwAuth: process.env.HDTW_FAKE_AUTH_ERROR === "1",
-    });
+    return new FakeStepAnswerer({ throwAuth: process.env.HDTW_FAKE_AUTH_ERROR === "1" });
   }
   if (params.provider === "openai") {
     return new OpenAiStepAnswerer(
-      () =>
-        new OpenAI({
-          apiKey: process.env.OPENAI_API_KEY ?? "ollama",
-          baseURL: params.baseUrl,
-        }) as unknown as ChatClient,
-      {
-        usdPer1kInput: params.usdPer1kInput,
-        usdPer1kOutput: params.usdPer1kOutput,
-      },
+      () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? "ollama", baseURL: params.baseUrl }) as unknown as ChatClient,
+      { usdPer1kInput: params.usdPer1kInput, usdPer1kOutput: params.usdPer1kOutput }
     );
   }
   return new ClaudeStepAnswerer();
@@ -46,7 +37,7 @@ export async function runStepAnswer(
   answerer: StepAnswerer,
   observer: Observer,
   onProgress: (progress: GenerationProgressParams) => void,
-  cancelSignal: AbortSignal,
+  cancelSignal: AbortSignal
 ): Promise<AskAboutStepResult> {
   const maxBudgetUsd = params.maxBudgetUsd ?? DEFAULT_MAX_BUDGET_USD;
   const abort = new AbortController();
@@ -58,10 +49,7 @@ export async function runStepAnswer(
   const forwardAbort = () => abort.abort();
   cancelSignal.addEventListener("abort", forwardAbort, { once: true });
 
-  observer.logger.info("qa.asked", {
-    file: params.context.file,
-    question: params.question,
-  });
+  observer.logger.info("qa.asked", { file: params.context.file, question: params.question });
 
   try {
     const hooks: GenerationHooks = {
@@ -69,9 +57,7 @@ export async function runStepAnswer(
       observer,
       onProgress: (progress) => {
         onProgress(progress);
-        if ( progress.estimatedCostUsd > maxBudgetUsd
-             && budgetBreachedAtUsd === undefined
-        ) {
+        if (progress.estimatedCostUsd > maxBudgetUsd && budgetBreachedAtUsd === undefined) {
           budgetBreachedAtUsd = progress.estimatedCostUsd;
           abort.abort();
         }
@@ -84,16 +70,14 @@ export async function runStepAnswer(
         params.workspaceRoot,
         params.context,
         params.question,
-        params.model && params.model.trim().length > 0
-          ? params.model
-          : undefined,
-        hooks,
+        params.model && params.model.trim().length > 0 ? params.model : undefined,
+        hooks
       );
     } catch (error) {
       if (budgetBreachedAtUsd !== undefined) {
         throw new BudgetExceededError(
           `answer aborted: estimated cost $${budgetBreachedAtUsd.toFixed(2)} exceeded budget $${maxBudgetUsd.toFixed(2)}`,
-          budgetBreachedAtUsd,
+          budgetBreachedAtUsd
         );
       }
       if (cancelSignal.aborted || abort.signal.aborted) {

@@ -78,40 +78,16 @@
         "title": "HDTW: Set Anthropic API Key",
         "category": "Made I.T. (HDTW)"
       },
-      {
-        "command": "hdtw.followRelated",
-        "title": "HDTW: Follow Related Tour"
-      },
-      {
-        "command": "hdtw.reanchorStep",
-        "title": "HDTW: Re-anchor Step"
-      },
-      {
-        "command": "hdtw.checkTourDrift",
-        "title": "HDTW: Check Tour for Drift",
-        "icon": "$(search)"
-      },
-      {
-        "command": "hdtw.ask",
-        "title": "HDTW: Ask…",
-        "icon": "$(comment-discussion)"
-      },
-      {
-        "command": "hdtw.saveWalk",
-        "title": "HDTW: Save Current Walk to Catalog"
-      },
-      {
-        "command": "hdtw.askWhy",
-        "title": "HDTW: Ask About This Step"
-      }
+      { "command": "hdtw.followRelated", "title": "HDTW: Follow Related Tour" },
+      { "command": "hdtw.reanchorStep", "title": "HDTW: Re-anchor Step" },
+      { "command": "hdtw.checkTourDrift", "title": "HDTW: Check Tour for Drift", "icon": "$(search)" },
+      { "command": "hdtw.ask", "title": "HDTW: Ask…", "icon": "$(comment-discussion)" },
+      { "command": "hdtw.saveWalk", "title": "HDTW: Save Current Walk to Catalog" },
+      { "command": "hdtw.askWhy", "title": "HDTW: Ask About This Step" }
     ],
     "menus": {
       "view/title": [
-        {
-          "command": "hdtw.ask",
-          "when": "view == hdtwTours",
-          "group": "navigation@0"
-        },
+        { "command": "hdtw.ask", "when": "view == hdtwTours", "group": "navigation@0" },
         {
           "command": "hdtw.generateTour",
           "when": "view == hdtwTours",
@@ -124,11 +100,7 @@
         }
       ],
       "view/item/context": [
-        {
-          "command": "hdtw.checkTourDrift",
-          "when": "view == hdtwTours && viewItem == hdtwTour",
-          "group": "inline"
-        }
+        { "command": "hdtw.checkTourDrift", "when": "view == hdtwTours && viewItem == hdtwTour", "group": "inline" }
       ],
       "comments/commentThread/title": [
         {
@@ -148,11 +120,7 @@
         }
       ],
       "comments/commentThread/context": [
-        {
-          "command": "hdtw.askWhy",
-          "when": "commentController == hdtw-tour",
-          "group": "inline"
-        }
+        { "command": "hdtw.askWhy", "when": "commentController == hdtw-tour", "group": "inline" }
       ]
     },
     "configuration": {
@@ -170,10 +138,7 @@
         },
         "hdtw.generation.provider": {
           "type": "string",
-          "enum": [
-            "anthropic",
-            "openai"
-          ],
+          "enum": ["anthropic", "openai"],
           "default": "anthropic",
           "markdownDescription": "Tour generation backend. `openai` uses any OpenAI-compatible endpoint (OpenAI, OpenRouter, Ollama, …)."
         },

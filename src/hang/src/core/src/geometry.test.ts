@@ -4,17 +4,10 @@ import type { Hunk } from "./types.js";
 
 describe("buildReplacement", () => {
   it("pulls the first link up and hangs the rest under the receiver", () => {
-    const lines = [
-      "const taken = regions",
-      "    .filter(f)",
-      "    .reduce(g, 0);",
-    ];
+    const lines = ["const taken = regions", "    .filter(f)", "    .reduce(g, 0);"];
     const hunk: Hunk = { headIndex: 0, endIndex: 2, contIndent: 4 };
     expect(buildReplacement(lines, hunk)).toEqual({
-      lines: [
-        "const taken = regions.filter(f)",
-        "                     .reduce(g, 0);",
-      ],
+      lines: ["const taken = regions.filter(f)", "                     .reduce(g, 0);"],
       anchor: 21,
       links: 2,
     });
@@ -47,11 +40,7 @@ describe("buildReplacement", () => {
   });
 
   it("keeps a nested run aligned relative to its own block indent", () => {
-    const lines = [
-      "    const t = regions",
-      "        .filter(f)",
-      "        .reduce(g, 0);",
-    ];
+    const lines = ["    const t = regions", "        .filter(f)", "        .reduce(g, 0);"];
     const hunk: Hunk = { headIndex: 0, endIndex: 2, contIndent: 8 };
     expect(buildReplacement(lines, hunk).lines).toEqual([
       "    const t = regions.filter(f)",
@@ -60,17 +49,10 @@ describe("buildReplacement", () => {
   });
 
   it("lands the run's own indent on the anchor and nothing left of it", () => {
-    const lines = [
-      "total +=",
-      "    a === 1",
-      "    && b >= 0",
-      "        ? x",
-      "        : y;",
-    ];
+    const lines = ["total +=", "    a === 1", "    && b >= 0", "        ? x", "        : y;"];
     const hunk: Hunk = { headIndex: 0, endIndex: 4, contIndent: 4 };
     const { lines: out, anchor } = buildReplacement(lines, hunk);
-    const indents = out.slice(1)
-                       .map((line) => line.length - line.trimStart().length);
+    const indents = out.slice(1).map((line) => line.length - line.trimStart().length);
     expect(indents[0]).toBe(anchor);
     expect(Math.min(...indents)).toBe(anchor);
   });

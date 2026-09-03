@@ -18,24 +18,13 @@ test("generation protocol constants are stable", () => {
 });
 
 test("GenerateTourParams accepts an openai provider + baseUrl additively", () => {
-  const p: GenerateTourParams = {
-    workspaceRoot: "/w",
-    topic: "t",
-    provider: "openai",
-    baseUrl: "http://localhost:11434/v1",
-  };
+  const p: GenerateTourParams = { workspaceRoot: "/w", topic: "t", provider: "openai", baseUrl: "http://localhost:11434/v1" };
   expect(p.provider).toBe("openai");
   const claudeDefault: GenerateTourParams = { workspaceRoot: "/w", topic: "t" };
   expect(claudeDefault.provider).toBeUndefined();
 });
 
 test("AskAboutStepParams accepts provider + baseUrl additively", () => {
-  const p: AskAboutStepParams = {
-    workspaceRoot: "/w",
-    question: "q",
-    context: { file: "a.ts", startLine: 1, endLine: 1, narration: "n" },
-    provider: "openai",
-    baseUrl: "http://localhost:11434/v1",
-  };
+  const p: AskAboutStepParams = { workspaceRoot: "/w", question: "q", context: { file: "a.ts", startLine: 1, endLine: 1, narration: "n" }, provider: "openai", baseUrl: "http://localhost:11434/v1" };
   expect(p.provider).toBe("openai");
 });

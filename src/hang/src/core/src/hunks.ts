@@ -1,7 +1,6 @@
 import type { HunkProbe } from "./types.js";
 
-export const indentOf = (line: string): number =>
-  line.length - line.trimStart().length;
+export const indentOf = (line: string): number => line.length - line.trimStart().length;
 
 const startsWithToken = (line: string, tokens: readonly string[]): boolean => {
   const trimmed = line.trimStart();
@@ -51,25 +50,18 @@ export function probeHunk(
     // first half alone would never trigger and the run would otherwise keep
     // extending through sibling statements at or below the head's own
     // indent, swallowing a perfectly good chain that follows.
-    if ( next.trim() === ""
-         || indentOf(next) < contIndent
-         || indentOf(next) <= indentOf(head)
-    ) {
+    if (next.trim() === "" || indentOf(next) < contIndent || indentOf(next) <= indentOf(head)) {
       break;
     }
     endIndex++;
     const nextIndent = indentOf(next);
-    if (nextIndent === contIndent && startsWithToken(next, tokens))
-      hasToken = true;
-    if (nextIndent > contIndent && !startsWithToken(next, branchTokens))
-      hasNestedContent = true;
+    if (nextIndent === contIndent && startsWithToken(next, tokens)) hasToken = true;
+    if (nextIndent > contIndent && !startsWithToken(next, branchTokens)) hasNestedContent = true;
   }
 
   if (!hasToken) return { kind: "skip" };
-  if (contIndent <= indentOf(head))
-    return { kind: "reject", reason: "bad-indent", endIndex };
-  if (hasNestedContent)
-    return { kind: "reject", reason: "nested-content", endIndex };
+  if (contIndent <= indentOf(head)) return { kind: "reject", reason: "bad-indent", endIndex };
+  if (hasNestedContent) return { kind: "reject", reason: "nested-content", endIndex };
 
   return { kind: "hunk", hunk: { headIndex, endIndex, contIndent } };
 }

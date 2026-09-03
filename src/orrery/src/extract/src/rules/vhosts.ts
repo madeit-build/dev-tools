@@ -1,10 +1,6 @@
 import {
-  hostId,
-  serviceId,
-  vhostId,
-  type DropRecord,
-  type OrreryEdge,
-  type OrreryNode,
+  hostId, serviceId, vhostId,
+  type DropRecord, type OrreryEdge, type OrreryNode,
 } from "@made-i-t/orrery-model";
 import type { RuleResult } from "./services";
 
@@ -54,21 +50,15 @@ export function vhostsRule(
     const id = vhostId(host, name);
 
     nodes.push({
-      id,
-      type: "vhost",
-      label: name,
-      host,
+      id, type: "vhost", label: name, host,
       attrs: { config: raw[name].extra.trim() || null },
       provenance: { files: [] },
     });
 
     edges.push({
       id: `contains:${hostId(host)}->${id}`,
-      from: hostId(host),
-      to: id,
-      type: "contains",
-      source: "declared",
-      evidence: null,
+      from: hostId(host), to: id,
+      type: "contains", source: "declared", evidence: null,
     });
 
     for (const up of parseUpstreams(raw[name].extra)) {
@@ -80,9 +70,7 @@ export function vhostsRule(
       if (!unit || !serviceUnits.has(unit)) {
         ledger.push({
           candidate: `${name} -> :${up.port}`,
-          host,
-          rule: RULE,
-          reason: "filtered-by-rule",
+          host, rule: RULE, reason: "filtered-by-rule",
           detail: `upstream port ${up.port} maps to no service in the graph`,
         });
         continue;
@@ -90,8 +78,7 @@ export function vhostsRule(
 
       edges.push({
         id: `proxies-to:${id}->${serviceId(host, unit)}`,
-        from: id,
-        to: serviceId(host, unit),
+        from: id, to: serviceId(host, unit),
         type: "proxies-to",
         // Always inferred. This came from matching text in a Caddyfile, not
         // from anything NixOS asserted.

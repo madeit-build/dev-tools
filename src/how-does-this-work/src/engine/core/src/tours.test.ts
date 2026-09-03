@@ -42,15 +42,13 @@ describe("parseTour", () => {
   test("rejects a JSON array root", () => {
     const result = parseTour("[]", "demo");
     expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.errors).toContain("root must be a JSON object");
+    if (!result.ok) expect(result.errors).toContain("root must be a JSON object");
   });
 
   test("rejects a JSON primitive root", () => {
     const result = parseTour('"a string"', "demo");
     expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.errors).toContain("root must be a JSON object");
+    if (!result.ok) expect(result.errors).toContain("root must be a JSON object");
   });
 
   test("rejects wrong schemaVersion", () => {
@@ -63,40 +61,30 @@ describe("parseTour", () => {
     const result = parseTour(validTourJson(), "other-name");
     expect(result.ok).toBe(false);
     if (!result.ok)
-      expect(result.errors).toContain(
-        'id "demo" must match filename stem "other-name"',
-      );
+      expect(result.errors).toContain('id "demo" must match filename stem "other-name"');
   });
 
   test("rejects empty steps", () => {
     const result = parseTour(validTourJson({ steps: [] }), "demo");
     expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.errors).toContain("steps must be a non-empty array");
+    if (!result.ok) expect(result.errors).toContain("steps must be a non-empty array");
   });
 
   test("rejects bad anchors", () => {
     const badAnchorStep = {
       title: "Bad",
-      anchor: {
-        file: "/abs/path.ts",
-        startLine: 0,
-        endLine: -1,
-        snippetHash: "md5:zz",
-      },
+      anchor: { file: "/abs/path.ts", startLine: 0, endLine: -1, snippetHash: "md5:zz" },
       narration: "x",
     };
     const result = parseTour(validTourJson({ steps: [badAnchorStep] }), "demo");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors).toContain(
-        "steps[0].anchor.file must be a workspace-relative POSIX path",
+        "steps[0].anchor.file must be a workspace-relative POSIX path"
       );
+      expect(result.errors).toContain("steps[0].anchor.startLine must be an integer >= 1");
       expect(result.errors).toContain(
-        "steps[0].anchor.startLine must be an integer >= 1",
-      );
-      expect(result.errors).toContain(
-        'steps[0].anchor.snippetHash must be a string starting with "sha256:"',
+        'steps[0].anchor.snippetHash must be a string starting with "sha256:"'
       );
     }
   });
@@ -104,19 +92,14 @@ describe("parseTour", () => {
   test("rejects anchor paths with .. segments", () => {
     const step = {
       title: "Escape",
-      anchor: {
-        file: "../../etc/passwd",
-        startLine: 1,
-        endLine: 1,
-        snippetHash: "sha256:aa",
-      },
+      anchor: { file: "../../etc/passwd", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
       narration: "x",
     };
     const result = parseTour(validTourJson({ steps: [step] }), "demo");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors).toContain(
-        "steps[0].anchor.file must be a workspace-relative POSIX path",
+        "steps[0].anchor.file must be a workspace-relative POSIX path"
       );
     }
   });
@@ -124,72 +107,42 @@ describe("parseTour", () => {
   test("rejects endLine before startLine", () => {
     const step = {
       title: "Bad range",
-      anchor: {
-        file: "a.ts",
-        startLine: 5,
-        endLine: 2,
-        snippetHash: "sha256:aa",
-      },
+      anchor: { file: "a.ts", startLine: 5, endLine: 2, snippetHash: "sha256:aa" },
       narration: "x",
     };
     const result = parseTour(validTourJson({ steps: [step] }), "demo");
     expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.errors).toContain(
-        "steps[0].anchor.endLine must be >= startLine",
-      );
+    if (!result.ok) expect(result.errors).toContain("steps[0].anchor.endLine must be >= startLine");
   });
 
   test("rejects an anchor with an empty symbol string", () => {
     const step = {
       title: "Bad symbol",
-      anchor: {
-        file: "a.ts",
-        startLine: 1,
-        endLine: 3,
-        snippetHash: "sha256:aa",
-        symbol: "",
-      },
+      anchor: { file: "a.ts", startLine: 1, endLine: 3, snippetHash: "sha256:aa", symbol: "" },
       narration: "x",
     };
     const result = parseTour(validTourJson({ steps: [step] }), "demo");
     expect(result.ok).toBe(false);
     if (!result.ok)
-      expect(result.errors).toContain(
-        "steps[0].anchor.symbol must be a non-empty string when present",
-      );
+      expect(result.errors).toContain("steps[0].anchor.symbol must be a non-empty string when present");
   });
 
   test("rejects an anchor with a non-string symbol", () => {
     const step = {
       title: "Bad symbol type",
-      anchor: {
-        file: "a.ts",
-        startLine: 1,
-        endLine: 3,
-        snippetHash: "sha256:aa",
-        symbol: 123,
-      },
+      anchor: { file: "a.ts", startLine: 1, endLine: 3, snippetHash: "sha256:aa", symbol: 123 },
       narration: "x",
     };
     const result = parseTour(validTourJson({ steps: [step] }), "demo");
     expect(result.ok).toBe(false);
     if (!result.ok)
-      expect(result.errors).toContain(
-        "steps[0].anchor.symbol must be a non-empty string when present",
-      );
+      expect(result.errors).toContain("steps[0].anchor.symbol must be a non-empty string when present");
   });
 
   test("accepts a valid symbol-anchor with all required cache fields", () => {
     const step = {
       title: "Symbol step",
-      anchor: {
-        file: "a.ts",
-        startLine: 1,
-        endLine: 10,
-        snippetHash: "sha256:abc",
-        symbol: "alpha",
-      },
+      anchor: { file: "a.ts", startLine: 1, endLine: 10, snippetHash: "sha256:abc", symbol: "alpha" },
       narration: "x",
     };
     const result = parseTour(validTourJson({ steps: [step] }), "demo");
@@ -199,17 +152,9 @@ describe("parseTour", () => {
   test("accepts a step with valid relatedTours", () => {
     const step = {
       title: "Linked",
-      anchor: {
-        file: "a.ts",
-        startLine: 1,
-        endLine: 1,
-        snippetHash: "sha256:aa",
-      },
+      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
       narration: "x",
-      relatedTours: [
-        { tourId: "other" },
-        { tourId: "second", label: "Second" },
-      ],
+      relatedTours: [{ tourId: "other" }, { tourId: "second", label: "Second" }],
     };
     const result = parseTour(validTourJson({ steps: [step] }), "demo");
     expect(result.ok).toBe(true);
@@ -218,30 +163,19 @@ describe("parseTour", () => {
   test("rejects relatedTours that is not an array", () => {
     const step = {
       title: "Bad",
-      anchor: {
-        file: "a.ts",
-        startLine: 1,
-        endLine: 1,
-        snippetHash: "sha256:aa",
-      },
+      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
       narration: "x",
       relatedTours: { tourId: "other" },
     };
     const result = parseTour(validTourJson({ steps: [step] }), "demo");
     expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.errors).toContain("steps[0].relatedTours must be an array");
+    if (!result.ok) expect(result.errors).toContain("steps[0].relatedTours must be an array");
   });
 
   test("rejects a related entry with a non-string tourId or non-string label", () => {
     const step = {
       title: "Bad",
-      anchor: {
-        file: "a.ts",
-        startLine: 1,
-        endLine: 1,
-        snippetHash: "sha256:aa",
-      },
+      anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
       narration: "x",
       relatedTours: [{ tourId: "" }, { tourId: "ok", label: 5 }],
     };
@@ -249,11 +183,9 @@ describe("parseTour", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors).toContain(
-        "steps[0].relatedTours[0].tourId must be a non-empty string",
+        "steps[0].relatedTours[0].tourId must be a non-empty string"
       );
-      expect(result.errors).toContain(
-        "steps[0].relatedTours[1].label must be a string when present",
-      );
+      expect(result.errors).toContain("steps[0].relatedTours[1].label must be a string when present");
     }
   });
 });

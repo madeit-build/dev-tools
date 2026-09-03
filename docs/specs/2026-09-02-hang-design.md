@@ -10,8 +10,9 @@ lines line up under their anchor instead of sitting at a flat block indent.
 
 ```js
 // Prettier today
-const taken = regions.filter((region) => !region.growing)
-                     .reduce((sum, region) => sum + regionRows(region, rowsOf), 0);
+const taken = regions
+    .filter((region) => !region.growing)
+    .reduce((sum, region) => sum + regionRows(region, rowsOf), 0);
 
 // hang
 const taken = regions.filter((region) => !region.growing)
@@ -72,11 +73,8 @@ Packages follow the existing convention: `@made-i-t/hang-core`,
 ```ts
 type Decision =
   | { line: number; applied: true; anchor: number; links: number }
-  | {
-      line: number;
-      applied: false;
-      reason: "bad-indent" | "over-budget" | "verify-rejected";
-    };
+  | { line: number; applied: false;
+      reason: "bad-indent" | "over-budget" | "verify-rejected" };
 
 interface Adapter {
   continuationTokens: readonly string[];
@@ -89,11 +87,8 @@ interface HangOptions {
   tabWidth: number;
 }
 
-function hangAlign(
-  text: string,
-  adapter: Adapter,
-  opts: HangOptions,
-): { text: string; decisions: Decision[] };
+function hangAlign(text: string, adapter: Adapter, opts: HangOptions):
+  { text: string; decisions: Decision[] };
 ```
 
 Decisions are recorded per candidate, meaning a run that began with a
@@ -116,10 +111,11 @@ Shifting a whole run by one delta preserves relative offsets inside it, so
 ternary branches follow their operands with no special handling:
 
 ```js
-total +=
-  typeof published === "number" && Number.isFinite(published) && published >= 0
-    ? Math.trunc(published)
-    : ASSUMED_PANE_ROWS;
+total += typeof published === "number"
+         && Number.isFinite(published)
+         && published >= 0
+             ? Math.trunc(published)
+             : ASSUMED_PANE_ROWS;
 ```
 
 The `?` and `:` lines are members of the run, not hunk starters. They keep their
