@@ -177,6 +177,47 @@ describe("the plugin", () => {
     );
   });
 
+  it("hangs an unrelated if-chain that follows an earlier template substitution", async () => {
+    // Regression for a guard soundness gap found during the monorepo
+    // dogfood: sameTokens (src/hang/src/prettier/src/tokens.ts) drove
+    // TypeScript's scanner with plain scan() calls and never called
+    // reScanTemplateToken() after the "}" that closes a "${...}"
+    // substitution, so the raw scanner read the template's own tail as
+    // ordinary code and then treated its closing backtick as OPENING a new
+    // template that swallowed everything up to the next backtick -- including
+    // this file's own unrelated, otherwise-valid `if (` chain. Purely
+    // over-rejection (never let a corruption through), but it declined
+    // roughly 28 of 77 candidate chains in a codebase full of `${...}`
+    // error-message templates.
+    const repoConfig = {
+      parser: "typescript" as const,
+      printWidth: 80,
+      hangWidth: 100,
+      experimentalOperatorPosition: "start" as const,
+    };
+    const src =
+      'function f(candidate: { narration: unknown }, label: string, errors: string[]) {\n' +
+      "  q(`${label}.title must be a non-empty string`);\n" +
+      "  if (\n" +
+      '    typeof candidate.narration !== "string"\n' +
+      "    || (candidate.narration as string).length === 0\n" +
+      "  ) {\n" +
+      "    errors.push(`${label}.narration must be a non-empty string`);\n" +
+      "  }\n" +
+      "}\n";
+    const out = await prettier.format(src, { ...repoConfig, plugins: [plugin] });
+    expect(out).toBe(
+      'function f(candidate: { narration: unknown }, label: string, errors: string[]) {\n' +
+        "  q(`${label}.title must be a non-empty string`);\n" +
+        '  if (typeof candidate.narration !== "string"\n' +
+        "      || (candidate.narration as string).length === 0\n" +
+        "  ) {\n" +
+        "    errors.push(`${label}.narration must be a non-empty string`);\n" +
+        "  }\n" +
+        "}\n",
+    );
+  });
+
   it("fails closed: a thrown error falls back to plain Prettier output and never logs source text", async () => {
     const DISTINCTIVE_SOURCE =
       "const regionsMarkerXyzzy999 = regions.filter((region) => !region.growing)" +

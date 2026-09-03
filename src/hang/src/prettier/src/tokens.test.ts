@@ -94,4 +94,80 @@ describe("sameTokens", () => {
   it("hasScanner reports true against the real, pinned typescript", () => {
     expect(hasScanner()).toBe(true);
   });
+
+  describe("after a template substitution", () => {
+    // Regression: sameTokens drove the scanner with plain scan() calls and
+    // never called reScanTemplateToken() after the "}" that closes a "${...}"
+    // substitution. The raw scanner then reads the template's own tail as
+    // ordinary code and treats its closing backtick as OPENING a new,
+    // unrelated template that swallows everything up to the next backtick --
+    // so a real change anywhere in that swallowed span makes the two token
+    // streams differ length-for-length even when the change is whitespace
+    // only, and the guard rejects a perfectly good hang for no real reason.
+    // This declined roughly 28 of 77 candidate chains in the monorepo
+    // dogfood, in a codebase full of `${...}` error-message templates.
+
+    it("accepts a whitespace-only change after an earlier template substitution", () => {
+      const before =
+        'const msg = `hi ${name} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n';
+      const after =
+        'const msg = `hi ${name} there`;\nif (a\n    && b\n) {\n  c();\n}\n';
+      expect(same(before, after)).toBe(true);
+    });
+
+    it("still rejects dropped type arguments after an earlier template substitution", () => {
+      const before = 'const msg = `hi ${name} there`;\nconst g = c.request<Shape>(u).then(h);\n';
+      const after = 'const msg = `hi ${name} there`;\nconst g = c.request(u).then(h);\n';
+      expect(same(before, after)).toBe(false);
+    });
+
+    it("still rejects a deleted comment after an earlier template substitution", () => {
+      const before = 'const msg = `hi ${name} there`;\nconst a = 1; // keep\n';
+      const after = 'const msg = `hi ${name} there`;\nconst a = 1;\n';
+      expect(same(before, after)).toBe(false);
+    });
+
+    it("still rejects an eaten newline inside a template literal that follows an earlier substitution", () => {
+      const before = 'const msg = `hi ${name} there`;\nconst m = `a\n    .b not a chain`;\n';
+      const after = 'const msg = `hi ${name} there`;\nconst m = `a.b not a chain`;\n';
+      expect(same(before, after)).toBe(false);
+    });
+
+    it("handles a nested substitution: a template literal inside a ${}", () => {
+      const before =
+        'const msg = `outer ${`inner ${name}`} end`;\nif (\n  a\n  && b\n) {\n  c();\n}\n';
+      const after =
+        'const msg = `outer ${`inner ${name}`} end`;\nif (a\n    && b\n) {\n  c();\n}\n';
+      expect(same(before, after)).toBe(true);
+    });
+
+    it("still rejects a real corruption after a nested substitution", () => {
+      const before = 'const msg = `outer ${`inner ${name}`} end`;\nconst a = 1; // keep\n';
+      const after = 'const msg = `outer ${`inner ${name}`} end`;\nconst a = 1;\n';
+      expect(same(before, after)).toBe(false);
+    });
+
+    it("handles a tagged template's substitution", () => {
+      const before =
+        'const msg = tag`hi ${name} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n';
+      const after = 'const msg = tag`hi ${name} there`;\nif (a\n    && b\n) {\n  c();\n}\n';
+      expect(same(before, after)).toBe(true);
+    });
+
+    it("still rejects a real corruption after a tagged template's substitution", () => {
+      const before = 'const msg = tag`hi ${name} there`;\nconst a = 1; // keep\n';
+      const after = 'const msg = tag`hi ${name} there`;\nconst a = 1;\n';
+      expect(same(before, after)).toBe(false);
+    });
+
+    it("does not mistake an ordinary object literal inside a substitution for the substitution's own close", () => {
+      // `${ f({ a: 1 }) }` has two "}" before the template resumes: the object
+      // literal's own and the substitution's. Only the second should trigger
+      // reScanTemplateToken; treating the first as a template boundary would
+      // desynchronize the scanner just like the original bug.
+      const before = 'const msg = `hi ${f({ a: 1 })} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n';
+      const after = 'const msg = `hi ${f({ a: 1 })} there`;\nif (a\n    && b\n) {\n  c();\n}\n';
+      expect(same(before, after)).toBe(true);
+    });
+  });
 });
