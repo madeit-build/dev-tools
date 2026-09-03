@@ -7,88 +7,81 @@ const ts: typeof TS = createRequire(import.meta.url)("typescript");
 
 export type ScanVariant = "standard" | "jsx";
 
-// Built lazily so hasScanner() can run under a TS7-shaped module, where
-// ts.SyntaxKind is undefined: reading it at module scope would throw on
-// import, before hasScanner() ever gets a chance to report the mismatch.
-let ignoredTrivia: Set<number> | undefined;
-
-function ignoredTriviaKinds(): Set<number> {
-  ignoredTrivia ??= new Set<number>([ts.SyntaxKind.WhitespaceTrivia, ts.SyntaxKind.NewLineTrivia]);
-  return ignoredTrivia;
-}
-
-interface ScanStream {
-  tokens: string[];
-  /**
-   * True when the template brace stack was not empty at end of scan, meaning
-   * some "}" was misattributed and the token stream desynced. The known
-   * cause: a regex literal containing a bare, non-quantifier "{" (e.g.
-   * `/x{/`) is indistinguishable from division by a plain scan() that never
-   * calls reScanSlashToken, so its brace gets pushed as if it were an
-   * ordinary code brace and never finds a matching close -- which leaves a
-   * TemplateHead permanently stuck on the stack. Regex-versus-division
-   * context tracking was deliberately not added: this is the third distinct
-   * ambiguity to defeat a hand-rolled special case in this function, and the
-   * next shape nobody thought of would walk straight through a fourth. An
-   * empty-stack-at-EOF invariant closes the whole class instead of the one
-   * case: any desync that leaves brace accounting unbalanced is caught,
-   * structurally, without enumerating what caused it.
-   */
-  desynced: boolean;
-}
-
 /**
- * A plain scan() has no way to know that the "}" closing a "${...}"
- * substitution should resume as template text rather than ordinary code: it
- * reads the template's tail as code and then reads the closing backtick as
- * OPENING a new template literal, swallowing everything up to the next
- * backtick anywhere later in the file. TypeScript's own parser and its
- * classifier (services/classifier.ts) both track this with a brace stack
- * rather than a bare counter, because a substitution can contain an ordinary
- * block or object literal with its own braces -- `${f({ a: 1 })}` has two
- * "}" before the template resumes, and only the second is the substitution's.
- * The stack disambiguates them: an ordinary "{" is only pushed while a
- * template is already open (otherwise it needs no tracking at all), so its
- * matching "}" pops without triggering a rescan, and only a "}" whose stack
- * top is TemplateHead calls reScanTemplateToken.
+ * Whether "/" starts a regex or divides, whether a "}" resumes a template or
+ * closes an ordinary brace, and how JSX text and expressions interleave are
+ * all questions of parser context, not something a token-at-a-time scanner
+ * can reliably reconstruct after the fact. Three attempts at approximating
+ * that context by hand each closed one shape and missed the next: a member-
+ * access template poisoning a later hunk, an object literal's own brace
+ * inside a substitution, and finally a regex literal's brace desyncing the
+ * guard's own bookkeeping regardless of any template even being present.
+ * `ts.createSourceFile` resolves all of this correctly because disambiguating
+ * it is the parser's actual job, not an incidental side effect of scanning.
+ *
+ * Comments are the one thing missing from the resulting tree: they are
+ * trivia, not nodes. They are read out of the gap between the end of one
+ * emitted token and the start of the next, which is safe precisely because a
+ * gap between two real tokens can only ever contain whitespace and comments
+ * -- nothing else is lexically possible there. Reading the gap takes both of
+ * TypeScript's own comment-range functions, not just one: a same-line
+ * comment right after the previous token (`1; // keep`, nothing else on the
+ * line) is "trailing" and invisible to `getLeadingCommentRanges` called at
+ * that same position -- confirmed directly, it returns undefined there even
+ * though the comment is sitting right in the gap. `getTrailingCommentRanges`
+ * is checked first and consumed past, then `getLeadingCommentRanges` picks up
+ * anything further on its own line before the next real token.
  */
-function streamOf(text: string, variant: ScanVariant): ScanStream {
-  const ignored = ignoredTriviaKinds();
-  const scanner = ts.createScanner(
-    ts.ScriptTarget.Latest,
-    /* skipTrivia */ false,
-    variant === "jsx" ? ts.LanguageVariant.JSX : ts.LanguageVariant.Standard,
+function streamOf(text: string, variant: ScanVariant): string[] {
+  const scriptKind = variant === "jsx" ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const fileName = variant === "jsx" ? "input.tsx" : "input.ts";
+  const sourceFile = ts.createSourceFile(
+    fileName,
     text,
+    ts.ScriptTarget.Latest,
+    /* setParentNodes */ true,
+    scriptKind,
   );
+
   const tokens: string[] = [];
-  const templateStack: number[] = [];
-  for (let kind = scanner.scan(); kind !== ts.SyntaxKind.EndOfFileToken; kind = scanner.scan()) {
-    if (kind === ts.SyntaxKind.TemplateHead) {
-      templateStack.push(kind);
-    } else if (kind === ts.SyntaxKind.OpenBraceToken) {
-      if (templateStack.length > 0) templateStack.push(kind);
-    } else if (kind === ts.SyntaxKind.CloseBraceToken && templateStack.length > 0) {
-      const top = templateStack[templateStack.length - 1];
-      if (top === ts.SyntaxKind.TemplateHead) {
-        kind = scanner.reScanTemplateToken(false);
-        // TemplateMiddle means another "${" just opened: the TemplateHead
-        // entry stays on the stack for that substitution's own close. Only
-        // TemplateTail actually finishes the template.
-        if (kind === ts.SyntaxKind.TemplateTail) templateStack.pop();
-      } else {
-        templateStack.pop();
-      }
+  let cursor = 0;
+
+  function emitCommentRanges(ranges: readonly TS.CommentRange[] | undefined): void {
+    if (ranges === undefined) return;
+    for (const range of ranges) {
+      tokens.push(`${range.kind}:${text.slice(range.pos, range.end)}`);
     }
-    if (ignored.has(kind)) continue;
-    tokens.push(`${kind}:${scanner.getTokenText()}`);
+    cursor = ranges[ranges.length - 1].end;
   }
-  return { tokens, desynced: templateStack.length > 0 };
+
+  function emitCommentsBefore(pos: number): void {
+    emitCommentRanges(ts.getTrailingCommentRanges(text, cursor));
+    emitCommentRanges(ts.getLeadingCommentRanges(text, cursor));
+    cursor = pos;
+  }
+
+  function visit(node: TS.Node): void {
+    if (node.kind === ts.SyntaxKind.EndOfFileToken) return;
+    const children = node.getChildren(sourceFile);
+    if (children.length === 0) {
+      emitCommentsBefore(node.getStart(sourceFile));
+      tokens.push(`${node.kind}:${node.getText(sourceFile)}`);
+      cursor = node.getEnd();
+      return;
+    }
+    for (const child of children) visit(child);
+  }
+
+  visit(sourceFile);
+  emitCommentsBefore(text.length);
+  return tokens;
 }
 
 /**
- * Trivia is scanned rather than skipped so a deleted comment is caught. A
- * block comment spanning lines carries its own indentation in its text, so
- * reindenting one fails this check, which is the intended refusal.
+ * Comments are read as trivia (see streamOf) rather than skipped, so a
+ * deleted comment is caught. A block comment spanning lines carries its own
+ * indentation in its text, so reindenting one fails this check, which is the
+ * intended refusal.
  *
  * Sound only for whitespace edits that do not move a line terminator across
  * a restricted production (return, throw, break, continue, yield, postfix
@@ -98,22 +91,11 @@ function streamOf(text: string, variant: ScanVariant): ScanStream {
  * "&&", "||", "??") can never legally follow a restricted-production
  * keyword. Adding an arithmetic or comparison operator to
  * CONTINUATION_TOKENS must not happen without re-checking this boundary.
- *
- * Either side desyncing its template brace stack (see ScanStream) is treated
- * as untrustworthy and rejected outright, independent of whether the two
- * token arrays would otherwise have compared equal. This is a structural
- * catch-all, not a proof of soundness: it catches any desync that leaves
- * brace accounting unbalanced, but it would not catch a hypothetical
- * mis-tokenization that happens to stay balanced. No such case is known; none
- * is claimed to be ruled out.
  */
 export function sameTokens(before: string, after: string, variant: ScanVariant): boolean {
   const a = streamOf(before, variant);
   const b = streamOf(after, variant);
-  if (a.desynced || b.desynced) return false;
-  return (
-    a.tokens.length === b.tokens.length && a.tokens.every((token, index) => token === b.tokens[index])
-  );
+  return a.length === b.length && a.every((token, index) => token === b[index]);
 }
 
 export function hasScanner(): boolean {

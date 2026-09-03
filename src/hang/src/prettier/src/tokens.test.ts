@@ -95,18 +95,19 @@ describe("sameTokens", () => {
     expect(hasScanner()).toBe(true);
   });
 
-  describe("after a template substitution", () => {
-    // Regression: sameTokens drove the scanner with plain scan() calls and
-    // never called reScanTemplateToken() after the "}" that closes a "${...}"
-    // substitution. The raw scanner then reads the template's own tail as
-    // ordinary code and treats its closing backtick as OPENING a new,
-    // unrelated template that swallows everything up to the next backtick --
-    // so a real change anywhere in that swallowed span makes the two token
-    // streams differ length-for-length even when the change is whitespace
-    // only, and the guard rejects a perfectly good hang for no real reason.
-    // This declined roughly 28 of 77 candidate chains in the monorepo
-    // dogfood, in a codebase full of `${...}` error-message templates.
-
+  describe("after a template substitution (historical: swallowed the tail as code)", () => {
+    // Round 1 defect: sameTokens drove a raw scanner one token at a time,
+    // which read a template's substitution tail as ordinary code and its
+    // closing backtick as OPENING a new, unrelated template that swallowed
+    // everything up to the next backtick -- so a real change anywhere in
+    // that swallowed span could look identical to no change at all, and the
+    // guard rejected perfectly good hangs for no real reason (roughly 28 of
+    // 77 candidate chains in the monorepo dogfood, in a codebase full of
+    // `${...}` error-message templates). Fixed structurally, not by special-
+    // casing templates: sameTokens now walks `ts.createSourceFile`'s own
+    // parse tree (see streamOf's doc comment), which already resolves where
+    // a template's substitution ends and its text resumes, the same way it
+    // resolves every other context-sensitive token.
     it("accepts a whitespace-only change after an earlier template substitution", () => {
       const before =
         'const msg = `hi ${name} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n';
@@ -133,14 +134,6 @@ describe("sameTokens", () => {
       expect(same(before, after)).toBe(false);
     });
 
-    // These two nested-substitution cases are deliberately shaped with a
-    // SECOND, trailing substitution in the outer template after the nested
-    // one closes. A single nested substitution with nothing after it is not
-    // a discriminating test: the pre-fix scanner happens to resync on the
-    // inner template's own closing backtick for that shape by coincidence,
-    // so it produces the same verdict with or without this fix and proves
-    // nothing about the fix itself. The extra "mid ${age}" defeats that
-    // coincidental resync and actually exercises the stack tracking.
     it("handles a nested substitution followed by another substitution in the same template", () => {
       const before =
         'const msg = `outer ${`inner ${name}`} mid ${age} end`;\nif (\n  a\n  && b\n) {\n  c();\n}\n';
@@ -171,27 +164,24 @@ describe("sameTokens", () => {
     });
 
     it("does not mistake an ordinary object literal inside a substitution for the substitution's own close", () => {
-      // `${ f({ a: 1 }) }` has two "}" before the template resumes: the object
-      // literal's own and the substitution's. Only the second should trigger
-      // reScanTemplateToken; treating the first as a template boundary would
-      // desynchronize the scanner just like the original bug.
       const before = 'const msg = `hi ${f({ a: 1 })} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n';
       const after = 'const msg = `hi ${f({ a: 1 })} there`;\nif (a\n    && b\n) {\n  c();\n}\n';
       expect(same(before, after)).toBe(true);
     });
   });
 
-  describe("a regex literal's brace desyncs the template stack (round 2 finding)", () => {
-    // streamOf never calls reScanSlashToken, so it cannot tell a regex
-    // literal from division; a lone, non-quantifier "{" inside a regex is
-    // then scanned as an ordinary code brace and pushed onto the template
-    // stack, where it never finds a matching close. That leaves a
-    // TemplateHead stuck on the stack for the rest of the file -- exactly
-    // the original swallowing bug, just from a different cause. Guarded by
-    // an empty-stack-at-EOF invariant in sameTokens rather than by also
-    // tracking regex-versus-division context: see sameTokens' doc comment
-    // for why the class is closed structurally instead of by another
-    // enumerated special case.
+  describe("a regex literal's brace inside a substitution (historical: desynced a hand-rolled brace stack)", () => {
+    // Round 2 defect: the first fix tracked template nesting with a
+    // hand-rolled brace stack. A regex literal containing a bare,
+    // non-quantifier "{" (e.g. `/x{/`) is indistinguishable from division by
+    // a scanner with no parser context, so its brace got pushed onto that
+    // stack as if it were ordinary code and never found a matching close --
+    // reproducing the original swallowing bug from a different cause. Fixed
+    // the same way as round 1's regression, by removing the hand-rolled
+    // stack entirely rather than adding a fourth special case for regex-
+    // versus-division: `ts.createSourceFile` already resolves `/` correctly
+    // because that is an ordinary part of parsing, not an approximation of
+    // it.
     //
     // eatenNewline wraps a guaranteed real corruption (an eaten newline
     // inside a later, unrelated template literal) behind each prefix, so
@@ -211,48 +201,103 @@ describe("sameTokens", () => {
       expect(eatenNewline("const msg = `hi ${name} there`;\n")).toBe(false);
     });
 
-    it("a regex with a lone opening brace in a substitution: correctly rejects (was: shipped corruption)", () => {
+    it("a regex with a lone opening brace in a substitution: correctly rejects", () => {
       expect(eatenNewline("const msg = `hi ${/x{/} there`;\n")).toBe(false);
     });
 
-    it("a realistic escaped-brace regex in a ternary substitution: correctly rejects (was: shipped corruption)", () => {
+    it("a realistic escaped-brace regex in a ternary substitution: correctly rejects", () => {
       expect(eatenNewline('const msg = `${/\\{/.test(s) ? "o" : "x"}`;\n')).toBe(false);
     });
 
     it("division inside a substitution, not a regex: correctly rejects", () => {
       expect(eatenNewline("const msg = `${a / b}`;\n")).toBe(false);
     });
+
+    it("a lone closing brace in a regex: still accepts a whitespace-only change elsewhere", () => {
+      const before = "const msg = `hi ${/x}/} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n";
+      const after = "const msg = `hi ${/x}/} there`;\nif (a\n    && b\n) {\n  c();\n}\n";
+      expect(same(before, after)).toBe(true);
+    });
+
+    it("a regex closing brace then an ordinary opening brace: still accepts a whitespace-only change elsewhere", () => {
+      const before = "const msg = `hi ${/x}/ + f({})} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n";
+      const after = "const msg = `hi ${/x}/ + f({})} there`;\nif (a\n    && b\n) {\n  c();\n}\n";
+      expect(same(before, after)).toBe(true);
+    });
+
+    it("an ordinary opening brace then a regex closing brace: still accepts a whitespace-only change elsewhere", () => {
+      const before = "const msg = `hi ${f({}) + /x}/} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n";
+      const after = "const msg = `hi ${f({}) + /x}/} there`;\nif (a\n    && b\n) {\n  c();\n}\n";
+      expect(same(before, after)).toBe(true);
+    });
+
+    it("a regex with both braces present: still accepts a whitespace-only change elsewhere", () => {
+      const before = "const msg = `hi ${/x{}/} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n";
+      const after = "const msg = `hi ${/x{}/} there`;\nif (a\n    && b\n) {\n  c();\n}\n";
+      expect(same(before, after)).toBe(true);
+    });
+
+    it("a quantifier's braces, not a bare brace: still accepts a whitespace-only change elsewhere", () => {
+      const before = 'const msg = `hi ${/a{2}/.test(s)} there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n';
+      const after = 'const msg = `hi ${/a{2}/.test(s)} there`;\nif (a\n    && b\n) {\n  c();\n}\n';
+      expect(same(before, after)).toBe(true);
+    });
   });
 
-  describe("empty-stack invariant does not over-reject balanced regex braces", () => {
-    // The invariant only fires on genuine desync. These shapes leave the
-    // template stack balanced (depth 0) even though they contain braces
-    // inside a regex, so a whitespace-only hang elsewhere in the file must
-    // still be accepted -- the invariant must cost nothing here.
-    const whitespaceOnlyHangAfter = (prefix: string) => {
-      const before = prefix + "if (\n  a\n  && b\n) {\n  c();\n}\n";
-      const after = prefix + "if (a\n    && b\n) {\n  c();\n}\n";
-      return same(before, after);
-    };
+  describe("round 3 review exploits: regex-vs-division ambiguity broke the previous fix entirely", () => {
+    // The round-2 fix (a hand-rolled brace stack) was itself defeated twice
+    // more, this time without needing any template substitution at all:
+    //
+    // Exploit 1: a regex containing a literal backtick (`/`/`, valid JS) is
+    // read by a raw scanner as ordinary code up to that backtick, which then
+    // gets read as OPENING a template literal -- with no "${" ever seen, so
+    // no brace stack activity at all, and the round-2 invariant (which only
+    // watched brace balance) had nothing to catch. The swallowed span then
+    // runs forward and can absorb a real, later corruption.
+    //
+    // Exploit 2: a regex brace inside a substitution whose trailing template
+    // text itself contains a literal "}" can pop the hand-rolled stack back
+    // to balanced, so the invariant sees nothing wrong even though the
+    // token stream desynced along the way.
+    //
+    // Both are closed by the same parser-based rewrite that closed the
+    // round-2 defect: `ts.createSourceFile` resolves regex-versus-division
+    // as part of ordinary parsing, so no regex's internal characters --
+    // backtick, brace, or otherwise -- can ever be misread as ordinary code
+    // in the first place. There is no stack left to desync.
 
-    it("a lone closing brace in a regex: still accepts", () => {
-      expect(whitespaceOnlyHangAfter("const msg = `hi ${/x}/} there`;\n")).toBe(true);
+    it("exploit 1: a regex containing a backtick does not poison a later template's newline check (standard)", () => {
+      const before = "const r = /`/;\nconst m = `a\n    .b not a chain`;\n";
+      const after = "const r = /`/;\nconst m = `a.b not a chain`;\n";
+      expect(same(before, after)).toBe(false);
     });
 
-    it("a regex closing brace then an ordinary opening brace: still accepts", () => {
-      expect(whitespaceOnlyHangAfter("const msg = `hi ${/x}/ + f({})} there`;\n")).toBe(true);
+    it("exploit 1: a regex containing a backtick does not poison a later template's newline check (jsx)", () => {
+      const before = "const r = /`/;\nconst m = `a\n    .b not a chain`;\n";
+      const after = "const r = /`/;\nconst m = `a.b not a chain`;\n";
+      expect(sameTokens(before, after, "jsx")).toBe(false);
     });
 
-    it("an ordinary opening brace then a regex closing brace: still accepts", () => {
-      expect(whitespaceOnlyHangAfter("const msg = `hi ${f({}) + /x}/} there`;\n")).toBe(true);
+    it("exploit 2: a regex brace whose substitution's trailing text has a literal } does not rebalance past a real corruption (standard)", () => {
+      const before = "const msg = `hi ${/x{/} end } there`;\nconst m = `a\n    .b not a chain`;\n";
+      const after = "const msg = `hi ${/x{/} end } there`;\nconst m = `a.b not a chain`;\n";
+      expect(same(before, after)).toBe(false);
     });
 
-    it("a regex with both braces present: still accepts", () => {
-      expect(whitespaceOnlyHangAfter("const msg = `hi ${/x{}/} there`;\n")).toBe(true);
+    it("exploit 2: a regex brace whose substitution's trailing text has a literal } does not rebalance past a real corruption (jsx)", () => {
+      const before = "const msg = `hi ${/x{/} end } there`;\nconst m = `a\n    .b not a chain`;\n";
+      const after = "const msg = `hi ${/x{/} end } there`;\nconst m = `a.b not a chain`;\n";
+      expect(sameTokens(before, after, "jsx")).toBe(false);
     });
 
-    it("a quantifier's braces, not a bare brace: still accepts", () => {
-      expect(whitespaceOnlyHangAfter('const msg = `hi ${/a{2}/.test(s)} there`;\n')).toBe(true);
+    it("both exploit shapes still correctly accept a genuine whitespace-only change nearby", () => {
+      const before1 = "const r = /`/;\nif (\n  a\n  && b\n) {\n  c();\n}\n";
+      const after1 = "const r = /`/;\nif (a\n    && b\n) {\n  c();\n}\n";
+      expect(same(before1, after1)).toBe(true);
+
+      const before2 = "const msg = `hi ${/x{/} end } there`;\nif (\n  a\n  && b\n) {\n  c();\n}\n";
+      const after2 = "const msg = `hi ${/x{/} end } there`;\nif (a\n    && b\n) {\n  c();\n}\n";
+      expect(same(before2, after2)).toBe(true);
     });
   });
 });
