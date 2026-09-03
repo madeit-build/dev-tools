@@ -6,7 +6,16 @@ import { REFUSALS } from "../fixtures/refusals.js";
 
 // Passing the plugin as an imported module object, rather than a file path,
 // sidesteps Prettier having to load TypeScript through its own import().
-const base = { parser: "typescript" as const, tabWidth: 4, printWidth: 90 };
+// experimentalOperatorPosition: "start" matters here, not just in the
+// plugin fixtures: without it, every CHAINS/REFUSALS fixture that leads
+// with "&&"/"??" would never even become a candidate (see hunks.ts), so
+// the oracle would silently never exercise operator continuations at all.
+const base = {
+  parser: "typescript" as const,
+  tabWidth: 4,
+  printWidth: 90,
+  experimentalOperatorPosition: "start" as const,
+};
 const withPlugin = { ...base, plugins: [plugin] };
 
 // This mechanism shares no code with tokens.ts: it never calls sameTokens or
