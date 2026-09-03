@@ -163,14 +163,15 @@ describe("the plugin", () => {
     );
   });
 
-  it("joins a wrapped if-condition with no glue after its own opening paren", async () => {
-    // Regression for a dogfood defect (10 of 35 hung chains, ~29%, across the
-    // monorepo): buildReplacement's glue rule special-cased member access but
-    // had no case for "head already ends with its own opening delimiter", so
-    // this used to render as `if ( candidate.kind === "log"`, a single stray
-    // space worse than Prettier's own output. Needs experimentalOperatorPosition:
-    // "start" to reproduce the real config, since only then does a leading "&&"
-    // give the run a token to hang on.
+  it("refuses to hang a wrapped if-condition, leaving Prettier's own block form", async () => {
+    // The "if (" shape was 37% of the dogfood's hung output (23 of 63): the
+    // head's own opening paren has no closer inside the run, so join-and-
+    // shift could only ever glue the condition flush against "if (" and
+    // leave the closing paren orphaned two columns left of everything it
+    // closes. hunks.ts now refuses the whole shape (RejectReason
+    // "opens-delimiter") rather than emit that. Needs
+    // experimentalOperatorPosition: "start" to reproduce the real config,
+    // since only then does a leading "&&" give the run a token to hang on.
     const narrow = {
       parser: "typescript" as const,
       tabWidth: 2,
@@ -179,22 +180,20 @@ describe("the plugin", () => {
     };
     const src =
       'function f(candidate: { kind: unknown }): boolean {\n  if (candidate.kind === "log" && typeof candidate.kind === "string") {\n    return true;\n  }\n  return false;\n}\n';
-    const out = await prettier.format(src, { ...narrow, plugins: [plugin] });
-    expect(out).toBe(
-      "function f(candidate: {\n"
-        + "  kind: unknown;\n"
-        + "}): boolean {\n"
-        + '  if (candidate.kind === "log"\n'
-        + '      && typeof candidate.kind === "string"\n'
-        + "  ) {\n"
-        + "    return true;\n"
-        + "  }\n"
-        + "  return false;\n"
-        + "}\n",
+    const [out, plain] = await Promise.all([
+      prettier.format(src, { ...narrow, plugins: [plugin] }),
+      prettier.format(src, narrow),
+    ]);
+    expect(out).toBe(plain);
+    expect(out).toContain(
+      "  if (\n"
+        + '    candidate.kind === "log"\n'
+        + '    && typeof candidate.kind === "string"\n'
+        + "  ) {\n",
     );
   });
 
-  it("hangs an unrelated if-chain that follows an earlier template substitution", async () => {
+  it("hangs an unrelated boolean chain that follows an earlier template substitution", async () => {
     // Regression for a guard soundness gap found during the monorepo
     // dogfood: sameTokens (src/hang/src/prettier/src/tokens.ts) drove
     // TypeScript's scanner with plain scan() calls and never called
@@ -202,10 +201,12 @@ describe("the plugin", () => {
     // substitution, so the raw scanner read the template's own tail as
     // ordinary code and then treated its closing backtick as OPENING a new
     // template that swallowed everything up to the next backtick -- including
-    // this file's own unrelated, otherwise-valid `if (` chain. Purely
+    // this file's own unrelated, otherwise-valid chain. Purely
     // over-rejection (never let a corruption through), but it declined
     // roughly 28 of 77 candidate chains in a codebase full of `${...}`
-    // error-message templates.
+    // error-message templates. Uses an assignment's boolean run rather than
+    // an `if (` condition, since that shape now refuses to hang regardless
+    // of the guard (see the test above) and would no longer exercise this.
     const repoConfig = {
       parser: "typescript" as const,
       printWidth: 80,
@@ -215,10 +216,10 @@ describe("the plugin", () => {
     const src =
       "function f(candidate: { narration: unknown }, label: string, errors: string[]) {\n"
       + "  q(`${label}.title must be a non-empty string`);\n"
-      + "  if (\n"
+      + "  const invalid =\n"
       + '    typeof candidate.narration !== "string"\n'
-      + "    || (candidate.narration as string).length === 0\n"
-      + "  ) {\n"
+      + "    || (candidate.narration as string).length === 0;\n"
+      + "  if (invalid) {\n"
       + "    errors.push(`${label}.narration must be a non-empty string`);\n"
       + "  }\n"
       + "}\n";
@@ -229,9 +230,9 @@ describe("the plugin", () => {
     expect(out).toBe(
       "function f(candidate: { narration: unknown }, label: string, errors: string[]) {\n"
         + "  q(`${label}.title must be a non-empty string`);\n"
-        + '  if (typeof candidate.narration !== "string"\n'
-        + "      || (candidate.narration as string).length === 0\n"
-        + "  ) {\n"
+        + '  const invalid = typeof candidate.narration !== "string"\n'
+        + "                  || (candidate.narration as string).length === 0;\n"
+        + "  if (invalid) {\n"
         + "    errors.push(`${label}.narration must be a non-empty string`);\n"
         + "  }\n"
         + "}\n",

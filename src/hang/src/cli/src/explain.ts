@@ -38,6 +38,9 @@ const REASONS: Record<RejectReason, string> = {
   "verify-rejected": "guard refused: the edit would change meaning",
   "bad-indent": "continuation is not indented past its head",
   "nested-content": "a link in this chain has its own multi-line content",
+  "opens-delimiter":
+    "head ends with its own opening delimiter, which the run does not close",
+  "single-link": "only one link: nothing to align by joining it up",
 };
 
 const describe = (decision: Decision): string =>

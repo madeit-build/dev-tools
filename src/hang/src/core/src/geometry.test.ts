@@ -89,32 +89,10 @@ describe("buildReplacement", () => {
     expect(result.lines[0]).toBe("const a = fn(x, ...rest);");
   });
 
-  it("glues with no space when the head line ends with its own opening paren", () => {
-    const lines = [
-      "  if (",
-      '    candidate.kind === "log"',
-      '    && typeof candidate.kind === "string"',
-      "  ) {",
-    ];
-    const hunk: Hunk = { headIndex: 0, endIndex: 2, contIndent: 4 };
-    const result = buildReplacement(lines, hunk);
-    expect(result.lines[0]).toBe('  if (candidate.kind === "log"');
-    expect(result.lines[1]).toBe('      && typeof candidate.kind === "string"');
-  });
-
-  it("glues with no space when the head line ends with an opening bracket", () => {
-    const lines = ["const xs = [", "    a,", "    b,", "];"];
-    const hunk: Hunk = { headIndex: 0, endIndex: 2, contIndent: 4 };
-    const result = buildReplacement(lines, hunk);
-    expect(result.lines[0]).toBe("const xs = [a,");
-  });
-
-  it("glues with no space when the head line ends with an opening brace", () => {
-    const lines = ["const { a } = {", "    a: 1,", "    b: 2,", "};"];
-    const hunk: Hunk = { headIndex: 0, endIndex: 2, contIndent: 4 };
-    const result = buildReplacement(lines, hunk);
-    expect(result.lines[0]).toBe("const { a } = {a: 1,");
-  });
+  // The three cases that used to live here -- a head ending in "(", "[", or
+  // "{" -- are no longer reachable input for buildReplacement: hunks.ts now
+  // refuses that whole shape (RejectReason "opens-delimiter") before
+  // probeHunk ever returns a hunk for it. See hunks.test.ts.
 
   it("still inserts a space before an operator continuation, unaffected by the delimiter rule", () => {
     const lines = ["total +=", "    a === 1", "    && b >= 0;"];

@@ -50,6 +50,18 @@ function collect(
       continue;
     }
     const replacement = buildReplacement(lines, probe.hunk);
+    if (replacement.links < 2) {
+      // A single link buys nothing: there is no second continuation line
+      // left to align against, so join-and-shift only rejoins the run into
+      // one longer line instead of producing any alignment.
+      decisions.push({
+        line: index + 1,
+        applied: false,
+        reason: "single-link",
+      });
+      index = probe.hunk.endIndex + 1;
+      continue;
+    }
     if (replacement.lines.some((line) => line.length > options.hangWidth)) {
       decisions.push({
         line: index + 1,

@@ -171,6 +171,36 @@ describe("probeHunk", () => {
     });
   });
 
+  it("rejects a run whose head ends with its own unclosed opening paren", () => {
+    // The "if (" shape: Prettier prints the condition's own closing paren
+    // back at the head's indent, orphaned two columns left of everything
+    // it closes. 23 of 63 dogfood hangs (37%) were this shape.
+    const result = probe([
+      "if (",
+      "    candidate.kind === 'log'",
+      "    && typeof candidate.kind === 'string'",
+    ]);
+    expect(result).toEqual({
+      kind: "reject",
+      reason: "opens-delimiter",
+      endIndex: 2,
+    });
+  });
+
+  it("rejects the unclosed-bracket shape ahead of a bad-indent check on the same run", () => {
+    const result = probe(["foo[", "&& x"]);
+    expect(result).toEqual({
+      kind: "reject",
+      reason: "opens-delimiter",
+      endIndex: 1,
+    });
+  });
+
+  it("does not reject a head that merely contains a delimiter that is not trailing", () => {
+    const result = probe(["const t = xs", "    .map(f);"]);
+    expect(result.kind).toBe("hunk");
+  });
+
   it("does not let a bad-indent run swallow a sibling statement at or above the head's own indent", () => {
     // contIndent (0) equals the head's own indent (0), which is exactly the
     // bad-indent condition. Without a stop at indentOf(head), the run

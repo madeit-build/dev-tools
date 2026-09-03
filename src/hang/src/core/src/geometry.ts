@@ -17,14 +17,6 @@ export interface Applied {
 // access, so it still gets a space like any other operator continuation.
 const MEMBER_ACCESS = /^(\?\.|\.(?!\.))/;
 
-// A head line that already ends with its own opening delimiter -- "(", "[",
-// or "{" -- needs no glue at all: whatever follows is that delimiter's first
-// contained token, and Prettier itself never puts a space right after one.
-// This is a property of the head alone, so it wins regardless of what the
-// continuation looks like: an "if (" head joins flush even though its first
-// continuation line is an ordinary operand, not a member-access token.
-const OPENS_DELIMITER = /[([{]$/;
-
 /**
  * Shifting the whole run by one delta is what preserves relative offsets
  * inside it, so a ternary's branches keep their distance from the operands
@@ -36,8 +28,11 @@ export function buildReplacement(
 ): Replacement {
   const head = lines[hunk.headIndex].trimEnd();
   const first = lines[hunk.headIndex + 1].trim();
-  const glue =
-    OPENS_DELIMITER.test(head) || MEMBER_ACCESS.test(first) ? "" : " ";
+  // A head ending with its own opening delimiter never reaches here: hunks.ts
+  // refuses that shape (RejectReason "opens-delimiter") before probeHunk ever
+  // returns a "hunk" for it, so this glue rule only ever needs to know about
+  // member access.
+  const glue = MEMBER_ACCESS.test(first) ? "" : " ";
   const anchor = head.length + glue.length;
   const shift = anchor - hunk.contIndent;
 

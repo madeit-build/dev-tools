@@ -5,8 +5,17 @@ export interface HangOptions {
 }
 
 export type RejectReason =
-  "bad-indent" | "nested-content" | "over-budget" | "verify-rejected";
+  | "bad-indent"
+  | "nested-content"
+  | "opens-delimiter"
+  | "over-budget"
+  | "single-link"
+  | "verify-rejected";
 
+// The "never logs source text" guarantee lives here, structurally: every
+// field is a number or one of a closed set of reason strings, so no value
+// ever assigned to a Decision can carry a fragment of the file being
+// formatted. --explain and doctor build their output only from this shape.
 export type Decision =
   | { line: number; applied: true; anchor: number; links: number }
   | { line: number; applied: false; reason: RejectReason };
@@ -37,7 +46,7 @@ export type HunkProbe =
   | { kind: "hunk"; hunk: Hunk }
   | {
       kind: "reject";
-      reason: "bad-indent" | "nested-content";
+      reason: "bad-indent" | "nested-content" | "opens-delimiter";
       endIndex: number;
     }
   | { kind: "skip" };

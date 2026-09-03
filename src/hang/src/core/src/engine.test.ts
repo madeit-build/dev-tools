@@ -174,6 +174,29 @@ describe("hangAlign", () => {
     ]);
   });
 
+  it("refuses a hunk with only one link: nothing is bought by aligning it", () => {
+    const input = ["const value = something", "    .property;"].join("\n");
+    const result = hangAlign(input, acceptAll, OPTIONS);
+    expect(result.text).toBe(input);
+    expect(result.decisions).toEqual([
+      { line: 1, applied: false, reason: "single-link" },
+    ]);
+  });
+
+  it("refuses a run whose head ends with its own unclosed opening paren", () => {
+    const input = [
+      "if (",
+      "    a",
+      "    && b",
+      ") {",
+    ].join("\n");
+    const result = hangAlign(input, acceptAll, OPTIONS);
+    expect(result.text).toBe(input);
+    expect(result.decisions).toEqual([
+      { line: 1, applied: false, reason: "opens-delimiter" },
+    ]);
+  });
+
   it("finds and hangs a chain that follows a bad-indent rejection, without swallowing it", () => {
     // The bad-indent run's contIndent equals its own head's indent (both 0),
     // which used to let the run-extension loop keep going through every

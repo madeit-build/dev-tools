@@ -3,6 +3,16 @@ import type { HunkProbe } from "./types.js";
 export const indentOf = (line: string): number =>
   line.length - line.trimStart().length;
 
+// A head line that ends with its own opening delimiter -- "(", "[", or "{" --
+// is refused rather than hung. Prettier always prints that delimiter's
+// matching close back at (or above) the head's own indent, which by
+// hunk-boundary construction below can never be part of this same run, so
+// join-and-shift can only ever glue the run's first line flush against the
+// head and leave that close orphaned two columns left of everything it
+// closes: `if (cond\n    && more\n)`. Refusing beats emitting something the
+// user has to undo by hand.
+const OPENS_DELIMITER = /[([{]$/;
+
 const startsWithToken = (line: string, tokens: readonly string[]): boolean => {
   const trimmed = line.trimStart();
   // A bare "." means member access, never spread: exclude "..." so a spread
@@ -66,6 +76,8 @@ export function probeHunk(
   }
 
   if (!hasToken) return { kind: "skip" };
+  if (OPENS_DELIMITER.test(head.trimEnd()))
+    return { kind: "reject", reason: "opens-delimiter", endIndex };
   if (contIndent <= indentOf(head))
     return { kind: "reject", reason: "bad-indent", endIndex };
   if (hasNestedContent)

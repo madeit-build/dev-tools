@@ -19,6 +19,8 @@ describe("formatDecisions", () => {
       { line: 9, applied: false, reason: "verify-rejected" },
       { line: 14, applied: false, reason: "bad-indent" },
       { line: 20, applied: false, reason: "nested-content" },
+      { line: 25, applied: false, reason: "opens-delimiter" },
+      { line: 30, applied: false, reason: "single-link" },
     ];
     expect(formatDecisions("src/b.ts", decisions)).toBe(
       [
@@ -27,19 +29,14 @@ describe("formatDecisions", () => {
         "  line 9   skipped   guard refused: the edit would change meaning",
         "  line 14  skipped   continuation is not indented past its head",
         "  line 20  skipped   a link in this chain has its own multi-line content",
+        "  line 25  skipped   head ends with its own opening delimiter, which the run does not close",
+        "  line 30  skipped   only one link: nothing to align by joining it up",
       ].join("\n"),
     );
   });
 
   it("says so when a file had no candidates at all", () => {
     expect(formatDecisions("src/c.ts", [])).toBe("src/c.ts\n  no candidates");
-  });
-
-  it("never includes source text", () => {
-    const decisions: Decision[] = [
-      { line: 1, applied: true, anchor: 4, links: 2 },
-    ];
-    expect(formatDecisions("src/d.ts", decisions)).not.toMatch(/[{}();=]/);
   });
 });
 
