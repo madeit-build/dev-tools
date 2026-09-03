@@ -15,7 +15,6 @@
 ### Task 1: Generation contract in `@made-i-t/hdtw-protocol`
 
 **Files:**
-
 - Create: `src/protocol/src/generation.ts`
 - Modify: `src/protocol/src/index.ts`
 - Test: `src/protocol/src/generation.test.ts`
@@ -67,7 +66,11 @@ export const GENERATION_FAILED_ERROR_CODE = -32003;
 export const GENERATION_BUDGET_EXCEEDED_ERROR_CODE = -32004;
 
 export type GenerationPhase =
-  "exploring" | "drafting" | "verifying" | "repairing" | "saving";
+  | "exploring"
+  | "drafting"
+  | "verifying"
+  | "repairing"
+  | "saving";
 
 export interface GenerateTourParams {
   workspaceRoot: string;
@@ -117,7 +120,6 @@ git commit -m "feat(protocol): add generateTour method, progress notification, e
 ### Task 2: Anchor verification helpers in `@made-i-t/hdtw-engine-core`
 
 **Files:**
-
 - Create: `src/engine/core/src/anchors.ts`
 - Modify: `src/engine/core/src/index.ts`
 - Modify: `src/engine/core/package.json` (add `@types/node` devDependency)
@@ -131,17 +133,13 @@ Purity note: `node:crypto` is allowed in engine-core (deterministic computation,
 
 ```ts
 import { describe, expect, test } from "vitest";
-import {
-  computeSnippetHash,
-  extractAnchoredText,
-  verifyAnchor,
-} from "./anchors.js";
+import { computeSnippetHash, extractAnchoredText, verifyAnchor } from "./anchors.js";
 
 describe("computeSnippetHash", () => {
   test("hashes text with the canonical sha256 prefix", () => {
     // sha256("hello") — well-known vector
     expect(computeSnippetHash("hello")).toBe(
-      "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+      "sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
     );
   });
 });
@@ -160,10 +158,7 @@ describe("verifyAnchor", () => {
   const content = "line1\nline2\nline3";
 
   test("accepts an in-range anchor and returns the computed hash", () => {
-    const result = verifyAnchor(
-      { file: "a.ts", startLine: 1, endLine: 2 },
-      content,
-    );
+    const result = verifyAnchor({ file: "a.ts", startLine: 1, endLine: 2 }, content);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.snippetHash).toBe(computeSnippetHash("line1\nline2"));
@@ -171,10 +166,7 @@ describe("verifyAnchor", () => {
   });
 
   test("rejects a range past the end of the file", () => {
-    const result = verifyAnchor(
-      { file: "a.ts", startLine: 2, endLine: 9 },
-      content,
-    );
+    const result = verifyAnchor({ file: "a.ts", startLine: 2, endLine: 9 }, content);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors[0]).toBe("a.ts: endLine 9 exceeds file length 3");
@@ -182,23 +174,15 @@ describe("verifyAnchor", () => {
   });
 
   test("rejects startLine below 1", () => {
-    const result = verifyAnchor(
-      { file: "a.ts", startLine: 0, endLine: 1 },
-      content,
-    );
+    const result = verifyAnchor({ file: "a.ts", startLine: 0, endLine: 1 }, content);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.errors[0]).toBe(
-        "a.ts: startLine must be an integer >= 1 (got 0)",
-      );
+      expect(result.errors[0]).toBe("a.ts: startLine must be an integer >= 1 (got 0)");
     }
   });
 
   test("rejects endLine before startLine", () => {
-    const result = verifyAnchor(
-      { file: "a.ts", startLine: 3, endLine: 2 },
-      content,
-    );
+    const result = verifyAnchor({ file: "a.ts", startLine: 3, endLine: 2 }, content);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors[0]).toBe("a.ts: endLine 2 is before startLine 3");
@@ -206,10 +190,7 @@ describe("verifyAnchor", () => {
   });
 
   test("collects multiple errors", () => {
-    const result = verifyAnchor(
-      { file: "a.ts", startLine: 0, endLine: 99 },
-      content,
-    );
+    const result = verifyAnchor({ file: "a.ts", startLine: 0, endLine: 99 }, content);
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors).toHaveLength(2);
@@ -237,11 +218,12 @@ export function computeSnippetHash(anchoredText: string): string {
 export function extractAnchoredText(
   fileContent: string,
   startLine: number,
-  endLine: number,
+  endLine: number
 ): string {
-  return fileContent.split(/\r?\n/)
-                    .slice(startLine - 1, endLine)
-                    .join("\n");
+  return fileContent
+    .split(/\r?\n/)
+    .slice(startLine - 1, endLine)
+    .join("\n");
 }
 
 export interface AnchorRange {
@@ -254,33 +236,20 @@ export type AnchorVerification =
   | { ok: true; snippetHash: string }
   | { ok: false; errors: [string, ...string[]] };
 
-export function verifyAnchor(
-  anchor: AnchorRange,
-  fileContent: string,
-): AnchorVerification {
+export function verifyAnchor(anchor: AnchorRange, fileContent: string): AnchorVerification {
   const lineCount = fileContent.split(/\r?\n/).length;
   const errors: string[] = [];
 
   if (!Number.isInteger(anchor.startLine) || anchor.startLine < 1) {
-    errors.push(
-      `${anchor.file}: startLine must be an integer >= 1 (got ${anchor.startLine})`,
-    );
+    errors.push(`${anchor.file}: startLine must be an integer >= 1 (got ${anchor.startLine})`);
   }
   if (!Number.isInteger(anchor.endLine) || anchor.endLine < 1) {
-    errors.push(
-      `${anchor.file}: endLine must be an integer >= 1 (got ${anchor.endLine})`,
-    );
-  } else if (Number.isInteger(anchor.startLine)
-             && anchor.endLine < anchor.startLine
-  ) {
-    errors.push(
-      `${anchor.file}: endLine ${anchor.endLine} is before startLine ${anchor.startLine}`,
-    );
+    errors.push(`${anchor.file}: endLine must be an integer >= 1 (got ${anchor.endLine})`);
+  } else if (Number.isInteger(anchor.startLine) && anchor.endLine < anchor.startLine) {
+    errors.push(`${anchor.file}: endLine ${anchor.endLine} is before startLine ${anchor.startLine}`);
   }
   if (Number.isInteger(anchor.endLine) && anchor.endLine > lineCount) {
-    errors.push(
-      `${anchor.file}: endLine ${anchor.endLine} exceeds file length ${lineCount}`,
-    );
+    errors.push(`${anchor.file}: endLine ${anchor.endLine} exceeds file length ${lineCount}`);
   }
 
   if (errors.length > 0) {
@@ -289,7 +258,7 @@ export function verifyAnchor(
   return {
     ok: true,
     snippetHash: computeSnippetHash(
-      extractAnchoredText(fileContent, anchor.startLine, anchor.endLine),
+      extractAnchoredText(fileContent, anchor.startLine, anchor.endLine)
     ),
   };
 }
@@ -318,7 +287,6 @@ git commit -m "feat(engine-core): add canonical snippet hashing and anchor verif
 ### Task 3: TourGenerator port, fake generator, and generation pipeline
 
 **Files:**
-
 - Create: `src/engine/server/src/tourGenerator.ts` (port types + errors)
 - Create: `src/engine/server/src/fakeTourGenerator.ts`
 - Create: `src/engine/server/src/generationPipeline.ts`
@@ -360,7 +328,7 @@ export interface TourGenerator {
     workspaceRoot: string,
     topic: string,
     model: string | undefined,
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour>;
   /** One repair round: same topic, prior draft, and the anchor errors to fix. */
   repair(
@@ -368,7 +336,7 @@ export interface TourGenerator {
     topic: string,
     draft: DraftTour,
     anchorErrors: string[],
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour>;
 }
 
@@ -379,7 +347,7 @@ export class GenerationFailedError extends Error {}
 export class BudgetExceededError extends Error {
   constructor(
     message: string,
-    public readonly spentUsd: number,
+    public readonly spentUsd: number
   ) {
     super(message);
   }
@@ -428,7 +396,7 @@ export class FakeTourGenerator implements TourGenerator {
     _workspaceRoot: string,
     topic: string,
     _model: string | undefined,
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour> {
     this.emit(hooks, "exploring", `Exploring for "${topic}"`, 1000, 200);
     this.throwIfAborted(hooks);
@@ -442,7 +410,7 @@ export class FakeTourGenerator implements TourGenerator {
     _topic: string,
     _draft: DraftTour,
     _anchorErrors: string[],
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour> {
     this.emit(hooks, "repairing", "Repairing anchors", 500, 200);
     this.throwIfAborted(hooks);
@@ -454,7 +422,7 @@ export class FakeTourGenerator implements TourGenerator {
     phase: "exploring" | "drafting" | "repairing",
     message: string,
     tokensIn: number,
-    tokensOut: number,
+    tokensOut: number
   ): void {
     hooks.onProgress({
       phase,
@@ -495,10 +463,7 @@ let progress: GenerationProgressParams[];
 
 beforeEach(async () => {
   workspaceRoot = await mkdtemp(path.join(tmpdir(), "hdtw-gen-"));
-  await writeFile(
-    path.join(workspaceRoot, "README.md"),
-    "fixture readme\nsecond line\n",
-  );
+  await writeFile(path.join(workspaceRoot, "README.md"), "fixture readme\nsecond line\n");
   progress = [];
 });
 
@@ -506,20 +471,13 @@ afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
 });
 
-function run(
-  generator: FakeTourGenerator,
-  options: { maxBudgetUsd?: number; signal?: AbortSignal } = {},
-) {
+function run(generator: FakeTourGenerator, options: { maxBudgetUsd?: number; signal?: AbortSignal } = {}) {
   const controller = new AbortController();
   return runGeneration(
-    {
-      workspaceRoot,
-      topic: "how does it work",
-      maxBudgetUsd: options.maxBudgetUsd,
-    },
+    { workspaceRoot, topic: "how does it work", maxBudgetUsd: options.maxBudgetUsd },
     generator,
     (p) => progress.push(p),
-    options.signal ?? controller.signal,
+    options.signal ?? controller.signal
   );
 }
 
@@ -540,13 +498,8 @@ describe("runGeneration", () => {
     const result = await run(new FakeTourGenerator());
     expect(result.savedPath).toBe(".hdtw/tours/fake-tour.tour.json");
     expect(result.tour.id).toBe("fake-tour");
-    expect(result.tour.steps[0].anchor.snippetHash).toMatch(
-      /^sha256:[0-9a-f]{64}$/,
-    );
-    const onDisk = await readFile(
-      path.join(workspaceRoot, result.savedPath),
-      "utf8",
-    );
+    expect(result.tour.steps[0].anchor.snippetHash).toMatch(/^sha256:[0-9a-f]{64}$/);
+    const onDisk = await readFile(path.join(workspaceRoot, result.savedPath), "utf8");
     expect(JSON.parse(onDisk).id).toBe("fake-tour");
     expect(progress.some((p) => p.phase === "verifying")).toBe(true);
     expect(progress.some((p) => p.phase === "saving")).toBe(true);
@@ -560,41 +513,28 @@ describe("runGeneration", () => {
   });
 
   test("fails after one repair round if anchors still bad", async () => {
-    const generator = new FakeTourGenerator({
-      draft: BAD_DRAFT,
-      repairedDraft: BAD_DRAFT,
-    });
+    const generator = new FakeTourGenerator({ draft: BAD_DRAFT, repairedDraft: BAD_DRAFT });
     await expect(run(generator)).rejects.toBeInstanceOf(GenerationFailedError);
-    const files = await readFile(
-      path.join(workspaceRoot, ".hdtw/tours/fake-tour.tour.json"),
-      "utf8",
-    ).catch(() => undefined);
+    const files = await readFile(path.join(workspaceRoot, ".hdtw/tours/fake-tour.tour.json"), "utf8").catch(() => undefined);
     expect(files).toBeUndefined(); // nothing written on failure
   });
 
   test("budget: aborts when estimated cost crosses maxBudgetUsd", async () => {
     const generator = new FakeTourGenerator({ costPerEvent: 5 });
-    await expect(run(generator, { maxBudgetUsd: 1 })).rejects.toBeInstanceOf(
-      BudgetExceededError,
-    );
+    await expect(run(generator, { maxBudgetUsd: 1 })).rejects.toBeInstanceOf(BudgetExceededError);
   });
 
   test("cancellation: pre-aborted signal cancels cleanly", async () => {
     const controller = new AbortController();
     controller.abort();
-    await expect(
-      run(new FakeTourGenerator(), { signal: controller.signal }),
-    ).rejects.toBeInstanceOf(GenerationCancelledError);
+    await expect(run(new FakeTourGenerator(), { signal: controller.signal })).rejects.toBeInstanceOf(
+      GenerationCancelledError
+    );
   });
 
   test("filename collision gets a numeric suffix", async () => {
-    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), {
-      recursive: true,
-    });
-    await writeFile(
-      path.join(workspaceRoot, ".hdtw/tours/fake-tour.tour.json"),
-      "{}",
-    );
+    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
+    await writeFile(path.join(workspaceRoot, ".hdtw/tours/fake-tour.tour.json"), "{}");
     const result = await run(new FakeTourGenerator());
     expect(result.savedPath).toBe(".hdtw/tours/fake-tour-2.tour.json");
     expect(result.tour.id).toBe("fake-tour-2");
@@ -612,7 +552,10 @@ Expected: `generationPipeline.test.ts` FAILS — cannot find module `../src/gene
 ```ts
 import { mkdir, readFile, rename, writeFile, access } from "node:fs/promises";
 import path from "node:path";
-import { parseTour, verifyAnchor } from "@made-i-t/hdtw-engine-core";
+import {
+  parseTour,
+  verifyAnchor,
+} from "@made-i-t/hdtw-engine-core";
 import type {
   GenerateTourParams,
   GenerateTourResult,
@@ -636,7 +579,7 @@ export async function runGeneration(
   params: GenerateTourParams,
   generator: TourGenerator,
   onProgress: (progress: GenerationProgressParams) => void,
-  cancelSignal: AbortSignal,
+  cancelSignal: AbortSignal
 ): Promise<GenerateTourResult> {
   const maxBudgetUsd = params.maxBudgetUsd ?? DEFAULT_MAX_BUDGET_USD;
   // One controller feeds the generator: aborted by client cancellation OR budget breach.
@@ -652,9 +595,7 @@ export async function runGeneration(
     signal: abort.signal,
     onProgress: (progress: GenerationProgressParams) => {
       onProgress(progress);
-      if (progress.estimatedCostUsd > maxBudgetUsd
-          && budgetBreachedAtUsd === undefined
-      ) {
+      if (progress.estimatedCostUsd > maxBudgetUsd && budgetBreachedAtUsd === undefined) {
         budgetBreachedAtUsd = progress.estimatedCostUsd;
         abort.abort();
       }
@@ -665,7 +606,7 @@ export async function runGeneration(
     if (budgetBreachedAtUsd !== undefined) {
       throw new BudgetExceededError(
         `generation aborted: estimated cost $${budgetBreachedAtUsd.toFixed(2)} exceeded budget $${maxBudgetUsd.toFixed(2)}`,
-        budgetBreachedAtUsd,
+        budgetBreachedAtUsd
       );
     }
     if (cancelSignal.aborted || abort.signal.aborted) {
@@ -676,12 +617,7 @@ export async function runGeneration(
 
   let draft: DraftTour;
   try {
-    draft = await generator.generate(
-      params.workspaceRoot,
-      params.topic,
-      normalizeModel(params.model),
-      hooks,
-    );
+    draft = await generator.generate(params.workspaceRoot, params.topic, normalizeModel(params.model), hooks);
   } catch (error) {
     translateAbort(error);
     throw error; // unreachable; satisfies control flow
@@ -690,13 +626,7 @@ export async function runGeneration(
   let verified = await verifyDraft(params.workspaceRoot, draft, onProgress);
   if (!verified.ok) {
     try {
-      draft = await generator.repair(
-        params.workspaceRoot,
-        params.topic,
-        draft,
-        verified.errors,
-        hooks,
-      );
+      draft = await generator.repair(params.workspaceRoot, params.topic, draft, verified.errors, hooks);
     } catch (error) {
       translateAbort(error);
       throw error;
@@ -704,18 +634,12 @@ export async function runGeneration(
     verified = await verifyDraft(params.workspaceRoot, draft, onProgress);
     if (!verified.ok) {
       throw new GenerationFailedError(
-        `agent could not produce verifiable anchors after one repair round: ${verified.errors.join("; ")}`,
+        `agent could not produce verifiable anchors after one repair round: ${verified.errors.join("; ")}`
       );
     }
   }
 
-  onProgress({
-    phase: "saving",
-    message: "Saving tour",
-    tokensIn: 0,
-    tokensOut: 0,
-    estimatedCostUsd: 0,
-  });
+  onProgress({ phase: "saving", message: "Saving tour", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
   return saveTour(params.workspaceRoot, draft, verified.steps);
 }
 
@@ -724,20 +648,15 @@ function normalizeModel(model: string | undefined): string | undefined {
 }
 
 type VerifiedDraft =
-  { ok: true; steps: TourStep[] } | { ok: false; errors: string[] };
+  | { ok: true; steps: TourStep[] }
+  | { ok: false; errors: string[] };
 
 async function verifyDraft(
   workspaceRoot: string,
   draft: DraftTour,
-  onProgress: (progress: GenerationProgressParams) => void,
+  onProgress: (progress: GenerationProgressParams) => void
 ): Promise<VerifiedDraft> {
-  onProgress({
-    phase: "verifying",
-    message: "Verifying anchors",
-    tokensIn: 0,
-    tokensOut: 0,
-    estimatedCostUsd: 0,
-  });
+  onProgress({ phase: "verifying", message: "Verifying anchors", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
   const errors: string[] = [];
   const steps: TourStep[] = [];
   for (const step of draft.steps) {
@@ -751,16 +670,10 @@ async function verifyDraft(
   return errors.length > 0 ? { ok: false, errors } : { ok: true, steps };
 }
 
-async function verifyStep(
-  workspaceRoot: string,
-  step: DraftStep,
-): Promise<TourStep | string> {
+async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourStep | string> {
   let fileContent: string;
   try {
-    fileContent = await readFile(
-      path.join(workspaceRoot, ...step.anchor.file.split("/")),
-      "utf8",
-    );
+    fileContent = await readFile(path.join(workspaceRoot, ...step.anchor.file.split("/")), "utf8");
   } catch {
     return `${step.anchor.file}: file does not exist in the workspace`;
   }
@@ -778,7 +691,7 @@ async function verifyStep(
 async function saveTour(
   workspaceRoot: string,
   draft: DraftTour,
-  steps: TourStep[],
+  steps: TourStep[]
 ): Promise<GenerateTourResult> {
   const toursDir = path.join(workspaceRoot, ...TOURS_DIR_SEGMENTS);
   await mkdir(toursDir, { recursive: true });
@@ -796,9 +709,7 @@ async function saveTour(
   const serialized = JSON.stringify(tour, null, 2) + "\n";
   const gate = parseTour(serialized, id);
   if (!gate.ok) {
-    throw new GenerationFailedError(
-      `generated tour failed validation: ${gate.errors.join("; ")}`,
-    );
+    throw new GenerationFailedError(`generated tour failed validation: ${gate.errors.join("; ")}`);
   }
 
   // Atomic write: a half-written tour file can never appear.
@@ -807,16 +718,14 @@ async function saveTour(
   await writeFile(tempPath, serialized, "utf8");
   await rename(tempPath, finalPath);
 
-  return {
-    tour,
-    savedPath: [...TOURS_DIR_SEGMENTS, `${id}.tour.json`].join("/"),
-  };
+  return { tour, savedPath: [...TOURS_DIR_SEGMENTS, `${id}.tour.json`].join("/") };
 }
 
 function slugify(title: string): string {
-  const slug = title.toLowerCase()
-                    .replace(/[^a-z0-9]+/g, "-")
-                    .replace(/^-+|-+$/g, "");
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return slug.length > 0 ? slug : "tour";
 }
 
@@ -857,7 +766,6 @@ git commit -m "feat(engine-server): add TourGenerator port, fake generator, and 
 ### Task 4: Wire generateTour into the protocol server + stdio e2e
 
 **Files:**
-
 - Modify: `src/engine/server/src/main.ts`
 - Test: `src/engine/server/tests/generation.e2e.test.ts`
 
@@ -909,27 +817,23 @@ test("generateTour over stdio with the fake generator: progress + saved tour", a
   });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!),
+    new StreamMessageWriter(serverProcess.stdin!)
   );
   const progress: GenerationProgressParams[] = [];
-  connection.onNotification(
-    GENERATION_PROGRESS_NOTIFICATION,
-    (p: GenerationProgressParams) => progress.push(p),
+  connection.onNotification(GENERATION_PROGRESS_NOTIFICATION, (p: GenerationProgressParams) =>
+    progress.push(p)
   );
   connection.listen();
 
-  const result = await connection.sendRequest<GenerateTourResult>(
-    GENERATE_TOUR_METHOD,
-    {
-      workspaceRoot,
-      topic: "how does the readme work",
-    },
-  );
+  const result = await connection.sendRequest<GenerateTourResult>(GENERATE_TOUR_METHOD, {
+    workspaceRoot,
+    topic: "how does the readme work",
+  });
 
   expect(result.tour.id).toBe("fake-tour");
   expect(result.savedPath).toBe(".hdtw/tours/fake-tour.tour.json");
   const onDisk = JSON.parse(
-    await readFile(path.join(workspaceRoot, result.savedPath), "utf8"),
+    await readFile(path.join(workspaceRoot, result.savedPath), "utf8")
   );
   expect(onDisk.steps[0].anchor.snippetHash).toMatch(/^sha256:/);
   expect(progress.map((p) => p.phase)).toContain("exploring");
@@ -985,7 +889,7 @@ const REQUEST_CANCELLED_ERROR_CODE = -32800;
 
 const connection = createMessageConnection(
   new StreamMessageReader(process.stdin),
-  new StreamMessageWriter(process.stdout),
+  new StreamMessageWriter(process.stdout)
 );
 
 function createGenerator(): TourGenerator {
@@ -996,9 +900,7 @@ function createGenerator(): TourGenerator {
 
 connection.onRequest(PING_METHOD, (params: PingParams) => handlePing(params));
 
-connection.onRequest(LIST_TOURS_METHOD, (params: ListToursParams) =>
-  listTours(params),
-);
+connection.onRequest(LIST_TOURS_METHOD, (params: ListToursParams) => listTours(params));
 
 connection.onRequest(GET_TOUR_METHOD, async (params: GetTourParams) => {
   try {
@@ -1015,38 +917,23 @@ connection.onRequest(
   GENERATE_TOUR_METHOD,
   async (params: GenerateTourParams, token: CancellationToken) => {
     const abort = new AbortController();
-    const cancelSubscription = token.onCancellationRequested(() =>
-      abort.abort(),
-    );
+    const cancelSubscription = token.onCancellationRequested(() => abort.abort());
     try {
       return await runGeneration(
         params,
         createGenerator(),
-        (progress) =>
-          connection.sendNotification(
-            GENERATION_PROGRESS_NOTIFICATION,
-            progress,
-          ),
-        abort.signal,
+        (progress) => connection.sendNotification(GENERATION_PROGRESS_NOTIFICATION, progress),
+        abort.signal
       );
     } catch (error) {
       if (error instanceof GenerationCancelledError) {
-        throw new ResponseError(
-          REQUEST_CANCELLED_ERROR_CODE,
-          "generation cancelled",
-        );
+        throw new ResponseError(REQUEST_CANCELLED_ERROR_CODE, "generation cancelled");
       }
       if (error instanceof AuthRequiredError) {
-        throw new ResponseError(
-          GENERATION_AUTH_REQUIRED_ERROR_CODE,
-          error.message,
-        );
+        throw new ResponseError(GENERATION_AUTH_REQUIRED_ERROR_CODE, error.message);
       }
       if (error instanceof BudgetExceededError) {
-        throw new ResponseError(
-          GENERATION_BUDGET_EXCEEDED_ERROR_CODE,
-          error.message,
-        );
+        throw new ResponseError(GENERATION_BUDGET_EXCEEDED_ERROR_CODE, error.message);
       }
       if (error instanceof GenerationFailedError) {
         throw new ResponseError(GENERATION_FAILED_ERROR_CODE, error.message);
@@ -1055,7 +942,7 @@ connection.onRequest(
     } finally {
       cancelSubscription.dispose();
     }
-  },
+  }
 );
 
 // Shutdown contract: the server exits when stdin reaches EOF, which doubles
@@ -1085,7 +972,7 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
     _topic: string,
     _draft: DraftTour,
     _anchorErrors: string[],
-    _hooks: GenerationHooks,
+    _hooks: GenerationHooks
   ): Promise<DraftTour> {
     throw new AuthRequiredError("Claude agent generator not yet implemented");
   }
@@ -1109,7 +996,6 @@ git commit -m "feat(engine-server): register generateTour with progress, cancell
 ### Task 5: ClaudeAgentTourGenerator (real Agent SDK)
 
 **Files:**
-
 - Modify: `src/engine/server/src/claudeTourGenerator.ts` (replace the stub entirely)
 - Modify: `src/engine/server/package.json` (SDK dependency)
 
@@ -1122,7 +1008,7 @@ Expected: installs the latest SDK into engine-server dependencies.
 
 - [ ] **Step 2: Replace `src/engine/server/src/claudeTourGenerator.ts` entirely with:**
 
-````ts
+```ts
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import {
   AuthRequiredError,
@@ -1175,17 +1061,10 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
     workspaceRoot: string,
     topic: string,
     model: string | undefined,
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour> {
     const prompt = `Create a guided tour for this topic: ${topic}`;
-    return this.runQuery(
-      workspaceRoot,
-      prompt,
-      model,
-      MAX_GENERATE_TURNS,
-      "exploring",
-      hooks,
-    );
+    return this.runQuery(workspaceRoot, prompt, model, MAX_GENERATE_TURNS, "exploring", hooks);
   }
 
   async repair(
@@ -1193,7 +1072,7 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
     topic: string,
     draft: DraftTour,
     anchorErrors: string[],
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour> {
     const prompt = `You previously drafted this tour for the topic "${topic}":
 
@@ -1205,14 +1084,7 @@ These anchors failed verification against the actual files:
 ${anchorErrors.map((error) => `- ${error}`).join("\n")}
 
 Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or choose a better location), and output the corrected complete tour in the required fenced JSON format.`;
-    return this.runQuery(
-      workspaceRoot,
-      prompt,
-      model,
-      MAX_REPAIR_TURNS,
-      "repairing",
-      hooks,
-    );
+    return this.runQuery(workspaceRoot, prompt, model, MAX_REPAIR_TURNS, "repairing", hooks);
   }
 
   private async runQuery(
@@ -1221,7 +1093,7 @@ Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or c
     model: string | undefined,
     maxTurns: number,
     phase: "exploring" | "repairing",
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour> {
     const abortController = new AbortController();
     const onAbort = () => abortController.abort();
@@ -1251,24 +1123,18 @@ Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or c
           tokensOut += usage?.output_tokens ?? 0;
           hooks.onProgress({
             phase,
-            message:
-              phase === "exploring"
-                ? "Agent exploring the codebase"
-                : "Agent repairing anchors",
+            message: phase === "exploring" ? "Agent exploring the codebase" : "Agent repairing anchors",
             tokensIn,
             tokensOut,
             estimatedCostUsd:
-              tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN
-              + tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
+              tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN + tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
           });
         }
         if (message.type === "result") {
           if (message.subtype === "success") {
             resultText = message.result;
           } else {
-            throw new GenerationFailedError(
-              `agent run ended without a result (${message.subtype})`,
-            );
+            throw new GenerationFailedError(`agent run ended without a result (${message.subtype})`);
           }
         }
       }
@@ -1278,7 +1144,7 @@ Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or c
       }
       if (isAuthError(error)) {
         throw new AuthRequiredError(
-          "No Anthropic credentials found. Set an API key (HDTW: Set Anthropic API Key) or log in to Claude Code.",
+          "No Anthropic credentials found. Set an API key (HDTW: Set Anthropic API Key) or log in to Claude Code."
         );
       }
       throw error;
@@ -1295,27 +1161,20 @@ Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or c
 
 function isAuthError(error: unknown): boolean {
   const text = error instanceof Error ? error.message : String(error);
-  return /api key|authentication|unauthorized|401|not logged in|credential|billing/i.test(
-    text,
-  );
+  return /api key|authentication|unauthorized|401|not logged in|credential|billing/i.test(text);
 }
 
 export function parseDraft(resultText: string): DraftTour {
-  const fenced = [...resultText.matchAll(/```json\s*([\s\S]*?)```/g)].at(-1)?.[1]
-                 ?? resultText;
+  const fenced = [...resultText.matchAll(/```json\s*([\s\S]*?)```/g)].at(-1)?.[1] ?? resultText;
   let raw: unknown;
   try {
     raw = JSON.parse(fenced.trim());
   } catch {
-    throw new GenerationFailedError(
-      "agent output was not valid JSON in the required format",
-    );
+    throw new GenerationFailedError("agent output was not valid JSON in the required format");
   }
   const errors = validateDraft(raw);
   if (errors.length > 0) {
-    throw new GenerationFailedError(
-      `agent output failed draft validation: ${errors.join("; ")}`,
-    );
+    throw new GenerationFailedError(`agent output failed draft validation: ${errors.join("; ")}`);
   }
   return raw as DraftTour;
 }
@@ -1326,13 +1185,9 @@ function validateDraft(value: unknown): string[] {
   }
   const draft = value as Record<string, unknown>;
   const errors: string[] = [];
-  if (typeof draft.title !== "string" || draft.title.length === 0)
-    errors.push("title missing");
+  if (typeof draft.title !== "string" || draft.title.length === 0) errors.push("title missing");
   if (typeof draft.summary !== "string") errors.push("summary missing");
-  if (!Array.isArray(draft.steps)
-      || draft.steps.length === 0
-      || draft.steps.length > 12
-  ) {
+  if (!Array.isArray(draft.steps) || draft.steps.length === 0 || draft.steps.length > 12) {
     errors.push("steps must be a non-empty array of at most 12");
     return errors;
   }
@@ -1344,28 +1199,27 @@ function validateDraft(value: unknown): string[] {
     const candidate = step as Record<string, unknown>;
     if (typeof candidate.title !== "string" || candidate.title.length === 0)
       errors.push(`steps[${index}].title missing`);
-    if (typeof candidate.narration !== "string"
-        || candidate.narration.length === 0
-    )
+    if (typeof candidate.narration !== "string" || candidate.narration.length === 0)
       errors.push(`steps[${index}].narration missing`);
     const anchor = candidate.anchor as Record<string, unknown> | undefined;
-    if (anchor === undefined
-        || typeof anchor.file !== "string"
-        || !Number.isInteger(anchor.startLine)
-        || !Number.isInteger(anchor.endLine)
+    if (
+      anchor === undefined ||
+      typeof anchor.file !== "string" ||
+      !Number.isInteger(anchor.startLine) ||
+      !Number.isInteger(anchor.endLine)
     ) {
       errors.push(`steps[${index}].anchor incomplete`);
     }
   });
   return errors;
 }
-````
+```
 
 **SDK adaptation note:** if the installed SDK's message/option type names differ slightly (e.g. `systemPrompt` vs `customSystemPrompt`, usage field shapes), adapt the field access to the SDK's exported TypeScript types and report the deviation — do NOT loosen the DraftTour contract or skip the abort wiring.
 
 - [ ] **Step 3: Add a unit test for draft parsing only (no SDK calls)** — append to a new file `src/engine/server/src/claudeTourGenerator.test.ts`:
 
-````ts
+```ts
 import { describe, expect, test } from "vitest";
 import { parseDraft } from "./claudeTourGenerator.js";
 import { GenerationFailedError } from "./tourGenerator.js";
@@ -1383,18 +1237,14 @@ describe("parseDraft", () => {
   });
 
   test("rejects non-JSON output", () => {
-    expect(() => parseDraft("I could not complete the task")).toThrow(
-      GenerationFailedError,
-    );
+    expect(() => parseDraft("I could not complete the task")).toThrow(GenerationFailedError);
   });
 
   test("rejects structurally invalid drafts", () => {
-    expect(() => parseDraft('```json\n{"title":"T"}\n```')).toThrow(
-      GenerationFailedError,
-    );
+    expect(() => parseDraft('```json\n{"title":"T"}\n```')).toThrow(GenerationFailedError);
   });
 });
-````
+```
 
 - [ ] **Step 4: Build, test, lint**
 
@@ -1413,7 +1263,6 @@ git commit -m "feat(engine-server): implement Claude Agent SDK tour generator"
 ### Task 6: VS Code generation UX — settings, auth command, progress, auto-walk
 
 **Files:**
-
 - Modify: `src/clients/vscode/package.json` (settings, commands, menus)
 - Modify: `src/clients/vscode/src/engineClient.ts` (connect env + generateTour)
 - Modify: `src/clients/vscode/src/extension.ts` (commands + flow)
@@ -1553,28 +1402,22 @@ function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-export async function activate(
-  context: vscode.ExtensionContext,
-): Promise<void> {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   if (client) {
     return;
   }
   client = new EngineClient();
   try {
     const apiKey = await context.secrets.get(API_KEY_SECRET);
-    const result = await client.connect(
-      apiKey ? { ANTHROPIC_API_KEY: apiKey } : {},
-    );
+    const result = await client.connect(apiKey ? { ANTHROPIC_API_KEY: apiKey } : {});
     void vscode.window.showInformationMessage(
-      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`,
+      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`
     );
   } catch (error) {
     client.dispose();
     client = undefined;
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(
-      `HDTW engine failed to start: ${message}`,
-    );
+    void vscode.window.showErrorMessage(`HDTW engine failed to start: ${message}`);
     return;
   }
 
@@ -1582,25 +1425,19 @@ export async function activate(
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("hdtwTours", tree),
     vscode.commands.registerCommand("hdtw.refreshTours", () => tree?.refresh()),
-    vscode.commands.registerCommand("hdtw.startTour", (tourId: string) =>
-      startTour(tourId),
-    ),
+    vscode.commands.registerCommand("hdtw.startTour", (tourId: string) => startTour(tourId)),
     vscode.commands.registerCommand("hdtw.tourNext", () => walk?.next()),
-    vscode.commands.registerCommand("hdtw.tourPrevious", () =>
-      walk?.previous(),
-    ),
+    vscode.commands.registerCommand("hdtw.tourPrevious", () => walk?.previous()),
     vscode.commands.registerCommand("hdtw.tourExit", () => walk?.exit()),
     vscode.commands.registerCommand("hdtw.generateTour", () => generateTour()),
-    vscode.commands.registerCommand("hdtw.setApiKey", () => setApiKey(context)),
+    vscode.commands.registerCommand("hdtw.setApiKey", () => setApiKey(context))
   );
 }
 
 async function startTour(tourId: string): Promise<void> {
   const root = workspaceRoot();
   if (!root || !client) {
-    void vscode.window.showErrorMessage(
-      "HDTW: open a folder to walk its tours.",
-    );
+    void vscode.window.showErrorMessage("HDTW: open a folder to walk its tours.");
     return;
   }
   try {
@@ -1610,24 +1447,18 @@ async function startTour(tourId: string): Promise<void> {
     await walk.start(tour);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(
-      `HDTW: could not start tour: ${message}`,
-    );
+    void vscode.window.showErrorMessage(`HDTW: could not start tour: ${message}`);
   }
 }
 
 async function generateTour(): Promise<void> {
   const root = workspaceRoot();
   if (!root || !client) {
-    void vscode.window.showErrorMessage(
-      "HDTW: open a folder to generate a tour.",
-    );
+    void vscode.window.showErrorMessage("HDTW: open a folder to generate a tour.");
     return;
   }
   if (generating) {
-    void vscode.window.showWarningMessage(
-      "HDTW: a tour is already being generated.",
-    );
+    void vscode.window.showWarningMessage("HDTW: a tour is already being generated.");
     return;
   }
   const topic = await vscode.window.showInputBox({
@@ -1653,23 +1484,16 @@ async function generateTour(): Promise<void> {
       },
       (progress, token) =>
         client!.generateTour(
-          {
-            workspaceRoot: root,
-            topic,
-            model: model || undefined,
-            maxBudgetUsd,
-          },
+          { workspaceRoot: root, topic, model: model || undefined, maxBudgetUsd },
           (update) =>
             progress.report({
               message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
             }),
-          token,
-        ),
+          token
+        )
     );
     tree?.refresh();
-    void vscode.window.showInformationMessage(
-      `HDTW: tour saved to ${result.savedPath}`,
-    );
+    void vscode.window.showInformationMessage(`HDTW: tour saved to ${result.savedPath}`);
     walk?.dispose();
     walk = new WalkController(root);
     await walk.start(result.tour);
@@ -1698,20 +1522,17 @@ function handleGenerationError(error: unknown): void {
   }
   if (code === GENERATION_BUDGET_EXCEEDED_ERROR_CODE) {
     void vscode.window.showErrorMessage(
-      `HDTW: ${message} Raise hdtw.generation.maxBudgetUsd to allow more.`,
+      `HDTW: ${message} Raise hdtw.generation.maxBudgetUsd to allow more.`
     );
     return;
   }
-  void vscode.window.showErrorMessage(
-    `HDTW: tour generation failed: ${message}`,
-  );
+  void vscode.window.showErrorMessage(`HDTW: tour generation failed: ${message}`);
 }
 
 async function setApiKey(context: vscode.ExtensionContext): Promise<void> {
   const key = await vscode.window.showInputBox({
     title: "Set Anthropic API Key",
-    prompt:
-      "Stored in VS Code SecretStorage; passed to the engine on next start.",
+    prompt: "Stored in VS Code SecretStorage; passed to the engine on next start.",
     password: true,
     ignoreFocusOut: true,
   });
@@ -1720,18 +1541,14 @@ async function setApiKey(context: vscode.ExtensionContext): Promise<void> {
   }
   if (key === "") {
     await context.secrets.delete(API_KEY_SECRET);
-    void vscode.window.showInformationMessage(
-      "HDTW: API key cleared. Reload to apply.",
-    );
+    void vscode.window.showInformationMessage("HDTW: API key cleared. Reload to apply.");
   } else {
     await context.secrets.store(API_KEY_SECRET, key);
-    void vscode.window.showInformationMessage(
-      "HDTW: API key saved. Reload to apply.",
-    );
+    void vscode.window.showInformationMessage("HDTW: API key saved. Reload to apply.");
   }
   const action = await vscode.window.showInformationMessage(
     "Reload window to restart the engine with the new credentials?",
-    "Reload",
+    "Reload"
   );
   if (action === "Reload") {
     void vscode.commands.executeCommand("workbench.action.reloadWindow");
@@ -1764,7 +1581,6 @@ git commit -m "feat(vscode): add Generate Tour flow with progress, budget, and A
 ### Task 7: Docs and the human dogfood handoff
 
 **Files:**
-
 - Modify: `docs/product-roadmap.md` (Chunk 2 status)
 - Modify: `AGENTS.md` (current state + purity-rule clarification)
 

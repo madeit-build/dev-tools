@@ -6,30 +6,21 @@ const build = (type: NodeType, rest: string): string => `${type}${SEP}${rest}`;
 
 export const fleetId = (): string => build("fleet", "fleet");
 export const hostId = (host: string): string => build("host", host);
-export const serviceId = (host: string, unit: string): string =>
-  build("service", `${host}/${unit}`);
-export const vhostId = (host: string, name: string): string =>
-  build("vhost", `${host}/${name}`);
-export const datastoreId = (host: string, name: string): string =>
-  build("datastore", `${host}/${name}`);
-export const portId = (host: string, port: number | string): string =>
-  build("port", `${host}/${port}`);
+export const serviceId = (host: string, unit: string): string => build("service", `${host}/${unit}`);
+export const vhostId = (host: string, name: string): string => build("vhost", `${host}/${name}`);
+export const datastoreId = (host: string, name: string): string => build("datastore", `${host}/${name}`);
+export const portId = (host: string, port: number | string): string => build("port", `${host}/${port}`);
 
 // "Part" is the name of the fourth zoom level, not of a node type any rule
 // currently emits: that level materializes as datastore and port nodes.
 // This constructor exists for a leaf scalar that later earns its own node.
 // Scalars like ExecStart and User stay attributes today, because the
 // inspector renders them better than the canvas would.
-export const partId = (
-  host: string,
-  unit: string,
-  kind: string,
-  value: string,
-): string => build("part", `${host}/${unit}/${kind}/${value}`);
+export const partId = (host: string, unit: string, kind: string, value: string): string =>
+  build("part", `${host}/${unit}/${kind}/${value}`);
 
 export const moduleId = (repoPath: string): string => build("module", repoPath);
-export const optionId = (host: string, path: string): string =>
-  build("option", `${host}/${path}`);
+export const optionId = (host: string, path: string): string => build("option", `${host}/${path}`);
 export const inputId = (name: string): string => build("input", name);
 export const externalId = (name: string): string => build("external", name);
 

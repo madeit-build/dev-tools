@@ -27,18 +27,11 @@ export class TourNotFoundError extends Error {}
  * Load and parse a tour from disk without re-resolving symbol anchors.
  * Used by drift/reanchor handlers that need the raw cached line positions.
  */
-export async function loadRawTour(
-  workspaceRoot: string,
-  tourId: string,
-): Promise<{ tour: Tour }> {
+export async function loadRawTour(workspaceRoot: string, tourId: string): Promise<{ tour: Tour }> {
   if (!SAFE_TOUR_ID.test(tourId) || tourId.includes("..")) {
     throw new TourNotFoundError(`no tour with id "${tourId}"`);
   }
-  const filePath = path.join(
-    workspaceRoot,
-    ...TOURS_DIR_SEGMENTS,
-    `${tourId}${TOUR_FILE_SUFFIX}`,
-  );
+  const filePath = path.join(workspaceRoot, ...TOURS_DIR_SEGMENTS, `${tourId}${TOUR_FILE_SUFFIX}`);
   let jsonText: string;
   try {
     jsonText = await readFile(filePath, "utf8");
@@ -47,16 +40,12 @@ export async function loadRawTour(
   }
   const result = parseTour(jsonText, tourId);
   if (!result.ok) {
-    throw new TourNotFoundError(
-      `tour "${tourId}" is invalid: ${result.errors.join("; ")}`,
-    );
+    throw new TourNotFoundError(`tour "${tourId}" is invalid: ${result.errors.join("; ")}`);
   }
   return { tour: result.tour };
 }
 
-export async function listTours(
-  params: ListToursParams,
-): Promise<ListToursResult> {
+export async function listTours(params: ListToursParams): Promise<ListToursResult> {
   const toursDir = path.join(params.workspaceRoot, ...TOURS_DIR_SEGMENTS);
   let entries: string[];
   try {
@@ -64,8 +53,7 @@ export async function listTours(
   } catch {
     return { tours: [] };
   }
-  const tourFiles = entries.filter((name) => name.endsWith(TOUR_FILE_SUFFIX))
-                           .sort();
+  const tourFiles = entries.filter((name) => name.endsWith(TOUR_FILE_SUFFIX)).sort();
   const tours = await Promise.all(
     tourFiles.map(async (name) => {
       const stem = name.slice(0, -TOUR_FILE_SUFFIX.length);
@@ -75,24 +63,17 @@ export async function listTours(
       try {
         jsonText = await readFile(path.join(toursDir, name), "utf8");
       } catch (error) {
-        return toErrorSummary(stem, [
-          `could not read file: ${(error as Error).message}`,
-        ]);
+        return toErrorSummary(stem, [`could not read file: ${(error as Error).message}`]);
       }
       const result = parseTour(jsonText, stem);
-      return result.ok
-        ? toTourSummary(result.tour)
-        : toErrorSummary(stem, result.errors);
-    }),
+      return result.ok ? toTourSummary(result.tour) : toErrorSummary(stem, result.errors);
+    })
   );
   return { tours };
 }
 
 export async function getTour(params: GetTourParams): Promise<GetTourResult> {
-  const { tour: rawTour } = await loadRawTour(
-    params.workspaceRoot,
-    params.tourId,
-  );
+  const { tour: rawTour } = await loadRawTour(params.workspaceRoot, params.tourId);
   const tour = await resolveSymbolAnchors(params.workspaceRoot, rawTour);
   return { tour };
 }
@@ -104,10 +85,7 @@ export async function getTour(params: GetTourParams): Promise<GetTourResult> {
  * steps are returned untouched. Failures never throw — any per-step error
  * falls back to the cached anchor unchanged.
  */
-async function resolveSymbolAnchors(
-  workspaceRoot: string,
-  tour: Tour,
-): Promise<Tour> {
+async function resolveSymbolAnchors(workspaceRoot: string, tour: Tour): Promise<Tour> {
   // Cache file contents keyed by workspace-relative file path so each file is
   // read at most once per getTour call.
   const fileContentCache = new Map<string, string | null>();
@@ -118,9 +96,7 @@ async function resolveSymbolAnchors(
     }
     const resolvedRoot = path.resolve(workspaceRoot);
     const resolved = path.resolve(resolvedRoot, ...file.split("/"));
-    if (resolved !== resolvedRoot
-        && !resolved.startsWith(resolvedRoot + path.sep)
-    ) {
+    if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
       fileContentCache.set(file, null);
       return null;
     }
@@ -144,7 +120,7 @@ async function resolveSymbolAnchors(
           workspaceRoot,
           step.anchor.file,
           step.anchor.symbol,
-          { startLine: step.anchor.startLine, endLine: step.anchor.endLine },
+          { startLine: step.anchor.startLine, endLine: step.anchor.endLine }
         );
         if (resolved.kind !== "resolved") {
           return step;
@@ -153,11 +129,7 @@ async function resolveSymbolAnchors(
         if (content === null) {
           return step;
         }
-        const anchoredText = extractAnchoredText(
-          content,
-          resolved.startLine,
-          resolved.endLine,
-        );
+        const anchoredText = extractAnchoredText(content, resolved.startLine, resolved.endLine);
         const snippetHash = computeSnippetHash(anchoredText);
         return {
           ...step,
@@ -172,7 +144,7 @@ async function resolveSymbolAnchors(
         // Best-effort: any failure returns the cached anchor unchanged.
         return step;
       }
-    }),
+    })
   );
 
   return { ...tour, steps: resolvedSteps };

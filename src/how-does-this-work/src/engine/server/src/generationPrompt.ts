@@ -55,11 +55,7 @@ export function generatePrompt(topic: string, catalog: TourSummary[]): string {
   return `Create a guided tour for this topic: ${topic}${catalogSection(catalog)}`;
 }
 
-export function repairPrompt(
-  topic: string,
-  draft: DraftTour,
-  anchorErrors: string[],
-): string {
+export function repairPrompt(topic: string, draft: DraftTour, anchorErrors: string[]): string {
   return `You previously drafted this tour for the topic "${topic}":
 
 \`\`\`json
@@ -73,21 +69,17 @@ Re-read the affected files, fix ONLY the broken anchors (adjust line ranges or c
 }
 
 export function parseDraft(resultText: string): DraftTour {
-  const fenced = [...resultText.matchAll(/```json\s*([\s\S]*?)```/g)].at(-1)?.[1]
-                 ?? resultText;
+  const fenced =
+    [...resultText.matchAll(/```json\s*([\s\S]*?)```/g)].at(-1)?.[1] ?? resultText;
   let raw: unknown;
   try {
     raw = JSON.parse(fenced.trim());
   } catch {
-    throw new GenerationFailedError(
-      "agent output was not valid JSON in the required format",
-    );
+    throw new GenerationFailedError("agent output was not valid JSON in the required format");
   }
   const errors = validateDraft(raw);
   if (errors.length > 0) {
-    throw new GenerationFailedError(
-      `agent output failed draft validation: ${errors.join("; ")}`,
-    );
+    throw new GenerationFailedError(`agent output failed draft validation: ${errors.join("; ")}`);
   }
   return raw as DraftTour;
 }
@@ -98,13 +90,9 @@ function validateDraft(value: unknown): string[] {
   }
   const draft = value as Record<string, unknown>;
   const errors: string[] = [];
-  if (typeof draft.title !== "string" || draft.title.length === 0)
-    errors.push("title missing");
+  if (typeof draft.title !== "string" || draft.title.length === 0) errors.push("title missing");
   if (typeof draft.summary !== "string") errors.push("summary missing");
-  if (!Array.isArray(draft.steps)
-      || draft.steps.length === 0
-      || draft.steps.length > 12
-  ) {
+  if (!Array.isArray(draft.steps) || draft.steps.length === 0 || draft.steps.length > 12) {
     errors.push("steps must be a non-empty array of at most 12");
     return errors;
   }
@@ -116,19 +104,19 @@ function validateDraft(value: unknown): string[] {
     const candidate = step as Record<string, unknown>;
     if (typeof candidate.title !== "string" || candidate.title.length === 0)
       errors.push(`steps[${index}].title missing`);
-    if (typeof candidate.narration !== "string"
-        || candidate.narration.length === 0
-    )
+    if (typeof candidate.narration !== "string" || candidate.narration.length === 0)
       errors.push(`steps[${index}].narration missing`);
     const anchor = candidate.anchor as Record<string, unknown> | undefined;
-    const isSymbolAnchor = anchor !== undefined
-                           && typeof anchor.file === "string"
-                           && typeof anchor.symbol === "string"
-                           && anchor.symbol.length > 0;
-    const isLineAnchor = anchor !== undefined
-                         && typeof anchor.file === "string"
-                         && Number.isInteger(anchor.startLine)
-                         && Number.isInteger(anchor.endLine);
+    const isSymbolAnchor =
+      anchor !== undefined &&
+      typeof anchor.file === "string" &&
+      typeof anchor.symbol === "string" &&
+      anchor.symbol.length > 0;
+    const isLineAnchor =
+      anchor !== undefined &&
+      typeof anchor.file === "string" &&
+      Number.isInteger(anchor.startLine) &&
+      Number.isInteger(anchor.endLine);
     if (!isSymbolAnchor && !isLineAnchor) {
       errors.push(`steps[${index}].anchor incomplete`);
     }
@@ -138,14 +126,13 @@ function validateDraft(value: unknown): string[] {
       } else {
         candidate.relatedTours.forEach((link, linkIndex) => {
           const entry = link as Record<string, unknown> | null;
-          if (typeof entry !== "object"
-              || entry === null
-              || typeof entry.tourId !== "string"
-              || entry.tourId.length === 0
+          if (
+            typeof entry !== "object" ||
+            entry === null ||
+            typeof entry.tourId !== "string" ||
+            entry.tourId.length === 0
           ) {
-            errors.push(
-              `steps[${index}].relatedTours[${linkIndex}].tourId must be a non-empty string`,
-            );
+            errors.push(`steps[${index}].relatedTours[${linkIndex}].tourId must be a non-empty string`);
           }
         });
       }

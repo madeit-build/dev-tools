@@ -5,9 +5,7 @@
   "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "orrery": "dist/cli.js"
-  },
+  "bin": { "orrery": "dist/cli.js" },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",

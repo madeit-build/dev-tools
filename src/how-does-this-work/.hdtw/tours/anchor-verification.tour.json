@@ -6,22 +6,12 @@
   "steps": [
     {
       "title": "Hashing the snippet",
-      "anchor": {
-        "file": "src/engine/core/src/anchors.ts",
-        "startLine": 4,
-        "endLine": 6,
-        "snippetHash": "sha256:0732e4a50fca2b66f16133997af95e25de3f44dc43c09940333864d99c4095b1"
-      },
+      "anchor": { "file": "src/engine/core/src/anchors.ts", "startLine": 4, "endLine": 6, "snippetHash": "sha256:0732e4a50fca2b66f16133997af95e25de3f44dc43c09940333864d99c4095b1" },
       "narration": "Every anchor stores a sha256 of the exact lines it points at, computed here. This is what lets a later chunk detect when code has drifted out from under a tour — the hash recorded at authoring time no longer matches the file."
     },
     {
       "title": "Verifying against the file",
-      "anchor": {
-        "file": "src/engine/core/src/anchors.ts",
-        "startLine": 30,
-        "endLine": 69,
-        "snippetHash": "sha256:afd7022b6c989ff608dd5f6884cb3988c150546147ab44a7c12ee3d0c8607891"
-      },
+      "anchor": { "file": "src/engine/core/src/anchors.ts", "startLine": 30, "endLine": 69, "snippetHash": "sha256:afd7022b6c989ff608dd5f6884cb3988c150546147ab44a7c12ee3d0c8607891" },
       "narration": "The engine never trusts an anchor's line range — it independently checks the range against the real file and recomputes the hash. The agent proposes; the engine verifies. That is the core trust rule of generation."
     }
   ]

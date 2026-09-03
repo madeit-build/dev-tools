@@ -8,12 +8,7 @@ import {
   type GenerationHooks,
   type TourGenerator,
 } from "./tourGenerator.js";
-import {
-  SYSTEM_PROMPT,
-  generatePrompt,
-  repairPrompt,
-  parseDraft,
-} from "./generationPrompt.js";
+import { SYSTEM_PROMPT, generatePrompt, repairPrompt, parseDraft } from "./generationPrompt.js";
 
 export { parseDraft } from "./generationPrompt.js";
 
@@ -31,17 +26,10 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
     topic: string,
     model: string | undefined,
     catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour> {
     const prompt = generatePrompt(topic, catalog);
-    return this.runQuery(
-      workspaceRoot,
-      prompt,
-      model,
-      MAX_GENERATE_TURNS,
-      "exploring",
-      hooks,
-    );
+    return this.runQuery(workspaceRoot, prompt, model, MAX_GENERATE_TURNS, "exploring", hooks);
   }
 
   async repair(
@@ -51,17 +39,10 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
     _catalog: import("@made-i-t/hdtw-protocol").TourSummary[],
     draft: DraftTour,
     anchorErrors: string[],
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour> {
     const prompt = repairPrompt(topic, draft, anchorErrors);
-    return this.runQuery(
-      workspaceRoot,
-      prompt,
-      model,
-      MAX_REPAIR_TURNS,
-      "repairing",
-      hooks,
-    );
+    return this.runQuery(workspaceRoot, prompt, model, MAX_REPAIR_TURNS, "repairing", hooks);
   }
 
   private async runQuery(
@@ -70,7 +51,7 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
     model: string | undefined,
     maxTurns: number,
     phase: "exploring" | "repairing",
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<DraftTour> {
     const abortController = new AbortController();
     const onAbort = () => abortController.abort();
@@ -90,13 +71,7 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
           maxTurns,
           // Use `tools` to restrict the agent to read-only exploration tools.
           // `allowedTools` only controls auto-approval; `tools` controls availability.
-          tools: [
-            "Read",
-            "Grep",
-            "Glob",
-            "mcp__codemap__fileOutline",
-            "mcp__codemap__findSymbol",
-          ],
+          tools: ["Read", "Grep", "Glob", "mcp__codemap__fileOutline", "mcp__codemap__findSymbol"],
           mcpServers: { codemap },
           systemPrompt: SYSTEM_PROMPT,
           abortController,
@@ -116,22 +91,14 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
               });
             }
           }
-          hooks.observer.logger.debug("agent.usage", {
-            phase,
-            tokensIn,
-            tokensOut,
-          });
+          hooks.observer.logger.debug("agent.usage", { phase, tokensIn, tokensOut });
           hooks.onProgress({
             phase,
-            message:
-              phase === "exploring"
-                ? "Agent exploring the codebase"
-                : "Agent repairing anchors",
+            message: phase === "exploring" ? "Agent exploring the codebase" : "Agent repairing anchors",
             tokensIn,
             tokensOut,
             estimatedCostUsd:
-              tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN
-              + tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
+              tokensIn * ESTIMATED_USD_PER_INPUT_TOKEN + tokensOut * ESTIMATED_USD_PER_OUTPUT_TOKEN,
           });
         }
         if (message.type === "result") {
@@ -139,7 +106,7 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
             resultText = message.result;
           } else {
             throw new GenerationFailedError(
-              `agent run ended without a result (${message.subtype})`,
+              `agent run ended without a result (${message.subtype})`
             );
           }
         }
@@ -150,7 +117,7 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
       }
       if (isAuthError(error)) {
         throw new AuthRequiredError(
-          "No Anthropic credentials found. Set an API key (HDTW: Set Anthropic API Key) or log in to Claude Code.",
+          "No Anthropic credentials found. Set an API key (HDTW: Set Anthropic API Key) or log in to Claude Code."
         );
       }
       throw error;
@@ -174,7 +141,5 @@ export class ClaudeAgentTourGenerator implements TourGenerator {
 
 function isAuthError(error: unknown): boolean {
   const text = error instanceof Error ? error.message : String(error);
-  return /api key|authentication|unauthorized|401|not logged in|credential|billing/i.test(
-    text,
-  );
+  return /api key|authentication|unauthorized|401|not logged in|credential|billing/i.test(text);
 }

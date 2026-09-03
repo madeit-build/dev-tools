@@ -1,13 +1,7 @@
-import {
-  GenerationFailedError,
-  type GenerationHooks,
-} from "./tourGenerator.js";
+import { GenerationFailedError, type GenerationHooks } from "./tourGenerator.js";
 import type { StepQaContext } from "@made-i-t/hdtw-protocol";
 import type { StepAnswerer } from "./stepAnswerer.js";
-import {
-  STEP_ANSWER_SYSTEM_PROMPT,
-  buildStepAnswerPrompt,
-} from "./stepAnswerer.js";
+import { STEP_ANSWER_SYSTEM_PROMPT, buildStepAnswerPrompt } from "./stepAnswerer.js";
 import { runOpenAiToolLoop, type ChatClient } from "./openaiToolLoop.js";
 
 export interface OpenAiAnswererOptions {
@@ -18,7 +12,7 @@ export interface OpenAiAnswererOptions {
 export class OpenAiStepAnswerer implements StepAnswerer {
   constructor(
     private readonly clientFactory: () => ChatClient,
-    private readonly options: OpenAiAnswererOptions,
+    private readonly options: OpenAiAnswererOptions
   ) {}
 
   async answer(
@@ -26,7 +20,7 @@ export class OpenAiStepAnswerer implements StepAnswerer {
     context: StepQaContext,
     question: string,
     model: string | undefined,
-    hooks: GenerationHooks,
+    hooks: GenerationHooks
   ): Promise<string> {
     const text = await runOpenAiToolLoop(
       this.clientFactory(),
@@ -41,7 +35,7 @@ export class OpenAiStepAnswerer implements StepAnswerer {
         usdPer1kOutput: this.options.usdPer1kOutput,
         workspaceRoot,
       },
-      hooks,
+      hooks
     );
     if (text.trim().length === 0) {
       throw new GenerationFailedError("model returned an empty answer");

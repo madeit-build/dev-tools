@@ -39,73 +39,41 @@ src/engine/server/src/
 ## `runOpenAiToolLoop` (extracted)
 
 Signature:
-
 ```ts
 export async function runOpenAiToolLoop(
   client: ChatClient,
   model: string | undefined,
   systemPrompt: string,
   userPrompt: string,
-  opts: {
-    maxTurns: number;
-    phase: GenerationProgressParams["phase"];
-    progressMessage: string;
-    usdPer1kInput?: number;
-    usdPer1kOutput?: number;
-    workspaceRoot: string;
-  },
-  hooks: GenerationHooks,
-): Promise<string>;
+  opts: { maxTurns: number; phase: GenerationProgressParams["phase"]; progressMessage: string;
+          usdPer1kInput?: number; usdPer1kOutput?: number; workspaceRoot: string },
+  hooks: GenerationHooks
+): Promise<string>
 ```
-
 Body = today's `OpenAiAgentTourGenerator.runLoop` verbatim, except the terminal `return parseDraft(content)` becomes `return content` (the final assistant text). Generation's `runLoop` becomes: `const text = await runOpenAiToolLoop(...); return parseDraft(text);`. The `ChatClient`/message types move here; `openaiTourGenerator.ts` imports them.
 
 ## `OpenAiStepAnswerer`
 
 ```ts
 export class OpenAiStepAnswerer implements StepAnswerer {
-  constructor(
-    private readonly clientFactory: () => ChatClient,
-    private readonly options: {
-      usdPer1kInput?: number;
-      usdPer1kOutput?: number;
-    },
-  ) {}
-  async answer(
-    workspaceRoot,
-    context,
-    question,
-    model,
-    hooks,
-  ): Promise<string> {
+  constructor(private readonly clientFactory: () => ChatClient, private readonly options: { usdPer1kInput?: number; usdPer1kOutput?: number }) {}
+  async answer(workspaceRoot, context, question, model, hooks): Promise<string> {
     const text = await runOpenAiToolLoop(
-      this.clientFactory(),
-      model,
-      STEP_ANSWER_SYSTEM_PROMPT,
-      buildStepAnswerPrompt(context, question),
-      {
-        maxTurns: 6,
-        phase: "answering",
-        progressMessage: "Model answering",
-        usdPer1kInput: this.options.usdPer1kInput,
-        usdPer1kOutput: this.options.usdPer1kOutput,
-        workspaceRoot,
-      },
-      hooks,
+      this.clientFactory(), model, STEP_ANSWER_SYSTEM_PROMPT, buildStepAnswerPrompt(context, question),
+      { maxTurns: 6, phase: "answering", progressMessage: "Model answering",
+        usdPer1kInput: this.options.usdPer1kInput, usdPer1kOutput: this.options.usdPer1kOutput, workspaceRoot },
+      hooks
     );
-    if (text.trim().length === 0)
-      throw new GenerationFailedError("model returned an empty answer");
+    if (text.trim().length === 0) throw new GenerationFailedError("model returned an empty answer");
     return text;
   }
 }
 ```
-
 Mirrors `ClaudeStepAnswerer` (empty-guard included). Read-only tools, capped, cancellable, budget-guarded by `runStepAnswer`.
 
 ## Protocol
 
 `AskAboutStepParams` gains (additive, mirroring `GenerateTourParams`):
-
 ```ts
   provider?: "anthropic" | "openai";
   baseUrl?: string;
@@ -117,27 +85,16 @@ Mirrors `ClaudeStepAnswerer` (empty-guard included). Read-only tools, capped, ca
 
 ```ts
 export function createStepAnswerer(params: AskAboutStepParams): StepAnswerer {
-  if (process.env.HDTW_GENERATOR === "fake")
-    return new FakeStepAnswerer({
-      throwAuth: process.env.HDTW_FAKE_AUTH_ERROR === "1",
-    });
+  if (process.env.HDTW_GENERATOR === "fake") return new FakeStepAnswerer({ throwAuth: process.env.HDTW_FAKE_AUTH_ERROR === "1" });
   if (params.provider === "openai") {
     return new OpenAiStepAnswerer(
-      () =>
-        new OpenAI({
-          apiKey: process.env.OPENAI_API_KEY ?? "ollama",
-          baseURL: params.baseUrl,
-        }) as unknown as ChatClient,
-      {
-        usdPer1kInput: params.usdPer1kInput,
-        usdPer1kOutput: params.usdPer1kOutput,
-      },
+      () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY ?? "ollama", baseURL: params.baseUrl }) as unknown as ChatClient,
+      { usdPer1kInput: params.usdPer1kInput, usdPer1kOutput: params.usdPer1kOutput }
     );
   }
   return new ClaudeStepAnswerer();
 }
 ```
-
 The `askAboutStep` handler in `main.ts` calls `createStepAnswerer(params)`.
 
 ## VS Code

@@ -40,7 +40,6 @@ Path convention in any consumer repo: `.hdtw/tours/<id>.tour.json`, committed al
 ```
 
 Rules:
-
 - `id` must match the filename stem and be unique per repo.
 - `anchor.file` is workspace-root-relative, POSIX separators.
 - `startLine`/`endLine` are 1-based, inclusive; `startLine <= endLine`.
@@ -51,7 +50,7 @@ Rules:
 
 Two request methods; the engine stays **stateless** (workspaceRoot travels in each request — no session state until a chunk needs it):
 
-- `hdtw/listTours` — params `{ workspaceRoot: string }` → `{ tours: TourSummary[] }` where `TourSummary = { id, title, summary, stepCount, error? }`. Invalid tour files are _included_ with `error` populated (message + offending file) so clients can badge them.
+- `hdtw/listTours` — params `{ workspaceRoot: string }` → `{ tours: TourSummary[] }` where `TourSummary = { id, title, summary, stepCount, error? }`. Invalid tour files are *included* with `error` populated (message + offending file) so clients can badge them.
 - `hdtw/getTour` — params `{ workspaceRoot: string, tourId: string }` → `{ tour: Tour }` or a JSON-RPC error if the id is unknown/invalid.
 
 New exported types: `Tour`, `TourStep`, `TourAnchor`, `TourSummary`, plus method-name constants following the existing `PING_METHOD` pattern.

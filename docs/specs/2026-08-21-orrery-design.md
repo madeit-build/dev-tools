@@ -50,7 +50,7 @@ separate repos.
 ## The two axes (load-bearing decision)
 
 C4's four levels do not survive contact with the NixOS module system. C4
-places Code _inside_ Component, a strict containment relationship. In Nix
+places Code *inside* Component, a strict containment relationship. In Nix
 that is false. Measured on the real config:
 
 ```
@@ -129,19 +129,19 @@ construction.
 
 Nodes carry a stable id, a type, a label, attributes, and provenance.
 
-| Type        | Is                                     | Source                                        |
-| ----------- | -------------------------------------- | --------------------------------------------- |
-| `fleet`     | the whole thing, one node              | synthesized                                   |
-| `host`      | box, cerberus, martinez                | `nixosConfigurations`, `darwinConfigurations` |
-| `external`  | tailnet, internet, GitHub, nixpkgs     | rules, explicitly declared                    |
-| `service`   | a systemd unit or launchd agent        | `config.systemd.services`                     |
-| `vhost`     | a Caddy virtual host, the front door   | `services.caddy.virtualHosts`                 |
-| `datastore` | a database, a SQLite file, a state dir | `StateDirectory`, `services.postgresql`       |
-| `port`      | a listening socket                     | firewall, vhost upstreams                     |
-| `part`      | leaf detail: ExecStart, user, env key  | `serviceConfig.*`                             |
-| `module`    | one `.nix` file                        | `options.*.files`                             |
-| `option`    | an option path                         | the option tree                               |
-| `input`     | a flake input                          | `flake.inputs`                                |
+| Type | Is | Source |
+|---|---|---|
+| `fleet` | the whole thing, one node | synthesized |
+| `host` | box, cerberus, martinez | `nixosConfigurations`, `darwinConfigurations` |
+| `external` | tailnet, internet, GitHub, nixpkgs | rules, explicitly declared |
+| `service` | a systemd unit or launchd agent | `config.systemd.services` |
+| `vhost` | a Caddy virtual host, the front door | `services.caddy.virtualHosts` |
+| `datastore` | a database, a SQLite file, a state dir | `StateDirectory`, `services.postgresql` |
+| `port` | a listening socket | firewall, vhost upstreams |
+| `part` | leaf detail: ExecStart, user, env key | `serviceConfig.*` |
+| `module` | one `.nix` file | `options.*.files` |
+| `option` | an option path | the option tree |
+| `input` | a flake input | `flake.inputs` |
 
 Edges: `contains` is the zoom axis. `proxies-to`, `listens-on`, `reads`,
 `writes`, and `depends-on` are the Runtime lens. `declared-by`, `defines`,
@@ -223,7 +223,7 @@ decision made at that time. It is not assumed away here.
 1. **Allowlist by construction.** Projections name their fields explicitly.
    A new field reaching the graph requires a code change, so nothing leaks
    by default. Structural, not a filter, and therefore the primary control.
-2. **Redaction pass regardless.** Env vars whose _name_ matches secret
+2. **Redaction pass regardless.** Env vars whose *name* matches secret
    shapes, and values under `/run/secrets/`, have the **value** replaced
    with a marker while the **key survives**. "This service reads a secret
    named `X`" is the architectural fact worth drawing. The value must never

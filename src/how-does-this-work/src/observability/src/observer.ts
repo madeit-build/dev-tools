@@ -19,11 +19,7 @@ export interface Logger {
 
 export interface Metrics {
   count(name: string, value?: number, fields?: Record<string, unknown>): void;
-  timing(
-    name: string,
-    milliseconds: number,
-    fields?: Record<string, unknown>,
-  ): void;
+  timing(name: string, milliseconds: number, fields?: Record<string, unknown>): void;
   startSpan(name: string, fields?: Record<string, unknown>): Span;
 }
 
@@ -47,32 +43,24 @@ export function createObserver(options: CreateObserverOptions): Observer {
     options.sink.record(record);
   };
 
-  const log = (
-    level: LogLevel,
-    event: string,
-    fields?: Record<string, unknown>,
-  ): void => {
+  const log = (level: LogLevel, event: string, fields?: Record<string, unknown>): void => {
     if (LOG_LEVEL_ORDER[level] < threshold) {
       return;
     }
-    emit(
-      fields === undefined
-        ? { kind: "log", ts: now(), level, event }
-        : { kind: "log", ts: now(), level, event, fields },
-    );
+    emit(fields === undefined
+      ? { kind: "log", ts: now(), level, event }
+      : { kind: "log", ts: now(), level, event, fields });
   };
 
   const metric = (
     kind: "count" | "timing",
     name: string,
     value: number,
-    fields?: Record<string, unknown>,
+    fields?: Record<string, unknown>
   ): void => {
-    emit(
-      fields === undefined
-        ? { kind: "metric", ts: now(), metric: kind, name, value }
-        : { kind: "metric", ts: now(), metric: kind, name, value, fields },
-    );
+    emit(fields === undefined
+      ? { kind: "metric", ts: now(), metric: kind, name, value }
+      : { kind: "metric", ts: now(), metric: kind, name, value, fields });
   };
 
   return {
@@ -85,8 +73,7 @@ export function createObserver(options: CreateObserverOptions): Observer {
     },
     metrics: {
       count: (name, value = 1, fields) => metric("count", name, value, fields),
-      timing: (name, milliseconds, fields) =>
-        metric("timing", name, milliseconds, fields),
+      timing: (name, milliseconds, fields) => metric("timing", name, milliseconds, fields),
       startSpan: (name, startFields) => {
         const startedAt = now();
         return {
@@ -96,7 +83,7 @@ export function createObserver(options: CreateObserverOptions): Observer {
               "timing",
               name,
               now() - startedAt,
-              Object.keys(merged).length > 0 ? merged : undefined,
+              Object.keys(merged).length > 0 ? merged : undefined
             );
           },
         };

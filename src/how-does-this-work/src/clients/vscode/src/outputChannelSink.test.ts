@@ -9,8 +9,7 @@ interface Call {
 
 function fakeChannel(): { calls: Call[]; channel: vscode.LogOutputChannel } {
   const calls: Call[] = [];
-  const make = (method: string) => (line: string) =>
-    calls.push({ method, line });
+  const make = (method: string) => (line: string) => calls.push({ method, line });
   const channel = {
     trace: make("trace"),
     debug: make("debug"),
@@ -47,25 +46,13 @@ describe("OutputChannelSink", () => {
       event: "verify.step",
       fields: { ok: true, file: "a.ts" },
     });
-    expect(calls[0]).toEqual({
-      method: "info",
-      line: 'verify.step {"ok":true,"file":"a.ts"}',
-    });
+    expect(calls[0]).toEqual({ method: "info", line: 'verify.step {"ok":true,"file":"a.ts"}' });
   });
 
   test("routes metric records to debug", () => {
     const { calls, channel } = fakeChannel();
-    new OutputChannelSink(channel).record({
-      kind: "metric",
-      ts: 0,
-      metric: "count",
-      name: "verify.drift",
-      value: 2,
-    });
-    expect(calls[0]).toEqual({
-      method: "debug",
-      line: "metric verify.drift=2",
-    });
+    new OutputChannelSink(channel).record({ kind: "metric", ts: 0, metric: "count", name: "verify.drift", value: 2 });
+    expect(calls[0]).toEqual({ method: "debug", line: "metric verify.drift=2" });
   });
 
   test("appendRaw goes to appendLine", () => {

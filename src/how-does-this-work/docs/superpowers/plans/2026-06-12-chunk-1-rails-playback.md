@@ -15,7 +15,6 @@
 ### Task 1: Tour types and method constants in `@made-i-t/hdtw-protocol`
 
 **Files:**
-
 - Create: `src/protocol/src/tours.ts`
 - Modify: `src/protocol/src/index.ts`
 - Test: `src/protocol/src/tours.test.ts`
@@ -127,7 +126,6 @@ git commit -m "feat(protocol): add tour types and listTours/getTour methods"
 ### Task 2: Pure tour parsing/validation in `@made-i-t/hdtw-engine-core`
 
 **Files:**
-
 - Create: `src/engine/core/src/tours.ts`
 - Modify: `src/engine/core/src/index.ts`
 - Modify: `src/engine/core/package.json` (add protocol dependency)
@@ -198,40 +196,30 @@ describe("parseTour", () => {
     const result = parseTour(validTourJson(), "other-name");
     expect(result.ok).toBe(false);
     if (!result.ok)
-      expect(result.errors).toContain(
-        'id "demo" must match filename stem "other-name"',
-      );
+      expect(result.errors).toContain('id "demo" must match filename stem "other-name"');
   });
 
   test("rejects empty steps", () => {
     const result = parseTour(validTourJson({ steps: [] }), "demo");
     expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.errors).toContain("steps must be a non-empty array");
+    if (!result.ok) expect(result.errors).toContain("steps must be a non-empty array");
   });
 
   test("rejects bad anchors", () => {
     const badAnchorStep = {
       title: "Bad",
-      anchor: {
-        file: "/abs/path.ts",
-        startLine: 0,
-        endLine: -1,
-        snippetHash: "md5:zz",
-      },
+      anchor: { file: "/abs/path.ts", startLine: 0, endLine: -1, snippetHash: "md5:zz" },
       narration: "x",
     };
     const result = parseTour(validTourJson({ steps: [badAnchorStep] }), "demo");
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.errors).toContain(
-        "steps[0].anchor.file must be a workspace-relative POSIX path",
+        "steps[0].anchor.file must be a workspace-relative POSIX path"
       );
+      expect(result.errors).toContain("steps[0].anchor.startLine must be an integer >= 1");
       expect(result.errors).toContain(
-        "steps[0].anchor.startLine must be an integer >= 1",
-      );
-      expect(result.errors).toContain(
-        'steps[0].anchor.snippetHash must be a string starting with "sha256:"',
+        'steps[0].anchor.snippetHash must be a string starting with "sha256:"'
       );
     }
   });
@@ -239,20 +227,12 @@ describe("parseTour", () => {
   test("rejects endLine before startLine", () => {
     const step = {
       title: "Bad range",
-      anchor: {
-        file: "a.ts",
-        startLine: 5,
-        endLine: 2,
-        snippetHash: "sha256:aa",
-      },
+      anchor: { file: "a.ts", startLine: 5, endLine: 2, snippetHash: "sha256:aa" },
       narration: "x",
     };
     const result = parseTour(validTourJson({ steps: [step] }), "demo");
     expect(result.ok).toBe(false);
-    if (!result.ok)
-      expect(result.errors).toContain(
-        "steps[0].anchor.endLine must be >= startLine",
-      );
+    if (!result.ok) expect(result.errors).toContain("steps[0].anchor.endLine must be >= startLine");
   });
 });
 
@@ -292,20 +272,15 @@ Expected: FAIL — cannot find module `./tours.js`.
 import type { Tour, TourSummary } from "@made-i-t/hdtw-protocol";
 
 export type ParseTourResult =
-  { ok: true; tour: Tour } | { ok: false; errors: string[] };
+  | { ok: true; tour: Tour }
+  | { ok: false; errors: string[] };
 
-export function parseTour(
-  jsonText: string,
-  filenameStem: string,
-): ParseTourResult {
+export function parseTour(jsonText: string, filenameStem: string): ParseTourResult {
   let raw: unknown;
   try {
     raw = JSON.parse(jsonText);
   } catch (error) {
-    return {
-      ok: false,
-      errors: [`not valid JSON: ${(error as Error).message}`],
-    };
+    return { ok: false, errors: [`not valid JSON: ${(error as Error).message}`] };
   }
   if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
     return { ok: false, errors: ["root must be a JSON object"] };
@@ -319,9 +294,7 @@ export function parseTour(
   if (typeof candidate.id !== "string" || candidate.id.length === 0) {
     errors.push("id must be a non-empty string");
   } else if (candidate.id !== filenameStem) {
-    errors.push(
-      `id "${candidate.id}" must match filename stem "${filenameStem}"`,
-    );
+    errors.push(`id "${candidate.id}" must match filename stem "${filenameStem}"`);
   }
   if (typeof candidate.title !== "string" || candidate.title.length === 0) {
     errors.push("title must be a non-empty string");
@@ -332,9 +305,7 @@ export function parseTour(
   if (!Array.isArray(candidate.steps) || candidate.steps.length === 0) {
     errors.push("steps must be a non-empty array");
   } else {
-    candidate.steps.forEach((step, index) =>
-      errors.push(...validateStep(step, index)),
-    );
+    candidate.steps.forEach((step, index) => errors.push(...validateStep(step, index)));
   }
 
   if (errors.length > 0) {
@@ -353,9 +324,7 @@ function validateStep(step: unknown, index: number): string[] {
   if (typeof candidate.title !== "string" || candidate.title.length === 0) {
     errors.push(`${label}.title must be a non-empty string`);
   }
-  if (typeof candidate.narration !== "string"
-      || candidate.narration.length === 0
-  ) {
+  if (typeof candidate.narration !== "string" || candidate.narration.length === 0) {
     errors.push(`${label}.narration must be a non-empty string`);
   }
   errors.push(...validateAnchor(candidate.anchor, label));
@@ -374,24 +343,22 @@ function validateAnchor(anchor: unknown, stepLabel: string): string[] {
   } else if (candidate.file.startsWith("/") || candidate.file.includes("\\")) {
     errors.push(`${label}.file must be a workspace-relative POSIX path`);
   }
-  if (!Number.isInteger(candidate.startLine)
-      || (candidate.startLine as number) < 1
-  ) {
+  if (!Number.isInteger(candidate.startLine) || (candidate.startLine as number) < 1) {
     errors.push(`${label}.startLine must be an integer >= 1`);
   }
   if (!Number.isInteger(candidate.endLine)) {
     errors.push(`${label}.endLine must be an integer`);
-  } else if (Number.isInteger(candidate.startLine)
-             && (candidate.endLine as number) < (candidate.startLine as number)
+  } else if (
+    Number.isInteger(candidate.startLine) &&
+    (candidate.endLine as number) < (candidate.startLine as number)
   ) {
     errors.push(`${label}.endLine must be >= startLine`);
   }
-  if (typeof candidate.snippetHash !== "string"
-      || !candidate.snippetHash.startsWith("sha256:")
+  if (
+    typeof candidate.snippetHash !== "string" ||
+    !candidate.snippetHash.startsWith("sha256:")
   ) {
-    errors.push(
-      `${label}.snippetHash must be a string starting with "sha256:"`,
-    );
+    errors.push(`${label}.snippetHash must be a string starting with "sha256:"`);
   }
   return errors;
 }
@@ -405,10 +372,7 @@ export function toTourSummary(tour: Tour): TourSummary {
   };
 }
 
-export function toErrorSummary(
-  filenameStem: string,
-  errors: string[],
-): TourSummary {
+export function toErrorSummary(filenameStem: string, errors: string[]): TourSummary {
   return {
     id: filenameStem,
     title: filenameStem,
@@ -442,7 +406,6 @@ git commit -m "feat(engine-core): add pure tour parsing and validation"
 ### Task 3: Tour request handlers in `@made-i-t/hdtw-engine-server`
 
 **Files:**
-
 - Create: `src/engine/server/src/tourHandlers.ts`
 - Modify: `src/engine/server/src/main.ts`
 - Create: `src/engine/server/tests/fixtures/workspace/.hdtw/tours/good-tour.tour.json`
@@ -499,9 +462,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { getTour, listTours, TourNotFoundError } from "../src/tourHandlers.js";
 
-const workspaceRoot = fileURLToPath(
-  new URL("./fixtures/workspace", import.meta.url),
-);
+const workspaceRoot = fileURLToPath(new URL("./fixtures/workspace", import.meta.url));
 
 describe("listTours", () => {
   test("lists valid and invalid tours, sorted by filename", async () => {
@@ -532,20 +493,20 @@ describe("getTour", () => {
   });
 
   test("throws TourNotFoundError for unknown id", async () => {
-    await expect(
-      getTour({ workspaceRoot, tourId: "nope" }),
-    ).rejects.toBeInstanceOf(TourNotFoundError);
+    await expect(getTour({ workspaceRoot, tourId: "nope" })).rejects.toBeInstanceOf(
+      TourNotFoundError
+    );
   });
 
   test("throws TourNotFoundError for an invalid tour", async () => {
-    await expect(
-      getTour({ workspaceRoot, tourId: "broken-tour" }),
-    ).rejects.toBeInstanceOf(TourNotFoundError);
+    await expect(getTour({ workspaceRoot, tourId: "broken-tour" })).rejects.toBeInstanceOf(
+      TourNotFoundError
+    );
   });
 
   test("rejects path-traversal ids", async () => {
     await expect(
-      getTour({ workspaceRoot, tourId: "../../../etc/passwd" }),
+      getTour({ workspaceRoot, tourId: "../../../etc/passwd" })
     ).rejects.toBeInstanceOf(TourNotFoundError);
   });
 });
@@ -579,9 +540,7 @@ const SAFE_TOUR_ID = /^[\w.-]+$/;
 
 export class TourNotFoundError extends Error {}
 
-export async function listTours(
-  params: ListToursParams,
-): Promise<ListToursResult> {
+export async function listTours(params: ListToursParams): Promise<ListToursResult> {
   const toursDir = path.join(params.workspaceRoot, ...TOURS_DIR_SEGMENTS);
   let entries: string[];
   try {
@@ -589,17 +548,14 @@ export async function listTours(
   } catch {
     return { tours: [] };
   }
-  const tourFiles = entries.filter((name) => name.endsWith(TOUR_FILE_SUFFIX))
-                           .sort();
+  const tourFiles = entries.filter((name) => name.endsWith(TOUR_FILE_SUFFIX)).sort();
   const tours = await Promise.all(
     tourFiles.map(async (name) => {
       const stem = name.slice(0, -TOUR_FILE_SUFFIX.length);
       const jsonText = await readFile(path.join(toursDir, name), "utf8");
       const result = parseTour(jsonText, stem);
-      return result.ok
-        ? toTourSummary(result.tour)
-        : toErrorSummary(stem, result.errors);
-    }),
+      return result.ok ? toTourSummary(result.tour) : toErrorSummary(stem, result.errors);
+    })
   );
   return { tours };
 }
@@ -611,7 +567,7 @@ export async function getTour(params: GetTourParams): Promise<GetTourResult> {
   const filePath = path.join(
     params.workspaceRoot,
     ...TOURS_DIR_SEGMENTS,
-    `${params.tourId}${TOUR_FILE_SUFFIX}`,
+    `${params.tourId}${TOUR_FILE_SUFFIX}`
   );
   let jsonText: string;
   try {
@@ -622,7 +578,7 @@ export async function getTour(params: GetTourParams): Promise<GetTourResult> {
   const result = parseTour(jsonText, params.tourId);
   if (!result.ok) {
     throw new TourNotFoundError(
-      `tour "${params.tourId}" is invalid: ${result.errors.join("; ")}`,
+      `tour "${params.tourId}" is invalid: ${result.errors.join("; ")}`
     );
   }
   return { tour: result.tour };
@@ -652,14 +608,12 @@ import { getTour, listTours, TourNotFoundError } from "./tourHandlers.js";
 
 const connection = createMessageConnection(
   new StreamMessageReader(process.stdin),
-  new StreamMessageWriter(process.stdout),
+  new StreamMessageWriter(process.stdout)
 );
 
 connection.onRequest(PING_METHOD, (params: PingParams) => handlePing(params));
 
-connection.onRequest(LIST_TOURS_METHOD, (params: ListToursParams) =>
-  listTours(params),
-);
+connection.onRequest(LIST_TOURS_METHOD, (params: ListToursParams) => listTours(params));
 
 connection.onRequest(GET_TOUR_METHOD, async (params: GetTourParams) => {
   try {
@@ -701,9 +655,7 @@ import {
 } from "@made-i-t/hdtw-protocol";
 
 const serverEntry = fileURLToPath(new URL("../dist/main.js", import.meta.url));
-const fixtureWorkspace = fileURLToPath(
-  new URL("./fixtures/workspace", import.meta.url),
-);
+const fixtureWorkspace = fileURLToPath(new URL("./fixtures/workspace", import.meta.url));
 
 let serverProcess: ChildProcess | undefined;
 let connection: MessageConnection | undefined;
@@ -714,7 +666,7 @@ function startServer(): MessageConnection {
   });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!),
+    new StreamMessageWriter(serverProcess.stdin!)
   );
   connection.listen();
   return connection;
@@ -746,10 +698,7 @@ test("engine server lists and fetches tours over stdio", async () => {
   const list = await conn.sendRequest<ListToursResult>(LIST_TOURS_METHOD, {
     workspaceRoot: fixtureWorkspace,
   });
-  expect(list.tours.map((tour) => tour.id)).toEqual([
-    "broken-tour",
-    "good-tour",
-  ]);
+  expect(list.tours.map((tour) => tour.id)).toEqual(["broken-tour", "good-tour"]);
 
   const fetched = await conn.sendRequest<GetTourResult>(GET_TOUR_METHOD, {
     workspaceRoot: fixtureWorkspace,
@@ -761,7 +710,7 @@ test("engine server lists and fetches tours over stdio", async () => {
     conn.sendRequest(GET_TOUR_METHOD, {
       workspaceRoot: fixtureWorkspace,
       tourId: "missing",
-    }),
+    })
   ).rejects.toMatchObject({ code: -32001 });
 });
 ```
@@ -783,7 +732,6 @@ git commit -m "feat(engine-server): serve tours via listTours/getTour"
 ### Task 4: Pure walk-state module in the VS Code client
 
 **Files:**
-
 - Create: `src/clients/vscode/src/walkState.ts`
 - Modify: `src/clients/vscode/package.json` (add vitest + test script)
 - Modify: `src/clients/vscode/tsconfig.json` (exclude tests from build)
@@ -819,26 +767,8 @@ const tour: Tour = {
   title: "T",
   summary: "",
   steps: [
-    {
-      title: "one",
-      anchor: {
-        file: "a.ts",
-        startLine: 1,
-        endLine: 1,
-        snippetHash: "sha256:a",
-      },
-      narration: "1",
-    },
-    {
-      title: "two",
-      anchor: {
-        file: "b.ts",
-        startLine: 2,
-        endLine: 3,
-        snippetHash: "sha256:b",
-      },
-      narration: "2",
-    },
+    { title: "one", anchor: { file: "a.ts", startLine: 1, endLine: 1, snippetHash: "sha256:a" }, narration: "1" },
+    { title: "two", anchor: { file: "b.ts", startLine: 2, endLine: 3, snippetHash: "sha256:b" }, narration: "2" },
   ],
 };
 
@@ -903,9 +833,7 @@ export function nextStep(state: WalkState): WalkState {
 }
 
 export function previousStep(state: WalkState): WalkState {
-  return hasPrevious(state)
-    ? { ...state, stepIndex: state.stepIndex - 1 }
-    : state;
+  return hasPrevious(state) ? { ...state, stepIndex: state.stepIndex - 1 } : state;
 }
 
 export function progressLabel(state: WalkState): string {
@@ -930,7 +858,6 @@ git commit -m "feat(vscode): add pure walk-state module"
 ### Task 5: Extract `EngineClient` from extension.ts
 
 **Files:**
-
 - Create: `src/clients/vscode/src/engineClient.ts`
 - Modify: `src/clients/vscode/src/extension.ts`
 
@@ -994,7 +921,7 @@ export class EngineClient {
 
     const connection = createMessageConnection(
       new StreamMessageReader(serverProcess.stdout),
-      new StreamMessageWriter(serverProcess.stdin),
+      new StreamMessageWriter(serverProcess.stdin)
     );
     this.connection = connection;
     connection.listen();
@@ -1009,11 +936,7 @@ export class EngineClient {
     // the generic handshake timeout.
     return new Promise<PingResult>((resolve, reject) => {
       const timer = setTimeout(() => {
-        reject(
-          new Error(
-            `engine handshake timed out after ${HANDSHAKE_TIMEOUT_MS}ms`,
-          ),
-        );
+        reject(new Error(`engine handshake timed out after ${HANDSHAKE_TIMEOUT_MS}ms`));
       }, HANDSHAKE_TIMEOUT_MS);
       const settleWith = (callback: () => void) => {
         clearTimeout(timer);
@@ -1021,25 +944,16 @@ export class EngineClient {
       };
 
       serverProcess.on("error", (error) =>
-        settleWith(() =>
-          reject(new Error(`engine process failed to spawn: ${error.message}`)),
-        ),
+        settleWith(() => reject(new Error(`engine process failed to spawn: ${error.message}`)))
       );
       serverProcess.on("exit", (code) =>
         settleWith(() =>
-          reject(
-            new Error(
-              `engine process exited before handshake completed (code ${code})`,
-            ),
-          ),
-        ),
+          reject(new Error(`engine process exited before handshake completed (code ${code})`))
+        )
       );
       connection.sendRequest<PingResult>(PING_METHOD, params).then(
         (result) => settleWith(() => resolve(result)),
-        (error) =>
-          settleWith(() =>
-            reject(error instanceof Error ? error : new Error(String(error))),
-          ),
+        (error) => settleWith(() => reject(error instanceof Error ? error : new Error(String(error))))
       );
     });
   }
@@ -1078,9 +992,7 @@ import { EngineClient } from "./engineClient.js";
 
 let client: EngineClient | undefined;
 
-export async function activate(
-  _context: vscode.ExtensionContext,
-): Promise<void> {
+export async function activate(_context: vscode.ExtensionContext): Promise<void> {
   if (client) {
     return;
   }
@@ -1088,15 +1000,13 @@ export async function activate(
   try {
     const result = await client.connect();
     void vscode.window.showInformationMessage(
-      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`,
+      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`
     );
   } catch (error) {
     client.dispose();
     client = undefined;
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(
-      `HDTW engine failed to start: ${message}`,
-    );
+    void vscode.window.showErrorMessage(`HDTW engine failed to start: ${message}`);
   }
 }
 
@@ -1123,7 +1033,6 @@ git commit -m "refactor(vscode): extract EngineClient with typed tour requests"
 ### Task 6: Tours sidebar (TreeView + manifest contributions)
 
 **Files:**
-
 - Create: `src/clients/vscode/src/tourTree.ts`
 - Create: `src/clients/vscode/media/compass.svg`
 - Modify: `src/clients/vscode/package.json` (contributes)
@@ -1177,7 +1086,7 @@ export class TourTreeProvider implements vscode.TreeDataProvider<TourTreeItem> {
 
   constructor(
     private readonly client: EngineClient,
-    private readonly getWorkspaceRoot: () => string | undefined,
+    private readonly getWorkspaceRoot: () => string | undefined
   ) {}
 
   refresh(): void {
@@ -1255,9 +1164,7 @@ function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-export async function activate(
-  context: vscode.ExtensionContext,
-): Promise<void> {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   if (client) {
     return;
   }
@@ -1265,22 +1172,20 @@ export async function activate(
   try {
     const result = await client.connect();
     void vscode.window.showInformationMessage(
-      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`,
+      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`
     );
   } catch (error) {
     client.dispose();
     client = undefined;
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(
-      `HDTW engine failed to start: ${message}`,
-    );
+    void vscode.window.showErrorMessage(`HDTW engine failed to start: ${message}`);
     return;
   }
 
   const tree = new TourTreeProvider(client, workspaceRoot);
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("hdtwTours", tree),
-    vscode.commands.registerCommand("hdtw.refreshTours", () => tree.refresh()),
+    vscode.commands.registerCommand("hdtw.refreshTours", () => tree.refresh())
   );
 }
 
@@ -1311,7 +1216,6 @@ git commit -m "feat(vscode): add tours sidebar with activity-bar view"
 ### Task 7: WalkController — rails, decorations, inline narration thread
 
 **Files:**
-
 - Create: `src/clients/vscode/src/walkController.ts`
 - Modify: `src/clients/vscode/src/extension.ts`
 
@@ -1343,17 +1247,13 @@ export class WalkController implements vscode.Disposable {
   constructor(private readonly workspaceRoot: string) {
     this.commentController = vscode.comments.createCommentController(
       "hdtw-tour",
-      "HDTW Tour Guide",
+      "HDTW Tour Guide"
     );
     this.decoration = vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
-      backgroundColor: new vscode.ThemeColor(
-        "editor.findMatchHighlightBackground",
-      ),
+      backgroundColor: new vscode.ThemeColor("editor.findMatchHighlightBackground"),
     });
-    this.statusBarItem = vscode.window.createStatusBarItem(
-      vscode.StatusBarAlignment.Left,
-    );
+    this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
   }
 
   async start(tour: Tour): Promise<void> {
@@ -1395,7 +1295,7 @@ export class WalkController implements vscode.Disposable {
     this.clearStepArtifacts();
     const step = currentStep(this.state);
     const fileUri = vscode.Uri.file(
-      path.join(this.workspaceRoot, ...step.anchor.file.split("/")),
+      path.join(this.workspaceRoot, ...step.anchor.file.split("/"))
     );
 
     let document: vscode.TextDocument | undefined;
@@ -1408,7 +1308,7 @@ export class WalkController implements vscode.Disposable {
     if (!document) {
       // Anchor file is gone: warn, keep the walk alive (spec: never hard-fail mid-walk).
       void vscode.window.showWarningMessage(
-        `HDTW step "${step.title}": anchor file ${step.anchor.file} is missing — code may have changed since this tour was authored.`,
+        `HDTW step "${step.title}": anchor file ${step.anchor.file} is missing — code may have changed since this tour was authored.`
       );
       this.updateStatusBar();
       return;
@@ -1421,12 +1321,10 @@ export class WalkController implements vscode.Disposable {
       startLine,
       0,
       endLine,
-      document.lineAt(endLine).text.length,
+      document.lineAt(endLine).text.length
     );
 
-    const editor = await vscode.window.showTextDocument(document, {
-      preserveFocus: false,
-    });
+    const editor = await vscode.window.showTextDocument(document, { preserveFocus: false });
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 
     if (!drifted) {
@@ -1437,19 +1335,16 @@ export class WalkController implements vscode.Disposable {
     const narration = new vscode.MarkdownString(
       (drifted
         ? "⚠️ _This step's anchor has drifted — code may have changed since authoring._\n\n"
-        : "") + step.narration,
+        : "") + step.narration
     );
     this.thread = this.commentController.createCommentThread(fileUri, range, [
       {
         body: narration,
         mode: vscode.CommentMode.Preview,
-        author: {
-          name: `🧭 HDTW Guide — ${step.title} (${progressLabel(this.state)})`,
-        },
+        author: { name: `🧭 HDTW Guide — ${step.title} (${progressLabel(this.state)})` },
       },
     ]);
-    this.thread.collapsibleState =
-      vscode.CommentThreadCollapsibleState.Expanded;
+    this.thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
     this.thread.canReply = false;
     this.thread.label = this.state.tour.title;
 
@@ -1488,9 +1383,7 @@ function workspaceRoot(): string | undefined {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
-export async function activate(
-  context: vscode.ExtensionContext,
-): Promise<void> {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   if (client) {
     return;
   }
@@ -1498,15 +1391,13 @@ export async function activate(
   try {
     const result = await client.connect();
     void vscode.window.showInformationMessage(
-      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`,
+      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`
     );
   } catch (error) {
     client.dispose();
     client = undefined;
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(
-      `HDTW engine failed to start: ${message}`,
-    );
+    void vscode.window.showErrorMessage(`HDTW engine failed to start: ${message}`);
     return;
   }
 
@@ -1514,23 +1405,17 @@ export async function activate(
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("hdtwTours", tree),
     vscode.commands.registerCommand("hdtw.refreshTours", () => tree.refresh()),
-    vscode.commands.registerCommand("hdtw.startTour", (tourId: string) =>
-      startTour(tourId),
-    ),
+    vscode.commands.registerCommand("hdtw.startTour", (tourId: string) => startTour(tourId)),
     vscode.commands.registerCommand("hdtw.tourNext", () => walk?.next()),
-    vscode.commands.registerCommand("hdtw.tourPrevious", () =>
-      walk?.previous(),
-    ),
-    vscode.commands.registerCommand("hdtw.tourExit", () => walk?.exit()),
+    vscode.commands.registerCommand("hdtw.tourPrevious", () => walk?.previous()),
+    vscode.commands.registerCommand("hdtw.tourExit", () => walk?.exit())
   );
 }
 
 async function startTour(tourId: string): Promise<void> {
   const root = workspaceRoot();
   if (!root || !client) {
-    void vscode.window.showErrorMessage(
-      "HDTW: open a folder to walk its tours.",
-    );
+    void vscode.window.showErrorMessage("HDTW: open a folder to walk its tours.");
     return;
   }
   try {
@@ -1540,9 +1425,7 @@ async function startTour(tourId: string): Promise<void> {
     await walk.start(tour);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(
-      `HDTW: could not start tour: ${message}`,
-    );
+    void vscode.window.showErrorMessage(`HDTW: could not start tour: ${message}`);
   }
 }
 
@@ -1571,7 +1454,6 @@ git commit -m "feat(vscode): add rails walk with inline narration threads"
 ### Task 8: Dogfood tour, manual verification, docs
 
 **Files:**
-
 - Create: `.hdtw/tours/monorepo-architecture.tour.json`
 - Modify: `docs/product-roadmap.md` (chunk 1 status)
 - Modify: `AGENTS.md` (current state)
@@ -1591,7 +1473,6 @@ console.log("sha256:"+crypto.createHash("sha256").update(text).digest("hex"));
 ```
 
 Steps (anchor targets; locate exact lines with `grep -n`):
-
 1. **"The contract"** — `src/protocol/src/tours.ts`, the `Tour` interface declaration (grep `export interface Tour {` through its closing brace). Narration: `The protocol package is the only thing engine and clients share. A *tour* is the product's core artifact: steps anchored to real code, narration in markdown. Both sides depend on this contract — neither owns it.`
 2. **"Pure domain"** — `src/engine/core/src/tours.ts`, the `parseTour` function signature line through the first JSON.parse block (grep `export function parseTour`). Narration: `engine-core never touches the filesystem or the transport — it validates and parses, nothing else. That keeps the domain testable in isolation and reusable under any transport.`
 3. **"The process boundary"** — `src/engine/server/src/main.ts`, from `const connection =` through `connection.listen();`. Narration: `The engine ships as a *process*, not a library. stdio JSON-RPC means any IDE on any runtime can drive it — this is what makes the JetBrains client possible later. Note the shutdown contract comment: stdin EOF is the cleanup mechanism.`
@@ -1609,52 +1490,27 @@ Assemble `.hdtw/tours/monorepo-architecture.tour.json`:
   "steps": [
     {
       "title": "The contract",
-      "anchor": {
-        "file": "src/protocol/src/tours.ts",
-        "startLine": 0,
-        "endLine": 0,
-        "snippetHash": "sha256:FILL"
-      },
+      "anchor": { "file": "src/protocol/src/tours.ts", "startLine": 0, "endLine": 0, "snippetHash": "sha256:FILL" },
       "narration": "The protocol package is the only thing engine and clients share. A *tour* is the product's core artifact: steps anchored to real code, narration in markdown. Both sides depend on this contract — neither owns it."
     },
     {
       "title": "Pure domain",
-      "anchor": {
-        "file": "src/engine/core/src/tours.ts",
-        "startLine": 0,
-        "endLine": 0,
-        "snippetHash": "sha256:FILL"
-      },
+      "anchor": { "file": "src/engine/core/src/tours.ts", "startLine": 0, "endLine": 0, "snippetHash": "sha256:FILL" },
       "narration": "engine-core never touches the filesystem or the transport — it validates and parses, nothing else. That keeps the domain testable in isolation and reusable under any transport."
     },
     {
       "title": "The process boundary",
-      "anchor": {
-        "file": "src/engine/server/src/main.ts",
-        "startLine": 0,
-        "endLine": 0,
-        "snippetHash": "sha256:FILL"
-      },
+      "anchor": { "file": "src/engine/server/src/main.ts", "startLine": 0, "endLine": 0, "snippetHash": "sha256:FILL" },
       "narration": "The engine ships as a *process*, not a library. stdio JSON-RPC means any IDE on any runtime can drive it — this is what makes the JetBrains client possible later. Note the shutdown contract comment: stdin EOF is the cleanup mechanism."
     },
     {
       "title": "The thin client",
-      "anchor": {
-        "file": "src/clients/vscode/src/engineClient.ts",
-        "startLine": 0,
-        "endLine": 0,
-        "snippetHash": "sha256:FILL"
-      },
+      "anchor": { "file": "src/clients/vscode/src/engineClient.ts", "startLine": 0, "endLine": 0, "snippetHash": "sha256:FILL" },
       "narration": "The VS Code extension never imports engine code — it resolves the binary's path and spawns it. Clients depend only on the protocol; if a client needs engine data, the answer is a protocol addition, not an import."
     },
     {
       "title": "The rails you are on",
-      "anchor": {
-        "file": "src/clients/vscode/src/walkController.ts",
-        "startLine": 0,
-        "endLine": 0,
-        "snippetHash": "sha256:FILL"
-      },
+      "anchor": { "file": "src/clients/vscode/src/walkController.ts", "startLine": 0, "endLine": 0, "snippetHash": "sha256:FILL" },
       "narration": "This very narration thread is rendered by the code you are looking at. Each step opens a file, highlights the anchor, and pins the guide's voice under it — deterministic playback of a committed artifact, no agent required."
     }
   ]

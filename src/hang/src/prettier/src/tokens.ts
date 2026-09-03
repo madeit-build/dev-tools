@@ -58,9 +58,7 @@ function streamOf(text: string, variant: ScanVariant): string[] {
   const tokens: string[] = [];
   let cursor = 0;
 
-  function emitCommentRanges(
-    ranges: readonly TS.CommentRange[] | undefined,
-  ): void {
+  function emitCommentRanges(ranges: readonly TS.CommentRange[] | undefined): void {
     if (ranges === undefined) return;
     for (const range of ranges) {
       tokens.push(`${range.kind}:${text.slice(range.pos, range.end)}`);
@@ -110,11 +108,7 @@ function streamOf(text: string, variant: ScanVariant): string[] {
  * doc comment for why). It does not bite today because the transform never
  * touches line 1 and the whole file is always compared on both sides.
  */
-export function sameTokens(
-  before: string,
-  after: string,
-  variant: ScanVariant,
-): boolean {
+export function sameTokens(before: string, after: string, variant: ScanVariant): boolean {
   const a = streamOf(before, variant);
   const b = streamOf(after, variant);
   return a.length === b.length && a.every((token, index) => token === b[index]);

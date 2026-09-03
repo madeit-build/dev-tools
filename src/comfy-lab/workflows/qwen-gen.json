@@ -1,78 +1,24 @@
 {
   "workflow": {
-    "1": {
-      "class_type": "UNETLoader",
-      "inputs": {
-        "unet_name": "qwen_image_fp8_e4m3fn.safetensors",
-        "weight_dtype": "default"
-      }
-    },
-    "2": {
-      "class_type": "LoraLoaderModelOnly",
-      "inputs": {
-        "model": ["1", 0],
-        "lora_name": "Qwen-Image-Lightning-4steps-V1.0.safetensors",
-        "strength_model": 1.0
-      }
-    },
-    "3": {
-      "class_type": "ModelSamplingAuraFlow",
-      "inputs": { "model": ["2", 0], "shift": 3.0 }
-    },
-    "4": {
-      "class_type": "CLIPLoader",
-      "inputs": {
-        "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
-        "type": "qwen_image"
-      }
-    },
-    "5": {
-      "class_type": "VAELoader",
-      "inputs": { "vae_name": "qwen_image_vae.safetensors" }
-    },
-    "6": {
-      "class_type": "CLIPTextEncode",
-      "inputs": { "clip": ["4", 0], "text": "" }
-    },
-    "7": {
-      "class_type": "CLIPTextEncode",
-      "inputs": { "clip": ["4", 0], "text": "" }
-    },
-    "8": {
-      "class_type": "EmptySD3LatentImage",
-      "inputs": { "width": 1024, "height": 1024, "batch_size": 1 }
-    },
-    "9": {
-      "class_type": "KSampler",
-      "inputs": {
-        "model": ["3", 0],
-        "positive": ["6", 0],
-        "negative": ["7", 0],
-        "latent_image": ["8", 0],
-        "seed": 0,
-        "steps": 4,
-        "cfg": 1.0,
-        "sampler_name": "euler",
-        "scheduler": "simple",
-        "denoise": 1.0
-      }
-    },
-    "10": {
-      "class_type": "VAEDecode",
-      "inputs": { "samples": ["9", 0], "vae": ["5", 0] }
-    },
-    "11": {
-      "class_type": "SaveImage",
-      "inputs": { "images": ["10", 0], "filename_prefix": "comfylab" }
-    }
+    "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "qwen_image_fp8_e4m3fn.safetensors", "weight_dtype": "default"}},
+    "2": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["1", 0], "lora_name": "Qwen-Image-Lightning-4steps-V1.0.safetensors", "strength_model": 1.0}},
+    "3": {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["2", 0], "shift": 3.0}},
+    "4": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image"}},
+    "5": {"class_type": "VAELoader", "inputs": {"vae_name": "qwen_image_vae.safetensors"}},
+    "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 0], "text": ""}},
+    "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["4", 0], "text": ""}},
+    "8": {"class_type": "EmptySD3LatentImage", "inputs": {"width": 1024, "height": 1024, "batch_size": 1}},
+    "9": {"class_type": "KSampler", "inputs": {"model": ["3", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["8", 0], "seed": 0, "steps": 4, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}},
+    "10": {"class_type": "VAEDecode", "inputs": {"samples": ["9", 0], "vae": ["5", 0]}},
+    "11": {"class_type": "SaveImage", "inputs": {"images": ["10", 0], "filename_prefix": "comfylab"}}
   },
   "map": [
-    { "type": "model", "key": "unet_name", "node_ids": ["1"] },
-    { "type": "prompt", "key": "text", "node_ids": ["6"] },
-    { "type": "negative_prompt", "key": "text", "node_ids": ["7"] },
-    { "type": "width", "key": "width", "node_ids": ["8"] },
-    { "type": "height", "key": "height", "node_ids": ["8"] },
-    { "type": "steps", "key": "steps", "node_ids": ["9"] },
-    { "type": "seed", "key": "seed", "node_ids": ["9"] }
+    {"type": "model", "key": "unet_name", "node_ids": ["1"]},
+    {"type": "prompt", "key": "text", "node_ids": ["6"]},
+    {"type": "negative_prompt", "key": "text", "node_ids": ["7"]},
+    {"type": "width", "key": "width", "node_ids": ["8"]},
+    {"type": "height", "key": "height", "node_ids": ["8"]},
+    {"type": "steps", "key": "steps", "node_ids": ["9"]},
+    {"type": "seed", "key": "seed", "node_ids": ["9"]}
   ]
 }

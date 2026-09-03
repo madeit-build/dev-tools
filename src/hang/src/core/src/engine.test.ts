@@ -19,21 +19,12 @@ const rejectContaining = (marker: string): Adapter => ({
 
 describe("hangAlign", () => {
   it("hangs a chain and reports it as applied", () => {
-    const input = [
-      "const taken = regions",
-      "    .filter(f)",
-      "    .reduce(g, 0);",
-    ].join("\n");
+    const input = ["const taken = regions", "    .filter(f)", "    .reduce(g, 0);"].join("\n");
     const result = hangAlign(input, acceptAll, OPTIONS);
     expect(result.text).toBe(
-      [
-        "const taken = regions.filter(f)",
-        "                     .reduce(g, 0);",
-      ].join("\n"),
+      ["const taken = regions.filter(f)", "                     .reduce(g, 0);"].join("\n"),
     );
-    expect(result.decisions).toEqual([
-      { line: 1, applied: true, anchor: 21, links: 2 },
-    ]);
+    expect(result.decisions).toEqual([{ line: 1, applied: true, anchor: 21, links: 2 }]);
   });
 
   it("returns the input untouched when there is nothing to do", () => {
@@ -45,24 +36,16 @@ describe("hangAlign", () => {
 
   it("refuses a hunk that would exceed hangWidth and says why", () => {
     const long = "x".repeat(70);
-    const input = [
-      "const taken = regionsAndMore",
-      `    .filter(${long})`,
-      "    .reduce(g, 0);",
-    ].join("\n");
+    const input = ["const taken = regionsAndMore", `    .filter(${long})`, "    .reduce(g, 0);"].join("\n");
     const result = hangAlign(input, acceptAll, { ...OPTIONS, hangWidth: 60 });
     expect(result.text).toBe(input);
-    expect(result.decisions).toEqual([
-      { line: 1, applied: false, reason: "over-budget" },
-    ]);
+    expect(result.decisions).toEqual([{ line: 1, applied: false, reason: "over-budget" }]);
   });
 
   it("records bad-indent as a rejection, not a silent skip", () => {
     const input = ["const t = xs", ".map(f)"].join("\n");
     const result = hangAlign(input, acceptAll, OPTIONS);
-    expect(result.decisions).toEqual([
-      { line: 1, applied: false, reason: "bad-indent" },
-    ]);
+    expect(result.decisions).toEqual([{ line: 1, applied: false, reason: "bad-indent" }]);
   });
 
   it("emits no decision for a line that was never a candidate", () => {
@@ -89,20 +72,10 @@ describe("hangAlign", () => {
   });
 
   it("returns the original text when the guard rejects everything", () => {
-    const input = [
-      "const t = regions",
-      "    .filter(f)",
-      "    .reduce(g, 0);",
-    ].join("\n");
-    const result = hangAlign(
-      input,
-      rejectContaining("regions.filter"),
-      OPTIONS,
-    );
+    const input = ["const t = regions", "    .filter(f)", "    .reduce(g, 0);"].join("\n");
+    const result = hangAlign(input, rejectContaining("regions.filter"), OPTIONS);
     expect(result.text).toBe(input);
-    expect(result.decisions).toEqual([
-      { line: 1, applied: false, reason: "verify-rejected" },
-    ]);
+    expect(result.decisions).toEqual([{ line: 1, applied: false, reason: "verify-rejected" }]);
   });
 
   it("reports decisions in line order", () => {
@@ -122,13 +95,9 @@ describe("hangAlign", () => {
     // collect() walks forward, so the bad-indent rejection at line 4 lands in
     // decisions before the line-1 hunk is even verified; without the sort,
     // the applied decision would be appended after it, out of line order.
-    const input = [
-      "const good = one",
-      "    .f()",
-      "    .g();",
-      "const bad = xs",
-      ".map(f)",
-    ].join("\n");
+    const input = ["const good = one", "    .f()", "    .g();", "const bad = xs", ".map(f)"].join(
+      "\n",
+    );
     const result = hangAlign(input, acceptAll, OPTIONS);
     expect(result.decisions).toEqual([
       { line: 1, applied: true, anchor: 16, links: 2 },
@@ -138,13 +107,9 @@ describe("hangAlign", () => {
 
   it("preserves CRLF line endings uniformly end to end", () => {
     const input =
-      [
-        "const before = 0;",
-        "const taken = regions",
-        "    .filter(f)",
-        "    .reduce(g, 0);",
-        "const after = 1;",
-      ].join("\r\n") + "\r\n";
+      ["const before = 0;", "const taken = regions", "    .filter(f)", "    .reduce(g, 0);", "const after = 1;"].join(
+        "\r\n",
+      ) + "\r\n";
     const result = hangAlign(input, acceptAll, OPTIONS);
     expect(result.text).not.toMatch(/[^\r]\n/);
     expect(result.text).not.toMatch(/\r(?!\n)/);
@@ -169,9 +134,7 @@ describe("hangAlign", () => {
     ].join("\n");
     const result = hangAlign(input, acceptAll, OPTIONS);
     expect(result.text).toBe(input);
-    expect(result.decisions).toEqual([
-      { line: 1, applied: false, reason: "nested-content" },
-    ]);
+    expect(result.decisions).toEqual([{ line: 1, applied: false, reason: "nested-content" }]);
   });
 
   it("refuses every candidate when useTabs is set, with a reject reason", () => {
@@ -215,18 +178,10 @@ describe("hangAlign", () => {
     // which used to let the run-extension loop keep going through every
     // line of the next, perfectly good chain instead of stopping right
     // after the one bad continuation line.
-    const input = [
-      "const t = xs",
-      ".map(f)",
-      "const y = a",
-      "    .b()",
-      "    .c();",
-    ].join("\n");
+    const input = ["const t = xs", ".map(f)", "const y = a", "    .b()", "    .c();"].join("\n");
     const result = hangAlign(input, acceptAll, OPTIONS);
     expect(result.text).toBe(
-      ["const t = xs", ".map(f)", "const y = a.b()", "           .c();"].join(
-        "\n",
-      ),
+      ["const t = xs", ".map(f)", "const y = a.b()", "           .c();"].join("\n"),
     );
     expect(result.decisions).toEqual([
       { line: 1, applied: false, reason: "bad-indent" },
@@ -235,11 +190,7 @@ describe("hangAlign", () => {
   });
 
   it("leaves a uniformly LF input's endings untouched", () => {
-    const input = [
-      "const taken = regions",
-      "    .filter(f)",
-      "    .reduce(g, 0);",
-    ].join("\n");
+    const input = ["const taken = regions", "    .filter(f)", "    .reduce(g, 0);"].join("\n");
     const result = hangAlign(input, acceptAll, OPTIONS);
     expect(result.text).not.toContain("\r");
   });

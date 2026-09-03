@@ -1,10 +1,4 @@
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  type Edge,
-  type Node,
-} from "@xyflow/react";
+import { ReactFlow, Background, Controls, type Edge, type Node } from "@xyflow/react";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import "@xyflow/react/dist/style.css";
 import { useGraph } from "./useGraph";
@@ -45,77 +39,47 @@ export function App(): JSX.Element {
     layoutGraph(slice.nodes, slice.edges).then((positions) => {
       if (!live) return;
       const at = new Map(positions.map((p) => [p.id, p]));
-      setNodes(
-        slice.nodes.map((n) => ({
-          id: n.id,
-          type: "orrery",
-          position: { x: at.get(n.id)?.x ?? 0, y: at.get(n.id)?.y ?? 0 },
-          data: {
-            node: n,
-            selected: n.id === view.selected,
-          } satisfies OrreryNodeData,
-        })),
-      );
-      setEdges(
-        slice.edges.map((e) => ({
-          id: e.id,
-          source: e.from,
-          target: e.to,
-          className:
-            e.source === "inferred" ? "orrery-edge--inferred" : undefined,
-        })),
-      );
+      setNodes(slice.nodes.map((n) => ({
+        id: n.id,
+        type: "orrery",
+        position: { x: at.get(n.id)?.x ?? 0, y: at.get(n.id)?.y ?? 0 },
+        data: { node: n, selected: n.id === view.selected } satisfies OrreryNodeData,
+      })));
+      setEdges(slice.edges.map((e) => ({
+        id: e.id, source: e.from, target: e.to,
+        className: e.source === "inferred" ? "orrery-edge--inferred" : undefined,
+      })));
     });
-    return () => {
-      live = false;
-    };
+    return () => { live = false; };
   }, [graph, view, showJobs]);
 
-  const onNodeClick = useCallback(
-    (_: unknown, n: Node) => {
-      go({ ...view, selected: n.id });
-    },
-    [go, view],
-  );
+  const onNodeClick = useCallback((_: unknown, n: Node) => {
+    go({ ...view, selected: n.id });
+  }, [go, view]);
 
-  const onNodeDoubleClick = useCallback(
-    (_: unknown, n: Node) => {
-      const { node } = n.data as OrreryNodeData;
-      go({ ...view, path: [...view.path, node.label], selected: null });
-    },
-    [go, view],
-  );
+  const onNodeDoubleClick = useCallback((_: unknown, n: Node) => {
+    const { node } = n.data as OrreryNodeData;
+    go({ ...view, path: [...view.path, node.label], selected: null });
+  }, [go, view]);
 
   if (error) {
-    return (
-      <pre style={{ padding: 24, fontFamily: "var(--font-mono)" }}>{error}</pre>
-    );
+    return <pre style={{ padding: 24, fontFamily: "var(--font-mono)" }}>{error}</pre>;
   }
-  if (!graph)
-    return (
-      <div style={{ padding: 24, fontFamily: "var(--font-mono)" }}>loading</div>
-    );
+  if (!graph) return <div style={{ padding: 24, fontFamily: "var(--font-mono)" }}>loading</div>;
 
-  const selected = view.selected
-    ? graph.nodes.find((n) => n.id === view.selected)
-    : undefined;
+  const selected = view.selected ? graph.nodes.find((n) => n.id === view.selected) : undefined;
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <header className="orrery-header">
-        <button
-          className="orrery-crumb"
-          onClick={() => go({ ...view, path: [], selected: null })}
-        >
+        <button className="orrery-crumb" onClick={() => go({ ...view, path: [], selected: null })}>
           fleet
         </button>
         {view.path.map((seg, i) => (
           <button
             key={seg}
             className="orrery-crumb"
-            onClick={() =>
-              go({ ...view, path: view.path.slice(0, i + 1), selected: null })
-            }
+            onClick={() => go({ ...view, path: view.path.slice(0, i + 1), selected: null })}
           >
             / {seg}
           </button>
@@ -133,12 +97,7 @@ export function App(): JSX.Element {
             {graph.ledger.length} not drawn
           </button>
           <button
-            onClick={() =>
-              go({
-                ...view,
-                lens: view.lens === "runtime" ? "declaration" : "runtime",
-              })
-            }
+            onClick={() => go({ ...view, lens: view.lens === "runtime" ? "declaration" : "runtime" })}
           >
             lens: {view.lens}
           </button>
@@ -161,19 +120,9 @@ export function App(): JSX.Element {
           </ReactFlow>
         </div>
         {selected && (
-          <Inspector
-            node={selected}
-            graph={graph}
-            view={view}
-            onNavigate={go}
-          />
+          <Inspector node={selected} graph={graph} view={view} onNavigate={go} />
         )}
-        {showLedger && (
-          <LedgerPanel
-            rows={graph.ledger}
-            onClose={() => setShowLedger(false)}
-          />
-        )}
+        {showLedger && <LedgerPanel rows={graph.ledger} onClose={() => setShowLedger(false)} />}
       </div>
     </div>
   );

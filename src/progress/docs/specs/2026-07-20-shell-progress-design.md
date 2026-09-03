@@ -19,8 +19,8 @@ each script growing its own ad-hoc `echo` breadcrumbs. It lives in `dev-tools`
 ### Decisions locked during brainstorming
 
 - **Hybrid interaction model (a library, plus a command wrapper).** A script
-  narrates its own _known_ phases (`git fetch`, token check), and hands its
-  _opaque_ long-poles (`nixos-rebuild`) to a wrapper that animates them. A pure
+  narrates its own *known* phases (`git fetch`, token check), and hands its
+  *opaque* long-poles (`nixos-rebuild`) to a wrapper that animates them. A pure
   wrapper cannot see semantic phases; a pure library cannot see inside an opaque
   child. The tool does both.
 - **Live-tail in v1.** The wrapper shows the wrapped command's last output line,
@@ -148,7 +148,7 @@ a failing child is not masked by a succeeding tee.
   quiet while any failure has a real post-mortem. The log path is printed on
   failure.
 - `progress_run` returns the child's exit status; scripts using `set -euo
-pipefail` abort naturally, after the failure is shown.
+  pipefail` abort naturally, after the failure is shown.
 - `progress_fail` and an unexpected `progress_end` with an open phase both render
   a clear terminal state rather than leaving a dangling spinner.
 

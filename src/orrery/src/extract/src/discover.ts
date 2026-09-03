@@ -39,8 +39,8 @@ export async function discoverHosts(
 
   if (hosts.length === 0) {
     throw new Error(
-      `no nixosConfigurations or darwinConfigurations in ${flakeRef}; `
-        + `orrery needs at least one host to draw. Run 'nix flake show ${flakeRef}' to see what it exposes.`,
+      `no nixosConfigurations or darwinConfigurations in ${flakeRef}; ` +
+        `orrery needs at least one host to draw. Run 'nix flake show ${flakeRef}' to see what it exposes.`,
     );
   }
 

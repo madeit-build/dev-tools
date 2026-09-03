@@ -4,12 +4,7 @@
   edge confidence instead.
 */
 
-html,
-body,
-#root {
-  height: 100%;
-  margin: 0;
-}
+html, body, #root { height: 100%; margin: 0; }
 
 body {
   background: var(--paper);
@@ -32,23 +27,18 @@ button {
   padding: 2px 8px;
   cursor: pointer;
 }
-button:hover {
-  background: var(--surface-control-hover);
-}
+button:hover { background: var(--surface-control-hover); }
 
 .orrery-node {
   box-sizing: border-box;
-  width: 100%;
-  height: 100%;
+  width: 100%; height: 100%;
   padding: var(--space-1);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius);
   background: var(--surface);
   font-family: var(--font-mono);
   font-size: 12px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  display: flex; flex-direction: column; justify-content: center;
   overflow: hidden;
 }
 
@@ -68,60 +58,28 @@ button:hover {
 }
 
 /* Host and fleet read as containers: heavier border, flatter fill. */
-.orrery-node--host,
-.orrery-node--fleet {
-  border-width: 2px;
-  background: var(--surface-control);
-}
+.orrery-node--host, .orrery-node--fleet { border-width: 2px; background: var(--surface-control); }
 
 /* A vhost is the front door, so it gets the inverted ground. */
-.orrery-node--vhost {
-  background: var(--ink);
-  border-color: var(--ink);
-}
-.orrery-node--vhost .orrery-node__label {
-  color: var(--ink-inverse);
-}
-.orrery-node--vhost .orrery-node__meta {
-  color: var(--muted-inverse);
-}
+.orrery-node--vhost { background: var(--ink); border-color: var(--ink); }
+.orrery-node--vhost .orrery-node__label { color: var(--ink-inverse); }
+.orrery-node--vhost .orrery-node__meta { color: var(--muted-inverse); }
 
 /* A module is source, not runtime: dashed border says "this is not a thing
    that runs". */
-.orrery-node--module {
-  border-style: dashed;
-  background: transparent;
-}
-.orrery-node--option {
-  border-style: dashed;
-  background: transparent;
-  border-width: 2px;
-}
+.orrery-node--module { border-style: dashed; background: transparent; }
+.orrery-node--option { border-style: dashed; background: transparent; border-width: 2px; }
 
 /* A oneshot job is present but subordinate to the services around it. */
-.orrery-node--job {
-  border-color: var(--border);
-}
-.orrery-node--job .orrery-node__label {
-  color: var(--muted);
-  font-weight: 400;
-}
+.orrery-node--job { border-color: var(--border); }
+.orrery-node--job .orrery-node__label { color: var(--muted); font-weight: 400; }
 
-.orrery-node--selected {
-  outline: 2px solid var(--ink);
-  outline-offset: 2px;
-}
+.orrery-node--selected { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* The one encoding that matters most: solid means nix said so, dashed means
    orrery read it out of free text and could be wrong. */
-.react-flow__edge-path {
-  stroke: var(--muted);
-  stroke-width: 1.5;
-}
-.orrery-edge--inferred .react-flow__edge-path {
-  stroke-dasharray: 5 4;
-  stroke: var(--muted-soft);
-}
+.react-flow__edge-path { stroke: var(--muted); stroke-width: 1.5; }
+.orrery-edge--inferred .react-flow__edge-path { stroke-dasharray: 5 4; stroke: var(--muted-soft); }
 
 .orrery-panel {
   width: 340px;
@@ -132,36 +90,18 @@ button:hover {
   overflow-y: auto;
   background: var(--surface);
 }
-.orrery-panel__title {
-  font-weight: 600;
-  margin-bottom: var(--space-1);
-}
-.orrery-panel__type {
-  color: var(--muted-soft);
-  margin-bottom: var(--space-2);
-}
-.orrery-panel__section {
-  margin-top: var(--space-2);
-  color: var(--muted);
-}
-.orrery-panel__row {
-  margin-bottom: 4px;
-  word-break: break-all;
-}
-.orrery-panel__key {
-  color: var(--muted);
-}
+.orrery-panel__title { font-weight: 600; margin-bottom: var(--space-1); }
+.orrery-panel__type { color: var(--muted-soft); margin-bottom: var(--space-2); }
+.orrery-panel__section { margin-top: var(--space-2); color: var(--muted); }
+.orrery-panel__row { margin-bottom: 4px; word-break: break-all; }
+.orrery-panel__key { color: var(--muted); }
 .orrery-panel__link {
   all: unset;
   cursor: pointer;
   text-decoration: underline;
   color: var(--ink);
 }
-.orrery-panel__evidence {
-  color: var(--muted-soft);
-  margin-top: 4px;
-  word-break: break-all;
-}
+.orrery-panel__evidence { color: var(--muted-soft); margin-top: 4px; word-break: break-all; }
 
 .orrery-header {
   padding: var(--space-1) var(--space-2);
@@ -172,16 +112,6 @@ button:hover {
   align-items: center;
   gap: var(--space-1);
 }
-.orrery-header__right {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
-.orrery-crumb {
-  all: unset;
-  cursor: pointer;
-}
-.orrery-crumb:hover {
-  text-decoration: underline;
-}
+.orrery-header__right { margin-left: auto; display: flex; align-items: center; gap: var(--space-1); }
+.orrery-crumb { all: unset; cursor: pointer; }
+.orrery-crumb:hover { text-decoration: underline; }

@@ -2,32 +2,18 @@ import { mkdtemp, rm, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, expect, test } from "vitest";
-import {
-  runReadFileTool,
-  runGrepTool,
-  runGlobTool,
-  EXPLORE_TOOL_DEFS,
-  dispatchExploreTool,
-} from "./exploreTools.js";
+import { runReadFileTool, runGrepTool, runGlobTool, EXPLORE_TOOL_DEFS, dispatchExploreTool } from "./exploreTools.js";
 
 let root: string;
-beforeEach(async () => {
-  root = await mkdtemp(path.join(tmpdir(), "explore-"));
-});
-afterEach(async () => {
-  await rm(root, { recursive: true, force: true });
-});
+beforeEach(async () => { root = await mkdtemp(path.join(tmpdir(), "explore-")); });
+afterEach(async () => { await rm(root, { recursive: true, force: true }); });
 
 test("read_file returns numbered lines and guards traversal", async () => {
   await writeFile(path.join(root, "a.ts"), "alpha\nbeta\n");
   const out = await runReadFileTool(root, "a.ts");
   expect(out).toContain("alpha");
-  expect((await runReadFileTool(root, "../escape.ts")).toLowerCase()).toContain(
-    "outside the workspace",
-  );
-  expect((await runReadFileTool(root, "/etc/passwd")).toLowerCase()).toContain(
-    "outside the workspace",
-  );
+  expect((await runReadFileTool(root, "../escape.ts")).toLowerCase()).toContain("outside the workspace");
+  expect((await runReadFileTool(root, "/etc/passwd")).toLowerCase()).toContain("outside the workspace");
 });
 
 test("grep finds matching lines with file:line prefixes", async () => {
@@ -57,12 +43,9 @@ test("glob refuses patterns that escape the workspace", async () => {
 
 test("EXPLORE_TOOL_DEFS lists the five tools and dispatch routes by name", async () => {
   expect(EXPLORE_TOOL_DEFS.map((t) => t.function.name).sort()).toEqual(
-    ["findSymbol", "fileOutline", "glob", "grep", "read_file"].sort(),
+    ["findSymbol", "fileOutline", "glob", "grep", "read_file"].sort()
   );
   await writeFile(path.join(root, "a.ts"), "export function foo() {}\n");
-  const text = await dispatchExploreTool(root, "findSymbol", {
-    file: "a.ts",
-    name: "foo",
-  });
+  const text = await dispatchExploreTool(root, "findSymbol", { file: "a.ts", name: "foo" });
   expect(text).toContain("foo");
 });

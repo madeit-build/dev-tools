@@ -52,14 +52,9 @@ const describe = (decision: Decision): string =>
     ? `hung      ${decision.links} links at column ${decision.anchor}`
     : `skipped   ${REASONS[decision.reason]}`;
 
-export function formatDecisions(
-  filepath: string,
-  decisions: readonly Decision[],
-): string {
+export function formatDecisions(filepath: string, decisions: readonly Decision[]): string {
   if (decisions.length === 0) return `${filepath}\n  no candidates`;
   const width = Math.max(...decisions.map((d) => String(d.line).length));
-  const rows = decisions.map(
-    (d) => `  line ${String(d.line).padEnd(width)}  ${describe(d)}`,
-  );
+  const rows = decisions.map((d) => `  line ${String(d.line).padEnd(width)}  ${describe(d)}`);
   return [filepath, ...rows].join("\n");
 }
