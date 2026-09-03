@@ -70,16 +70,25 @@ Packages follow the existing convention: `@made-i-t/hang-core`,
 ### The core contract
 
 ```ts
+type RejectReason =
+  | "bad-indent"        // continuation not indented past its head
+  | "nested-content"    // a link carries its own multi-line content
+  | "opens-delimiter"   // head ends with its own unclosed opening delimiter
+  | "over-budget"       // hung form would exceed hangWidth
+  | "single-link"       // only one link: nothing to align by joining it up
+  | "use-tabs"          // useTabs is set; column arithmetic can't handle it
+  | "verify-rejected";  // the guard rejected the edit as meaning-changing
+
 type Decision =
   | { line: number; applied: true; anchor: number; links: number }
-  | {
-      line: number;
-      applied: false;
-      reason: "bad-indent" | "over-budget" | "verify-rejected";
-    };
+  | { line: number; applied: false; reason: RejectReason };
 
 interface Adapter {
   continuationTokens: readonly string[];
+  // Tokens that mark a deeper-indented line as still part of the expression
+  // (a ternary's branches) rather than a chain link's own nested content
+  // (wrapped call arguments, a callback's multi-line body).
+  branchTokens: readonly string[];
   verify(before: string, after: string): boolean;
 }
 
@@ -87,6 +96,7 @@ interface HangOptions {
   printWidth: number;
   hangWidth: number;
   tabWidth: number;
+  useTabs?: boolean;
 }
 
 function hangAlign(
@@ -100,7 +110,29 @@ Decisions are recorded per candidate, meaning a run that began with a
 continuation token. Lines that were never candidates produce no entry.
 
 The core imports nothing and knows no formatter. An adapter supplies the tokens
-that begin a continuation line and a synchronous semantic guard.
+that begin a continuation line, the tokens that mark a deeper line as still
+part of the same expression rather than a link's own nested content, and a
+synchronous semantic guard.
+
+`nested-content` and `branchTokens` were the largest change made during
+execution and are recorded here for that reason: a chain link can wrap its own
+call arguments or a callback's multi-line body onto lines deeper than the
+continuation indent. Join-and-shift would drag that content out to the anchor
+column along with the rest of the run -- meaning-preserving, but visually
+wrong -- so the whole run is refused rather than partially hung. A ternary's
+`?`/`:` branches are the one shape of deeper-indented line that is legitimate,
+which is what `branchTokens` exists to distinguish.
+
+`opens-delimiter`, `single-link`, and `use-tabs` were added in a later fix
+wave, once dogfooding this tool against its own monorepo surfaced them: a run
+whose head ends with its own unclosed opening delimiter (the `if (cond\n  &&
+more\n)` shape) is refused because Prettier always prints that delimiter's
+close back at the head's own indent, which can never be part of the same run,
+so join-and-shift could only ever orphan it two columns left of everything it
+closes. A hunk with only one link is refused because there is nothing to align
+by joining it up. `useTabs` is refused wholesale because `indentOf` counts
+characters, not visual columns, and a tab-indented head plus a space-indented
+continuation would misalign by `tabWidth - 1` per tab.
 
 ### Join and shift (load-bearing decision)
 
@@ -231,16 +263,26 @@ diagnostic path logs the code being formatted.
 ## Observability
 
 `decisions` is always populated, never behind a debug flag. Answering "why did
-that chain not align" must never require adding code, so `--explain` is only a
-printer for data the run already produced.
+that chain not align" must never require adding code, so `--explain` never
+requires re-running anything to answer that question -- but it is not simply a
+printer over data the run already produced. The plugin discards `decisions`
+once it returns text to Prettier; there is no channel back out of a Prettier
+plugin for it. `--explain` instead reruns the pipeline itself: it formats the
+file with `plugins: []` to get the exact text the plugin would have handed to
+`hangAlign`, then calls `hangAlign` directly to recompute `decisions`. This
+is provably the same computation the plugin would have made (see
+`plugin.test.ts`, "feeds hangAlign exactly what Prettier alone produces"), not
+an approximation of it.
 
 `hang doctor` checks in the order things are most likely to be wrong:
 
 1. Prettier resolves and `getSupportInfo` lists `experimentalOperatorPosition`.
 2. The plugin is loaded, confirmed by `hangWidth` appearing in `getSupportInfo`.
-3. TypeScript resolves and exposes `createScanner`.
+3. TypeScript resolves and exposes `createSourceFile`, `ScriptKind`,
+   `ScriptTarget`, `getLeadingCommentRanges`, and `getTrailingCommentRanges`.
 4. `experimentalOperatorPosition` is `start` when operator tokens are enabled.
 5. `hangWidth` is at least `printWidth`.
+6. `useTabs` is not set.
 
 Structured logs record every state transition and every failure path, each
 naming what failed and what to try next.
@@ -251,11 +293,16 @@ Unit tests cover the join-and-shift arithmetic. Fixture snapshots cover the
 shapes, including those that must be refused: template literals and multi-line
 block comments.
 
-A differential oracle runs in CI only. It reformats the before and after at
-`printWidth: 9999` and asserts the results are identical. This is deliberately a
-different mechanism from the production guard, so the two fail independently
-rather than sharing a blind spot. The spike's whitespace-stripping check passed
-the template-literal corruption; the oracle catches it.
+A differential oracle runs in every `vitest run`, in `oracle.test.ts` --
+not CI-only, and not gated behind any flag. It reformats the before and after
+at `printWidth: 9999` (with `objectWrap: "collapse"`, so an already-collapsed
+and an already-expanded object literal that mean the same thing don't read as
+a false mismatch) and asserts the results are identical. This is deliberately
+a different mechanism from the production guard, so the two fail
+independently rather than sharing a blind spot. The spike's
+whitespace-stripping check passed the template-literal corruption; the oracle
+catches it. It covers both continuation families: `.` member chains and
+`&&`/`||`/`??`/ternary runs under `experimentalOperatorPosition: "start"`.
 
 The tool then dogfoods against this monorepo's own TypeScript.
 
