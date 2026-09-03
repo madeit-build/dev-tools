@@ -5,6 +5,7 @@ import { hangAlign } from "@made-i-t/hang-core";
 import { createAdapter } from "@made-i-t/hang-prettier";
 import * as prettier from "prettier";
 import { formatDecisions, resolveHangOptions } from "./explain.js";
+import { resolveFormatOptions } from "./format.js";
 import { expand } from "./paths.js";
 import { runDoctor } from "./doctor.js";
 
@@ -15,16 +16,14 @@ const USAGE = `hang <command> [paths...]
   doctor                check the environment in likely-failure order
 `;
 
-async function optionsFor(file: string): Promise<prettier.Options> {
-  const config = await prettier.resolveConfig(file);
-  return { ...config, filepath: file };
-}
-
 async function write(files: string[]): Promise<number> {
   let changed = 0;
   for (const file of files) {
     const source = await readFile(file, "utf8");
-    const formatted = await prettier.format(source, await optionsFor(file));
+    const formatted = await prettier.format(
+      source,
+      await resolveFormatOptions(file),
+    );
     if (formatted === source) continue;
     await writeFile(file, formatted, "utf8");
     process.stdout.write(`${file}\n`);
@@ -36,7 +35,7 @@ async function write(files: string[]): Promise<number> {
 async function explain(files: string[]): Promise<void> {
   for (const file of files) {
     const source = await readFile(file, "utf8");
-    const options = await optionsFor(file);
+    const options = await resolveFormatOptions(file);
     // Deliberately without the plugin: this reproduces the exact text the
     // plugin hands to hangAlign, so the decisions describe the real run.
     const plain = await prettier.format(source, { ...options, plugins: [] });
