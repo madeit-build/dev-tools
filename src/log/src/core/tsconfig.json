@@ -5,9 +5,7 @@
     "moduleResolution": "NodeNext",
     "noEmit": true,
     "allowImportingTsExtensions": true,
-    "types": ["node"],
-    "esModuleInterop": true
+    "types": ["node"]
   },
-  "include": ["."],
-  "exclude": ["*.test.ts"]
+  "include": ["."]
 }

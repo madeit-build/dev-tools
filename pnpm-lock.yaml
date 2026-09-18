@@ -152,8 +152,8 @@ importers:
         version: 2.3.5
     devDependencies:
       '@types/node':
-        specifier: ^24.0.0
-        version: 24.13.5
+        specifier: ^20.17.0
+        version: 20.19.43
       ajv:
         specifier: ^8.17.1
         version: 8.20.0
@@ -162,7 +162,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.0.0
-        version: 3.2.6(@types/node@24.13.5)(lightningcss@1.33.0)
+        version: 3.2.6(@types/node@20.19.43)(lightningcss@1.33.0)
 
   src/orrery/src/app:
     dependencies:
@@ -2556,6 +2556,7 @@ snapshots:
   '@types/node@24.13.5':
     dependencies:
       undici-types: 7.18.2
+    optional: true
 
   '@types/react-dom@19.2.4(@types/react@19.2.18)':
     dependencies:
@@ -3728,7 +3729,8 @@ snapshots:
 
   undici-types@6.21.0: {}
 
-  undici-types@7.18.2: {}
+  undici-types@7.18.2:
+    optional: true
 
   unpipe@1.0.0: {}
 

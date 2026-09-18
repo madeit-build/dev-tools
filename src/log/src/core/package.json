@@ -10,5 +10,5 @@
     "lint": "eslint ."
   },
   "dependencies": { "@logtape/logtape": "^2.3.4" },
-  "devDependencies": { "ajv": "^8.17.1", "vitest": "^3.0.0", "typescript": "^5.8.3", "@types/node": "^24.0.0" }
+  "devDependencies": { "ajv": "^8.17.1", "vitest": "^3.0.0", "typescript": "^5.8.3", "@types/node": "^20.17.0" }
 }

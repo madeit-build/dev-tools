@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://madeit.build/schemas/madeit-log-v1.json",
   "title": "Made I.T. log record v1",
   "type": "object",
