@@ -1,13 +1,26 @@
 {
   "name": "@madeit-build/log",
   "version": "0.1.0",
-  "private": true,
+  "description": "Made I.T. structured logging: OpenTelemetry-shaped records over logtape, with redaction and sink failure isolation",
+  "license": "UNLICENSED",
   "type": "module",
-  "exports": { ".": "./index.ts" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/madeit-build/dev-tools.git",
+    "directory": "src/log/src/core"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "engines": { "node": ">=22" },
+  "publishConfig": { "registry": "https://npm.pkg.github.com", "access": "restricted" },
   "scripts": {
-    "build": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "lint": "eslint ."
+    "lint": "eslint . --ignore-pattern dist",
+    "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build"
   },
   "dependencies": { "@logtape/logtape": "^2.3.4" },
   "devDependencies": { "ajv": "^8.17.1", "vitest": "^3.0.0", "typescript": "^5.8.3", "@types/node": "^20.17.0" }

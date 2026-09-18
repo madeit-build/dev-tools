@@ -7,5 +7,6 @@
     "allowImportingTsExtensions": true,
     "types": ["node"]
   },
-  "include": ["."]
+  "include": ["."],
+  "exclude": ["dist"]
 }

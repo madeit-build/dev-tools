@@ -8,6 +8,23 @@ The package is a thin wrapper over [`@logtape/logtape`](https://logtape.org).
 It borrows logtape's levels, dispatch, and meta logger; it owns the record
 shape, redaction, and sink failure policy.
 
+## Installing
+
+The package is published to GitHub Packages under the `@madeit-build` scope, not npm. Point
+your `.npmrc` at the scope and authenticate with a token that has `read:packages`, then install
+as usual.
+
+```
+@madeit-build:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_PACKAGES_TOKEN}
+```
+
+```
+pnpm add @madeit-build/log
+```
+
+or `npm install @madeit-build/log`.
+
 ## Usage
 
 ```ts
