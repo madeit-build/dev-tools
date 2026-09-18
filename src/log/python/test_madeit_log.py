@@ -125,6 +125,36 @@ class RecordTest(unittest.TestCase):
         log.info("a.b", "two")
         self.assertEqual(len(calls), 1)
 
+    def test_becomes_a_no_op_when_every_sink_has_died(self):
+        first_calls, second_calls = [], []
+        def first_raiser(_record):
+            first_calls.append(1)
+            raise OSError("x")
+        def second_raiser(_record):
+            second_calls.append(1)
+            raise OSError("y")
+        log = madeit_log.get_logger(
+            service="c", version="1", environment="test", repo="r",
+            component="c", sinks=[first_raiser, second_raiser])
+        log.info("a.b", "one")
+        log.info("a.b", "two")  # must not raise, even though every sink is dead
+        self.assertEqual(len(first_calls), 1)
+        self.assertEqual(len(second_calls), 1)
+
+    def test_a_healthy_sink_gets_the_record_and_a_disabled_notice(self):
+        def first_raiser(_record):
+            raise OSError("x")
+        def second_raiser(_record):
+            raise OSError("y")
+        seen = []
+        log = madeit_log.get_logger(
+            service="c", version="1", environment="test", repo="r",
+            component="c", sinks=[first_raiser, second_raiser, seen.append])
+        log.info("a.b", "body")  # must not raise
+        bodies = [record["Body"] for record in seen]
+        self.assertIn("body", bodies)
+        self.assertGreaterEqual(bodies.count("a sink failed and was disabled"), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

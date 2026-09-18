@@ -8,3 +8,4 @@ coverage/
 .superpowers/
 .venv/
 uv.lock
+__pycache__/

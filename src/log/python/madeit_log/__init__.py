@@ -118,10 +118,15 @@ class _FanOut:
 
     def dispatch(self, record):
         for sink in list(self._live):
+            # A sink already disabled by an earlier failure within this same
+            # dispatch (e.g. it just failed to receive the sink.disabled
+            # notice) must not be invoked a second time for one record.
+            if sink not in self._live:
+                continue
             try:
                 sink(record)
             except Exception as error:
-                self._live.remove(sink)
+                self._discard(sink)
                 self._announce(error)
 
     def _announce(self, error):
@@ -134,7 +139,15 @@ class _FanOut:
                 sink(notice)
             except Exception:
                 # A sink that dies reporting a death is simply gone too.
-                self._live.remove(sink)
+                self._discard(sink)
+
+    def _discard(self, sink):
+        # list.remove raises on an absent item; two failures for the same sink
+        # in one dispatch (record, then its own disablement notice) must not
+        # crash the second removal. Mirrors Set.delete's no-op semantics in
+        # sink.ts.
+        if sink in self._live:
+            self._live.remove(sink)
 
 
 def _without_lifted_keys(attributes):
