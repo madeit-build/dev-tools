@@ -1,0 +1,14 @@
+{
+  "name": "@madeit-build/log",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./index.ts" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": { "@logtape/logtape": "^2.3.4" },
+  "devDependencies": { "ajv": "^8.17.1", "vitest": "^3.0.0", "typescript": "^5.8.3", "@types/node": "^24.0.0" }
+}

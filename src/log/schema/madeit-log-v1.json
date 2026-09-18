@@ -1,0 +1,32 @@
+{
+  "$id": "https://madeit.build/schemas/madeit-log-v1.json",
+  "title": "Made I.T. log record v1",
+  "type": "object",
+  "required": ["Timestamp", "SeverityNumber", "SeverityText", "Body", "Resource", "Attributes"],
+  "additionalProperties": false,
+  "properties": {
+    "Timestamp": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z$" },
+    "SeverityNumber": { "type": "integer", "minimum": 1, "maximum": 24 },
+    "SeverityText": { "enum": ["DEBUG", "INFO", "WARN", "ERROR"] },
+    "Body": { "type": "string", "minLength": 1 },
+    "TraceId": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "SpanId": { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+    "Resource": {
+      "type": "object",
+      "required": ["service.name", "service.version", "deployment.environment",
+                   "madeit.repo", "madeit.component"],
+      "properties": {
+        "service.name": { "type": "string", "minLength": 1 },
+        "service.version": { "type": "string", "minLength": 1 },
+        "deployment.environment": { "type": "string", "minLength": 1 },
+        "madeit.repo": { "type": "string", "minLength": 1 },
+        "madeit.component": { "type": "string", "minLength": 1 }
+      }
+    },
+    "Attributes": {
+      "type": "object",
+      "required": ["madeit.event"],
+      "properties": { "madeit.event": { "type": "string", "pattern": "^[a-z][a-z0-9.-]*$" } }
+    }
+  }
+}

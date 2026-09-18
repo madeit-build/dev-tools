@@ -1,0 +1,13 @@
+{
+  "extends": "../../../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "esModuleInterop": true
+  },
+  "include": ["."],
+  "exclude": ["*.test.ts"]
+}
