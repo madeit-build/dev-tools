@@ -52,22 +52,31 @@ export function fanOut(sinks: readonly Sink[]): Sink {
     for (const sink of [...live]) {
       // A death notice earlier in this same pass may already have killed it.
       if (!live.has(sink)) continue;
-      try {
-        const result: unknown = sink(record);
-        if (result instanceof Promise) {
-          result.catch((error: unknown) => {
-            live.delete(sink);
-            announce(live, record.Resource, error);
-          });
-        }
-      } catch (error) {
-        live.delete(sink);
-        announce(live, record.Resource, error);
-      }
+      deliver(live, sink, record);
     }
   };
 }
 
+// A rejection is a death that arrives late, and it must be caught here or it
+// takes the process down, which is the one thing a logger may never do.
+function deliver(live: Set<Sink>, sink: Sink, record: LogRecord): void {
+  try {
+    const result: unknown = sink(record);
+    if (result instanceof Promise) {
+      result.catch((error: unknown) => bury(live, sink, record.Resource, error));
+    }
+  } catch (error) {
+    bury(live, sink, record.Resource, error);
+  }
+}
+
+function bury(live: Set<Sink>, sink: Sink, resource: LogRecord["Resource"], error: unknown): void {
+  live.delete(sink);
+  announce(live, resource, error);
+}
+
+// A sink that dies reporting a death is gone too, and its own death is still
+// news to whoever is left. Every death removes a sink, so this ends.
 function announce(live: Set<Sink>, resource: LogRecord["Resource"], error: unknown): void {
   const notice = buildRecord({
     resource, severity: "ERROR", body: "a sink failed and was disabled",
@@ -76,14 +85,7 @@ function announce(live: Set<Sink>, resource: LogRecord["Resource"], error: unkno
   });
   for (const sink of [...live]) {
     if (!live.has(sink)) continue;
-    try {
-      sink(notice);
-    } catch (nested) {
-      // A sink that dies reporting a death is gone too, and its own death is
-      // still news to whoever is left. Every death removes a sink, so this ends.
-      live.delete(sink);
-      announce(live, resource, nested);
-    }
+    deliver(live, sink, notice);
   }
 }
 

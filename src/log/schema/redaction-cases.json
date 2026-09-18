@@ -44,5 +44,6 @@
   { "key": "sessionId", "value": "a9f15bb8-65e4-4c1a-9f2b-0d1e2f3a4b5c", "expect": "truncate" },
   { "key": "madeit.sessionId", "value": "a9f15bb8-65e4-4c1a-9f2b-0d1e2f3a4b5c", "expect": "truncate" },
   { "key": "session.id", "value": "a9f15bb8-65e4-4c1a-9f2b-0d1e2f3a4b5c", "expect": "truncate" },
-  { "key": "claude_session_id", "value": "a9f15bb8-65e4-4c1a-9f2b-0d1e2f3a4b5c", "expect": "truncate" }
+  { "key": "claude_session_id", "value": "a9f15bb8-65e4-4c1a-9f2b-0d1e2f3a4b5c", "expect": "truncate" },
+  { "key": "session_name", "value": "late-night-refactors", "expect": "truncate" }
 ]

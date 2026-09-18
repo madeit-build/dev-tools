@@ -119,6 +119,25 @@ describe("sinks", () => {
     expect(seen).toEqual(["e", "sink.disabled", "e"]);
   });
 
+  it("disables an async sink that rejects on a death notice, with no unhandled rejection", async () => {
+    // The notice path is the one place a rejection could still escape, and an
+    // escaped rejection is the process-killing case the promise guard exists for.
+    let unhandled: unknown;
+    process.once("unhandledRejection", (reason) => { unhandled = reason; });
+    let firstCalls = 0;
+    let secondCalls = 0;
+    const first = async () => { firstCalls += 1; throw new Error("x"); };
+    const second = async () => { secondCalls += 1; throw new Error("y"); };
+    const sink = fanOut([first, second]);
+    sink(record());
+    await settle();
+    expect(unhandled).toBeUndefined();
+    sink(record());
+    await settle();
+    expect(unhandled).toBeUndefined();
+    expect([firstCalls, secondCalls]).toEqual([1, 2]);
+  });
+
   it("names the error's type when its message cannot be read", () => {
     const seen: unknown[] = [];
     const boom = () => {
