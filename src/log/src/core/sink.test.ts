@@ -36,13 +36,15 @@ describe("sinks", () => {
     expect(calls).toBe(1);
   });
 
-  it("keeps the healthy sinks when one dies", () => {
+  it("keeps the healthy sinks when one dies, and loses none of their records", () => {
     const seen: string[] = [];
     const boom = () => { throw new Error("x"); };
     const good = (r: { Body: string }) => { seen.push(r.Body); };
     const sink = fanOut([boom, good]);
     sink(record()); sink(record());
-    expect(seen).toHaveLength(2);
+    // Both caller records reach the survivor, and the death notice arrives once.
+    expect(seen.filter((body) => body === "b")).toHaveLength(2);
+    expect(seen.filter((body) => body === "a sink failed and was disabled")).toHaveLength(1);
   });
 
   it("reports the death through the surviving sinks, once", () => {
@@ -57,8 +59,9 @@ describe("sinks", () => {
   });
 
   it("becomes a no-op when every sink has died", () => {
-    const boom = () => { throw new Error("x"); };
-    const sink = fanOut([boom, boom]);
+    const first = () => { throw new Error("x"); };
+    const second = () => { throw new Error("y"); };
+    const sink = fanOut([first, second]);
     sink(record());
     expect(() => sink(record())).not.toThrow();
   });

@@ -30,7 +30,6 @@ export function fanOut(sinks: readonly Sink[]): Sink {
       } catch (error) {
         live.delete(sink);
         announce(live, record.Resource, error);
-        break;
       }
     }
   };
