@@ -3,7 +3,9 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import fs from "node:fs";
 import { buildRecord } from "./record.ts";
 
-const schema = JSON.parse(fs.readFileSync("../../schema/madeit-log-v1.json", "utf8"));
+const schema = JSON.parse(
+  fs.readFileSync(new URL("../../schema/madeit-log-v1.json", import.meta.url), "utf8"),
+);
 const validate = new Ajv2020({ strict: false }).compile(schema);
 
 const resource = {

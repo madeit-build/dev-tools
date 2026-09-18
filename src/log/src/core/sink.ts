@@ -5,12 +5,37 @@ import { buildRecord, type LogRecord } from "./record.ts";
 export type Sink = (record: LogRecord) => void;
 
 export function stdoutSink(): Sink {
-  return (record) => { process.stdout.write(JSON.stringify(record) + "\n"); };
+  return (record) => { process.stdout.write(serialize(record) + "\n"); };
 }
 
 export function fileSink(filePath: string): Sink {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
-  return (record) => { fs.appendFileSync(filePath, JSON.stringify(record) + "\n"); };
+  return (record) => { fs.appendFileSync(filePath, serialize(record) + "\n"); };
+}
+
+function replacer(_key: string, value: unknown): unknown {
+  return typeof value === "bigint" ? value.toString() : value;
+}
+
+// One attribute JSON cannot carry (a cycle) must cost one record, not the
+// sink for the rest of the process, so the record is swapped for one that
+// names what was lost.
+function serialize(record: LogRecord): string {
+  try {
+    return JSON.stringify(record, replacer);
+  } catch (error) {
+    return JSON.stringify(buildRecord({
+      resource: record.Resource,
+      severity: record.SeverityText,
+      body: "record could not be serialized",
+      event: "log.unserializable",
+      at: new Date(record.Timestamp),
+      attributes: {
+        "madeit.original_event": record.Attributes["madeit.event"],
+        "madeit.error": safeMessage(error),
+      },
+    }), replacer);
+  }
 }
 
 /**
@@ -25,8 +50,16 @@ export function fanOut(sinks: readonly Sink[]): Sink {
   const live = new Set(sinks);
   return (record) => {
     for (const sink of [...live]) {
+      // A death notice earlier in this same pass may already have killed it.
+      if (!live.has(sink)) continue;
       try {
-        sink(record);
+        const result: unknown = sink(record);
+        if (result instanceof Promise) {
+          result.catch((error: unknown) => {
+            live.delete(sink);
+            announce(live, record.Resource, error);
+          });
+        }
       } catch (error) {
         live.delete(sink);
         announce(live, record.Resource, error);
@@ -39,14 +72,27 @@ function announce(live: Set<Sink>, resource: LogRecord["Resource"], error: unkno
   const notice = buildRecord({
     resource, severity: "ERROR", body: "a sink failed and was disabled",
     event: "sink.disabled",
-    attributes: { "madeit.error": error instanceof Error ? error.message : String(error) },
+    attributes: { "madeit.error": safeMessage(error) },
   });
   for (const sink of [...live]) {
+    if (!live.has(sink)) continue;
     try {
       sink(notice);
-    } catch {
-      // A sink that dies reporting a death is simply gone too.
+    } catch (nested) {
+      // A sink that dies reporting a death is gone too, and its own death is
+      // still news to whoever is left. Every death removes a sink, so this ends.
       live.delete(sink);
+      announce(live, resource, nested);
     }
+  }
+}
+
+// An error whose message getter or toString throws would otherwise take the
+// announcement down with it, and the type name is still worth reporting.
+function safeMessage(error: unknown): string {
+  try {
+    return error instanceof Error ? error.message : String(error);
+  } catch {
+    return error instanceof Error ? error.constructor.name : typeof error;
   }
 }

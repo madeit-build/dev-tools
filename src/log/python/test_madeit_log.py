@@ -1,13 +1,23 @@
+import datetime
 import json
+import os
 import pathlib
+import tempfile
 import unittest
 
 import jsonschema
 
 import madeit_log
 
-SCHEMA = json.loads((pathlib.Path(__file__).parent.parent / "schema"
-                     / "madeit-log-v1.json").read_text())
+SCHEMA_DIR = pathlib.Path(__file__).parent.parent / "schema"
+SCHEMA = json.loads((SCHEMA_DIR / "madeit-log-v1.json").read_text())
+# Shared with the TypeScript suite, so the two redactors agree by test rather than by reading.
+REDACTION_CASES = json.loads((SCHEMA_DIR / "redaction-cases.json").read_text())
+
+
+def _lines(path):
+    with open(path) as handle:
+        return [json.loads(line) for line in handle if line.strip()]
 
 
 class RecordTest(unittest.TestCase):
@@ -83,6 +93,65 @@ class RecordTest(unittest.TestCase):
                     "refreshToken", "madeit.bearer", "x.auth", "jwt"):
             self.assertNotIn(key, attributes)
 
+    def test_truncates_a_session_id_however_its_key_is_spelled(self):
+        keys = ("sessionId", "madeit.sessionId", "session.id", "claude_session_id",
+                "madeit.session_id", "session_id")
+        self.log.info("a.b", "b", {key: "a9f15bb8-65e4-4c1a-9f2b" for key in keys})
+        for key in keys:
+            self.assertEqual(self.seen[0]["Attributes"][key], "a9f15bb8-65e", key)
+
+    def test_exempts_a_count_only_when_the_credential_word_is_token(self):
+        # Nobody counts passwords. A count word next to any other credential
+        # word is a credential with a suffix, and it drops.
+        keys = ("api_key_used", "secret_total", "password_max", "cookie_count",
+                "jwt_limit", "bearer_remaining")
+        self.log.info("a.b", "body", {key: "v" for key in keys})
+        for key in keys:
+            self.assertNotIn(key, self.seen[0]["Attributes"], key)
+
+    def test_agrees_with_the_typescript_suite_on_every_shared_case(self):
+        self.assertGreater(len(REDACTION_CASES), 0)
+        for case in REDACTION_CASES:
+            key, value, expected = case["key"], case["value"], case["expect"]
+            out = madeit_log.redact({key: value})
+            if expected == "drop":
+                self.assertNotIn(key, out, key)
+                self.assertEqual(out["madeit.redacted"], [key], key)
+                continue
+            self.assertNotIn("madeit.redacted", out, key)
+            if expected == "truncate":
+                self.assertGreater(len(value), madeit_log.SESSION_PREFIX_LEN, key)
+                self.assertEqual(out[key], value[:madeit_log.SESSION_PREFIX_LEN], key)
+                continue
+            self.assertEqual(out[key], value, key)
+
+    def test_a_well_formed_trace_attribute_on_an_untraced_logger_is_dropped(self):
+        self.log.info("a.b", "body", {
+            "madeit.trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
+            "madeit.span_id": "00f067aa0ba902b7",
+        })
+        record = self.seen[0]
+        self.assertNotIn("TraceId", record)
+        self.assertNotIn("SpanId", record)
+        self.assertNotIn("madeit.trace_id", record["Attributes"])
+        self.assertNotIn("madeit.span_id", record["Attributes"])
+        jsonschema.validate(record, SCHEMA)
+
+    def test_refuses_an_event_slug_the_schema_would_reject_naming_it(self):
+        with self.assertRaisesRegex(TypeError, r"'Route'.*\^\[a-z\]\[a-z0-9\.-\]\*\$"):
+            self.log.info("Route", "body")
+        self.assertEqual(self.seen, [])
+
+    def test_refuses_an_empty_body_which_the_schema_would_reject(self):
+        with self.assertRaisesRegex(TypeError, "body"):
+            self.log.info("a.b", "")
+        self.assertEqual(self.seen, [])
+
+    def test_a_trailing_newline_is_not_a_traceparent(self):
+        good = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
+        self.assertIsNotNone(madeit_log.parse_traceparent(good))
+        self.assertIsNone(madeit_log.parse_traceparent(good + "\n"))
+
     def test_a_caller_supplied_trace_attribute_never_overrides_with_trace(self):
         traced = self.log.with_trace(
             "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
@@ -141,7 +210,7 @@ class RecordTest(unittest.TestCase):
         self.assertEqual(len(first_calls), 1)
         self.assertEqual(len(second_calls), 1)
 
-    def test_a_healthy_sink_gets_the_record_and_a_disabled_notice(self):
+    def test_a_healthy_sink_gets_the_record_and_one_notice_per_death(self):
         def first_raiser(_record):
             raise OSError("x")
         def second_raiser(_record):
@@ -151,9 +220,88 @@ class RecordTest(unittest.TestCase):
             service="c", version="1", environment="test", repo="r",
             component="c", sinks=[first_raiser, second_raiser, seen.append])
         log.info("a.b", "body")  # must not raise
-        bodies = [record["Body"] for record in seen]
-        self.assertIn("body", bodies)
-        self.assertGreaterEqual(bodies.count("a sink failed and was disabled"), 1)
+        events = [record["Attributes"]["madeit.event"] for record in seen]
+        self.assertEqual(events.count("a.b"), 1)
+        self.assertEqual(events.count("sink.disabled"), 2)
+
+    def test_never_calls_a_sink_twice_for_one_record_once_it_has_been_disabled(self):
+        # A survivor that dies receiving a death notice is gone before the outer
+        # loop reaches it, so it must not see the caller's record afterward.
+        late_calls = []
+        def first_raiser(_record):
+            raise OSError("x")
+        def fragile(record):
+            if record["Attributes"]["madeit.event"] == "sink.disabled":
+                raise OSError("y")
+            late_calls.append(1)
+        log = madeit_log.get_logger(
+            service="c", version="1", environment="test", repo="r",
+            component="c", sinks=[first_raiser, fragile])
+        log.info("a.b", "body")
+        self.assertEqual(late_calls, [])
+
+    def test_names_the_errors_type_when_its_message_cannot_be_read(self):
+        class Mute(Exception):
+            def __str__(self):
+                raise RuntimeError("no")
+        def boom(_record):
+            raise Mute()
+        seen = []
+        def good(record):
+            if record["Attributes"]["madeit.event"] == "sink.disabled":
+                seen.append(record["Attributes"]["madeit.error"])
+        log = madeit_log.get_logger(
+            service="c", version="1", environment="test", repo="r",
+            component="c", sinks=[boom, good])
+        log.info("a.b", "body")  # must not raise
+        self.assertEqual(seen, ["Mute"])
+
+
+class FileSinkTest(unittest.TestCase):
+    def setUp(self):
+        self.path = os.path.join(tempfile.mkdtemp(), "nested", "out.jsonl")
+        self.seen = []
+        self.log = madeit_log.get_logger(
+            service="cues", version="abc1234", environment="test",
+            repo="agent-utilities", component="cues",
+            sinks=[madeit_log.file_sink(self.path)])
+
+    def test_creates_the_parent_directory(self):
+        self.log.info("a.b", "body")
+        self.assertEqual(len(_lines(self.path)), 1)
+
+    def test_a_bare_filename_needs_no_directory(self):
+        cwd = os.getcwd()
+        os.chdir(tempfile.mkdtemp())
+        try:
+            madeit_log.file_sink("out.jsonl")({"Body": "b"})
+            self.assertEqual(_lines("out.jsonl"), [{"Body": "b"}])
+        finally:
+            os.chdir(cwd)
+
+    def test_serializes_a_datetime_attribute_rather_than_dying_on_it(self):
+        self.log.info("a.b", "body", {"at": datetime.datetime(2026, 9, 10, 8, 0)})
+        self.log.info("a.b", "body")
+        lines = _lines(self.path)
+        self.assertEqual(len(lines), 2)
+        self.assertEqual(lines[0]["Attributes"]["at"], "2026-09-10 08:00:00")
+
+    def test_replaces_a_record_it_cannot_serialize_and_keeps_going(self):
+        # One cyclic attribute must not disable the whole sink for the process,
+        # and the replacement must still say which event was lost.
+        cyclic = {}
+        cyclic["self"] = cyclic
+        self.log.warn("a.b", "body", {"cyclic": cyclic})  # must not raise
+        self.log.info("a.b", "body")
+        replaced, following = _lines(self.path)
+        self.assertEqual(replaced["Attributes"]["madeit.event"], "log.unserializable")
+        self.assertEqual(replaced["Attributes"]["madeit.original_event"], "a.b")
+        self.assertIn("ircular", replaced["Attributes"]["madeit.error"])
+        self.assertEqual(replaced["Body"], "record could not be serialized")
+        self.assertEqual(replaced["SeverityText"], "WARN")
+        self.assertEqual(replaced["SeverityNumber"], 13)
+        jsonschema.validate(replaced, SCHEMA)
+        self.assertEqual(following["Body"], "body")
 
 
 if __name__ == "__main__":

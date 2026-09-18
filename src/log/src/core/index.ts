@@ -1,4 +1,5 @@
 import {
+  ConfigError,
   configureSync,
   getLogger as getLogtapeLogger,
   type LogLevel,
@@ -33,6 +34,22 @@ export interface Logger {
   withTrace(traceparent: string | undefined): Logger;
 }
 
+interface Trace {
+  readonly traceId: string;
+  readonly spanId: string;
+}
+
+/** What a Logger method hands to whichever transport carries it to the sinks. */
+interface Emission {
+  readonly severity: Severity;
+  readonly event: string;
+  readonly body: string;
+  readonly attributes: Record<string, unknown>;
+  readonly trace: Trace | undefined;
+}
+
+type Transport = (emission: Emission) => void;
+
 const SEVERITY_BY_LEVEL: Record<LogLevel, Severity> = {
   trace: "DEBUG",
   debug: "DEBUG",
@@ -42,9 +59,18 @@ const SEVERITY_BY_LEVEL: Record<LogLevel, Severity> = {
   fatal: "ERROR",
 };
 
+const LEVEL_BY_SEVERITY: Record<Severity, "debug" | "info" | "warn" | "error"> = {
+  DEBUG: "debug",
+  INFO: "info",
+  WARN: "warn",
+  ERROR: "error",
+};
+
 const LIFTED_PROPERTY_KEYS = ["madeit.event", "madeit.trace_id", "madeit.span_id"];
 const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/;
 const SPAN_ID_PATTERN = /^[0-9a-f]{16}$/;
+/** The schema's rule for `madeit.event`, checked here so a bad slug fails at the call site. */
+const EVENT_PATTERN = /^[a-z][a-z0-9.-]*$/;
 
 // One leaf category per getLogger() call, so two loggers minted for the same
 // service and component never share sinks. configureSync is process-global,
@@ -64,8 +90,21 @@ export function getLogger(opts: LoggerOptions): Logger {
   const category = ["madeit", opts.service, opts.component, String(nextId++)];
   const key = category.join(".");
   registry.set(key, { category, adapter: adapt(resource, write) });
-  reconfigure();
-  return build(getLogtapeLogger(category));
+  try {
+    reconfigure();
+  } catch (error) {
+    if (!(error instanceof ConfigError)) throw error;
+    // Someone else owns logtape's global config, and a logger that throws at
+    // construction over that would take its host process down with it.
+    registry.delete(key);
+    write(buildRecord({
+      resource, severity: "ERROR", event: "log.meta",
+      body: "logtape refused configuration; this logger bypasses it",
+      attributes: { "madeit.error": error.message },
+    }));
+    return build(direct(resource, write));
+  }
+  return build(throughLogtape(getLogtapeLogger(category)));
 }
 
 function reconfigure(): void {
@@ -105,8 +144,8 @@ function stringProperty(properties: Record<string, unknown>, key: string): strin
   return typeof value === "string" ? value : undefined;
 }
 
-// A caller can put any string under these keys; only a value shaped like the
-// real thing is trusted enough to become TraceId/SpanId on the record.
+// Only our own transport puts these keys in properties, but logtape's side is
+// still an open surface, so only a value shaped like the real thing is lifted.
 function matching(value: string | undefined, pattern: RegExp): string | undefined {
   return value !== undefined && pattern.test(value) ? value : undefined;
 }
@@ -149,30 +188,53 @@ function metaRecord(resource: Resource, entry: LogtapeRecord): LogRecord {
 }
 
 /**
- * `trace` is carried explicitly rather than through logtape's `with()`,
- * because `with()` lets a call-time property override the bound context,
- * which would let a caller-supplied `madeit.trace_id` attribute overwrite
- * the trace `withTrace` set. Spreading the caller's attributes first and the
- * trace last, in the same properties object, makes the logger's own trace
- * always win instead.
+ * The trace rides in each call's properties rather than through logtape's
+ * `with()`, because `with()` lets a call-time property override the bound
+ * context, and the logger's own trace must always win.
  */
-function build(logtapeLogger: LogtapeLogger, trace?: { traceId: string; spanId: string }): Logger {
-  const emit = (level: "debug" | "info" | "warn" | "error") =>
+function throughLogtape(logtapeLogger: LogtapeLogger): Transport {
+  return ({ severity, event, body, attributes, trace }) => {
+    const properties: Record<string, unknown> = { ...attributes, "madeit.event": event };
+    if (trace !== undefined) {
+      properties["madeit.trace_id"] = trace.traceId;
+      properties["madeit.span_id"] = trace.spanId;
+    }
+    logtapeLogger[LEVEL_BY_SEVERITY[severity]](body, properties);
+  };
+}
+
+function direct(resource: Resource, write: Sink): Transport {
+  return ({ severity, event, body, attributes, trace }) => {
+    write(buildRecord({
+      resource, severity, body, event, attributes,
+      ...(trace === undefined ? {} : { traceId: trace.traceId, spanId: trace.spanId }),
+    }));
+  };
+}
+
+function assertEmittable(event: string, body: string): void {
+  if (!EVENT_PATTERN.test(event)) {
+    throw new TypeError(`event ${JSON.stringify(event)} must match ${EVENT_PATTERN.source}`);
+  }
+  if (body.length === 0) {
+    throw new TypeError(`body must not be empty (event ${JSON.stringify(event)})`);
+  }
+}
+
+function build(transport: Transport, trace?: Trace): Logger {
+  const emit = (severity: Severity) =>
     (event: string, body: string, attributes: Record<string, unknown> = {}): void => {
-      const properties: Record<string, unknown> = { ...redact(attributes), "madeit.event": event };
-      if (trace !== undefined) {
-        properties["madeit.trace_id"] = trace.traceId;
-        properties["madeit.span_id"] = trace.spanId;
-      }
-      logtapeLogger[level](body, properties);
+      assertEmittable(event, body);
+      // A trace comes from withTrace or not at all; an attribute never supplies one.
+      transport({ severity, event, body, attributes: withoutLiftedKeys(redact(attributes)), trace });
     };
   return {
-    debug: emit("debug"),
-    info: emit("info"),
-    warn: emit("warn"),
-    error: emit("error"),
-    // Always derives from the same root logger and a freshly parsed trace,
-    // so a second withTrace() replaces the first rather than layering onto it.
-    withTrace: (traceparent) => build(logtapeLogger, parseTraceparent(traceparent) ?? undefined),
+    debug: emit("DEBUG"),
+    info: emit("INFO"),
+    warn: emit("WARN"),
+    error: emit("ERROR"),
+    // Always derives from the same transport and a freshly parsed trace, so a
+    // second withTrace() replaces the first rather than layering onto it.
+    withTrace: (traceparent) => build(transport, parseTraceparent(traceparent) ?? undefined),
   };
 }

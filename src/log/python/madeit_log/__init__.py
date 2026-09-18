@@ -19,19 +19,23 @@ _SEVERITY_NUMBER = {"DEBUG": 5, "INFO": 9, "WARN": 13, "ERROR": 17}
 # is a metric, but "private_key" and "refresh_token" are exactly what must
 # never land. Mirrors src/log/src/core/redact.ts word-for-word.
 _CREDENTIAL_WORDS = {
-    "token", "secret", "password", "passwd", "credential", "credentials",
-    "authorization", "auth", "bearer", "cookie", "apikey", "key", "jwt",
+    "token", "secret", "secrets", "password", "passwords", "passwd", "credential",
+    "credentials", "authorization", "auth", "bearer", "cookie", "cookies", "apikey",
+    "key", "jwt",
 }
 
 # A counted token is a number, not a credential, and this library serves LLM
 # tooling where token counts are the most common attribute of all.
 _COUNT_WORDS = {"count", "used", "limit", "max", "total", "remaining"}
 
-_SESSION_KEYS = {"madeit.session_id", "session_id"}
-_LIFTED_ATTRIBUTE_KEYS = {"madeit.trace_id", "madeit.span_id"}
+_SESSION_WORD = "session"
+_LIFTED_ATTRIBUTE_KEYS = {"madeit.event", "madeit.trace_id", "madeit.span_id"}
 _CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
+_DIGIT_BOUNDARY = re.compile(r"([a-zA-Z])([0-9])")
 _WORD_SEPARATOR = re.compile(r"[^a-z0-9]+")
-_TRACEPARENT = re.compile(r"^00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}$")
+_TRACEPARENT = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}")
+# The schema's rule for madeit.event, checked here so a bad slug fails at the call site.
+_EVENT_PATTERN = re.compile(r"[a-z][a-z0-9.-]*")
 
 
 def mint_traceparent():
@@ -44,7 +48,7 @@ def parse_traceparent(value):
     Guessing would link records into a trace that never existed, which is worse
     than no trace at all.
     """
-    match = _TRACEPARENT.match(value or "")
+    match = _TRACEPARENT.fullmatch(value or "")
     if match is None:
         return None
     trace_id, span_id = match.groups()
@@ -54,35 +58,67 @@ def parse_traceparent(value):
 
 
 def _words_of(key):
-    spaced = _CAMEL_BOUNDARY.sub(r"\1 \2", key).lower()
+    spaced = _DIGIT_BOUNDARY.sub(r"\1 \2", _CAMEL_BOUNDARY.sub(r"\1 \2", key)).lower()
     return [word for word in _WORD_SEPARATOR.split(spaced) if word]
 
 
-def _is_credential_key(key):
-    words = _words_of(key)
-    if not any(word in _CREDENTIAL_WORDS for word in words):
+def _is_credential_key(words):
+    # Only "token" earns the count exemption: nobody counts passwords, so
+    # "password_max" is a credential with a suffix, not a metric.
+    credentials = [word for word in words if word in _CREDENTIAL_WORDS]
+    if not credentials:
         return False
-    return not any(word in _COUNT_WORDS for word in words)
+    only_tokens = all(word == "token" for word in credentials)
+    return not (only_tokens and any(word in _COUNT_WORDS for word in words))
 
 
 def redact(attributes):
     out, dropped = {}, []
     for key, value in attributes.items():
-        if _is_credential_key(key):
+        words = _words_of(key)
+        if _is_credential_key(words):
             dropped.append(key)
             continue
         out[key] = (value[:SESSION_PREFIX_LEN]
-                    if key in _SESSION_KEYS and isinstance(value, str) else value)
+                    if _SESSION_WORD in words and isinstance(value, str) else value)
     if dropped:
         out["madeit.redacted"] = dropped
     return out
 
 
+def _safe_message(error):
+    # An error whose __str__ raises would otherwise take the announcement down
+    # with it, and the type name is still worth reporting.
+    try:
+        return str(error)
+    except Exception:
+        return type(error).__name__
+
+
+def _serialize(record):
+    # One attribute JSON cannot carry (a cycle) must cost one record, not the
+    # sink for the rest of the process, so the record is swapped for one that
+    # names what was lost.
+    try:
+        return json.dumps(record, default=str)
+    except Exception as error:
+        replacement = _build_record(
+            record["Resource"], record["SeverityText"], "record could not be serialized",
+            "log.unserializable",
+            attributes={
+                "madeit.original_event": record["Attributes"].get("madeit.event"),
+                "madeit.error": _safe_message(error),
+            },
+        )
+        replacement["Timestamp"] = record["Timestamp"]
+        return json.dumps(replacement, default=str)
+
+
 def file_sink(path):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     def write(record):
         with open(path, "a") as handle:
-            handle.write(json.dumps(record) + "\n")
+            handle.write(_serialize(record) + "\n")
     return write
 
 
@@ -107,9 +143,9 @@ def _build_record(resource, severity, body, event, attributes=None, trace=None, 
 class _FanOut:
     """Write to every sink and survive any of them.
 
-    A sink that throws is disabled rather than retried: the failure is almost
-    always permanent, and retrying it on every record turns one broken sink
-    into a per-call exception handler on the hot path. Mirrors sink.ts.
+    A sink that raises is disabled rather than retried, because the failure is
+    almost always permanent and a retry on every record puts one broken sink on
+    the hot path.
     """
 
     def __init__(self, resource, sinks):
@@ -118,9 +154,7 @@ class _FanOut:
 
     def dispatch(self, record):
         for sink in list(self._live):
-            # A sink already disabled by an earlier failure within this same
-            # dispatch (e.g. it just failed to receive the sink.disabled
-            # notice) must not be invoked a second time for one record.
+            # A death notice earlier in this same pass may already have killed it.
             if sink not in self._live:
                 continue
             try:
@@ -132,20 +166,22 @@ class _FanOut:
     def _announce(self, error):
         notice = _build_record(
             self._resource, "ERROR", "a sink failed and was disabled",
-            "sink.disabled", attributes={"madeit.error": str(error)},
+            "sink.disabled", attributes={"madeit.error": _safe_message(error)},
         )
         for sink in list(self._live):
+            if sink not in self._live:
+                continue
             try:
                 sink(notice)
-            except Exception:
-                # A sink that dies reporting a death is simply gone too.
+            except Exception as nested:
+                # A sink that dies reporting a death is gone too, and its own death
+                # is still news to whoever is left. Every death removes a sink, so this ends.
                 self._discard(sink)
+                self._announce(nested)
 
     def _discard(self, sink):
-        # list.remove raises on an absent item; two failures for the same sink
-        # in one dispatch (record, then its own disablement notice) must not
-        # crash the second removal. Mirrors Set.delete's no-op semantics in
-        # sink.ts.
+        # Two failures for one sink in one pass must not crash the second
+        # removal, mirroring Set.delete's no-op in sink.ts.
         if sink in self._live:
             self._live.remove(sink)
 
@@ -153,6 +189,13 @@ class _FanOut:
 def _without_lifted_keys(attributes):
     return {key: value for key, value in attributes.items()
             if key not in _LIFTED_ATTRIBUTE_KEYS}
+
+
+def _assert_emittable(event, body):
+    if not isinstance(event, str) or _EVENT_PATTERN.fullmatch(event) is None:
+        raise TypeError(f"event {event!r} must match ^{_EVENT_PATTERN.pattern}$")
+    if not isinstance(body, str) or body == "":
+        raise TypeError(f"body must be a non-empty string, got {body!r} (event {event!r})")
 
 
 class _Logger:
@@ -163,12 +206,11 @@ class _Logger:
         return _Logger(self._resource, self._fan_out, parse_traceparent(traceparent))
 
     def _emit(self, severity, event, body, attributes):
-        # madeit.trace_id / madeit.span_id are lifted only from with_trace, never
-        # from a caller attribute, so a caller can never spoof or override a trace.
-        clean = _without_lifted_keys(attributes or {})
+        _assert_emittable(event, body)
+        # A trace comes from with_trace or not at all; an attribute never supplies one.
+        clean = _without_lifted_keys(redact(attributes or {}))
         record = _build_record(
-            self._resource, severity, body, event,
-            attributes=redact(clean), trace=self._trace,
+            self._resource, severity, body, event, attributes=clean, trace=self._trace,
         )
         self._fan_out.dispatch(record)
 

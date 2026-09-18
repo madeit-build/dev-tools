@@ -3,22 +3,52 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fanOut, fileSink } from "./sink.ts";
-import { buildRecord } from "./record.ts";
+import { buildRecord, type LogRecord } from "./record.ts";
 
 const resource = {
   "service.name": "t", "service.version": "1", "deployment.environment": "test",
   "madeit.repo": "dev-tools", "madeit.component": "log",
 };
-const record = () => buildRecord({ resource, severity: "INFO", body: "b", event: "e" });
+const record = (attributes: Record<string, unknown> = {}) =>
+  buildRecord({ resource, severity: "INFO", body: "b", event: "e", attributes });
 const tmp = () => path.join(fs.mkdtempSync(path.join(os.tmpdir(), "sink-")), "out.jsonl");
+const lines = (p: string) => fs.readFileSync(p, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 describe("sinks", () => {
   it("writes one JSON line per record", () => {
     const p = tmp();
     fileSink(p)(record());
-    const lines = fs.readFileSync(p, "utf8").trim().split("\n");
-    expect(lines).toHaveLength(1);
-    expect(JSON.parse(lines[0]).Body).toBe("b");
+    expect(lines(p)).toHaveLength(1);
+    expect(lines(p)[0].Body).toBe("b");
+  });
+
+  it("serializes a bigint attribute rather than dying on it", () => {
+    const p = tmp();
+    const sink = fileSink(p);
+    sink(record({ n: 10n }));
+    sink(record());
+    expect(lines(p)).toHaveLength(2);
+    expect(lines(p)[0].Attributes.n).toBe("10");
+  });
+
+  it("replaces a record it cannot serialize and keeps going", () => {
+    // One cyclic attribute must not disable the whole sink for the process,
+    // and the replacement must still say which event was lost.
+    const p = tmp();
+    const sink = fileSink(p);
+    const cyclic: Record<string, unknown> = {};
+    cyclic["self"] = cyclic;
+    expect(() => sink(record({ cyclic }))).not.toThrow();
+    sink(record());
+    const [replaced, next] = lines(p);
+    expect(replaced.Attributes["madeit.event"]).toBe("log.unserializable");
+    expect(replaced.Attributes["madeit.original_event"]).toBe("e");
+    expect(replaced.Attributes["madeit.error"]).toMatch(/circular/i);
+    expect(replaced.Body).toBe("record could not be serialized");
+    expect(replaced.SeverityText).toBe("INFO");
+    expect(replaced.Resource).toEqual(resource);
+    expect(next.Body).toBe("b");
   });
 
   it("A THROWING SINK NEVER REACHES THE CALLER", () => {
@@ -47,15 +77,61 @@ describe("sinks", () => {
     expect(seen.filter((body) => body === "a sink failed and was disabled")).toHaveLength(1);
   });
 
-  it("reports the death through the surviving sinks, once", () => {
+  it("reports each death through the surviving sinks, once per death", () => {
     const events: unknown[] = [];
-    const boom = () => { throw new Error("disk gone"); };
+    const first = () => { throw new Error("disk gone"); };
+    const second = () => { throw new Error("stream closed"); };
     const good = (r: { Attributes: Record<string, unknown> }) => {
       events.push(r.Attributes["madeit.event"]);
     };
-    const sink = fanOut([boom, good]);
-    sink(record()); sink(record());
-    expect(events.filter((e) => e === "sink.disabled")).toHaveLength(1);
+    const sink = fanOut([first, second, good]);
+    sink(record());
+    expect(events.filter((e) => e === "sink.disabled")).toHaveLength(2);
+    expect(events.filter((e) => e === "e")).toHaveLength(1);
+  });
+
+  it("never calls a sink twice for one record once it has been disabled", () => {
+    // A survivor that dies receiving a death notice is gone before the outer
+    // loop reaches it, so it must not see the caller's record afterward.
+    let lateCalls = 0;
+    const first = () => { throw new Error("x"); };
+    const fragile = (r: LogRecord) => {
+      if (r.Attributes["madeit.event"] === "sink.disabled") throw new Error("y");
+      lateCalls += 1;
+    };
+    fanOut([first, fragile])(record());
+    expect(lateCalls).toBe(0);
+  });
+
+  it("disables a rejecting async sink like a throwing one, with no unhandled rejection", async () => {
+    let unhandled: unknown;
+    process.once("unhandledRejection", (reason) => { unhandled = reason; });
+    const seen: unknown[] = [];
+    const rejecting = async () => { throw new Error("x"); };
+    const good = (r: LogRecord) => { seen.push(r.Attributes["madeit.event"]); };
+    const sink = fanOut([rejecting, good]);
+    expect(() => sink(record())).not.toThrow();
+    await settle();
+    expect(unhandled).toBeUndefined();
+    expect(seen).toEqual(["e", "sink.disabled"]);
+    sink(record());
+    await settle();
+    expect(seen).toEqual(["e", "sink.disabled", "e"]);
+  });
+
+  it("names the error's type when its message cannot be read", () => {
+    const seen: unknown[] = [];
+    const boom = () => {
+      throw new (class Mute extends Error {
+        override toString(): string { throw new Error("no"); }
+        override get message(): string { throw new Error("no"); }
+      })();
+    };
+    const good = (r: LogRecord) => {
+      if (r.Attributes["madeit.event"] === "sink.disabled") seen.push(r.Attributes["madeit.error"]);
+    };
+    expect(() => fanOut([boom, good])(record())).not.toThrow();
+    expect(seen).toEqual(["Mute"]);
   });
 
   it("becomes a no-op when every sink has died", () => {

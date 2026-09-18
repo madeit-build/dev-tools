@@ -64,6 +64,13 @@ suites validate that.
 | `cue.spoke` | `madeit.rule`, `madeit.audience` | what reached a human or the agent |
 | `daemon.lifecycle` | `madeit.phase`, `madeit.pid`, `madeit.socket` | spawn, listening, the exits |
 | `crash` | `madeit.error`, `madeit.stack_digest` | an uncaught error, as a queryable record |
+| `sink.disabled` | `madeit.error` | a sink threw and was taken out of rotation |
+| `log.meta` | `madeit.error` | logging itself failed, as reported by logtape or by the wrapper |
+| `log.unserializable` | `madeit.original_event`, `madeit.error` | a record JSON could not carry, standing in for the original |
+
+`event` must match `^[a-z][a-z0-9.-]*$` and `body` must be non-empty; the
+call site throws a `TypeError` otherwise, so a slug the schema would reject
+never reaches a sink.
 
 ## Redaction
 
@@ -71,6 +78,33 @@ suites validate that.
 credential-shaped attribute key (`token`, `secret`, `password`, `key`, and
 similar) is dropped and its absence recorded as `madeit.redacted`. Session
 ids are truncated to their 12-character prefix.
+
+Any key whose words include `session` (`session_id`, `sessionId`,
+`madeit.session_id`, `claude_session_id`) counts as a session id, and only
+`token` gets the count exemption: `max_tokens` stays, `password_max` drops.
+Both implementations assert every case in
+`src/log/schema/redaction-cases.json`.
+
+## Sinks
+
+Sinks are synchronous in phase 1. A sink that throws (or, in TypeScript,
+returns a rejecting promise) is disabled and its death announced through the
+survivors as `sink.disabled`; stdout `EPIPE` errors are not caught.
+
+## Owns logtape's configuration
+
+The package calls logtape's `configureSync({ reset: true })` on every
+`getLogger`, so the process must not call logtape's `configure` itself. If
+logtape refuses the configuration anyway, `getLogger` does not throw: it
+emits one `log.meta` record and returns a logger that writes to its sinks
+directly. The OTel sink phase will revisit this ownership.
+
+## Python
+
+`src/log/python/madeit_log` is the mirror: `get_logger`, `file_sink`, and
+`TRACEPARENT_ENV`, with the same record shape, redaction, and sink failure
+policy, and `test_madeit_log.py` validates against the same schema. Run its
+tests from `src/log/python` with `uv run python -m unittest test_madeit_log -v`.
 
 ## Trace context
 
