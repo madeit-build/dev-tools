@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import fs from "node:fs";
+import { getLogger as getLogtapeLogger } from "@logtape/logtape";
 import { getLogger } from "./index.ts";
 import type { LogRecord } from "./record.ts";
 
@@ -48,6 +49,46 @@ describe("getLogger", () => {
     logger.withTrace("nonsense").info("a.b", "body");
     expect(seen[0]?.TraceId).toBeUndefined();
     expect(seen).toHaveLength(1);
+  });
+
+  it("a junk madeit.trace_id attribute yields an untraced record that still validates", () => {
+    const { logger, seen } = capture();
+    logger.info("a.b", "body", { "madeit.trace_id": "junk" });
+    expect(seen[0]?.TraceId).toBeUndefined();
+    expect(validate(seen[0]), JSON.stringify(validate.errors)).toBe(true);
+  });
+
+  it("a caller attribute cannot override the trace withTrace set", () => {
+    const { logger, seen } = capture();
+    const traced = logger.withTrace("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
+    traced.info("a.b", "body", {
+      "madeit.trace_id": "deadbeefdeadbeefdeadbeefdeadbeef",
+      "madeit.span_id": "deadbeefdeadbeef",
+    });
+    expect(seen[0]?.TraceId).toBe("4bf92f3577b34da6a3ce929d0e0e4736");
+    expect(seen[0]?.SpanId).toBe("00f067aa0ba902b7");
+  });
+
+  it("a second withTrace replaces the first rather than layering onto it", () => {
+    const { logger, seen } = capture();
+    logger.withTrace("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+      .withTrace("nonsense")
+      .info("a.b", "body");
+    expect(seen[0]?.TraceId).toBeUndefined();
+    expect(seen[0]?.SpanId).toBeUndefined();
+  });
+
+  it("the meta path turns a sink failure logtape reports into a conforming record", () => {
+    const { seen } = capture();
+    getLogtapeLogger(["logtape", "meta"]).fatal(
+      "Failed to emit a log record to sink {sink}: {error}",
+      { sink: () => {}, error: new Error("boom"), record: { category: ["x"], nested: { deep: true } } },
+    );
+    expect(seen).toHaveLength(1);
+    expect(validate(seen[0]), JSON.stringify(validate.errors)).toBe(true);
+    expect(seen[0]?.Attributes["madeit.event"]).toBe("log.meta");
+    expect(seen[0]?.Attributes["madeit.error"]).toBe("boom");
+    expect(Object.keys(seen[0]?.Attributes ?? {}).sort()).toEqual(["madeit.error", "madeit.event"]);
   });
 
   it("a throwing sink is disabled, not retried through logtape's own meta logger", () => {

@@ -33,7 +33,6 @@ export interface Logger {
   withTrace(traceparent: string | undefined): Logger;
 }
 
-// logtape's own level names, mapped onto the four we expose.
 const SEVERITY_BY_LEVEL: Record<LogLevel, Severity> = {
   trace: "DEBUG",
   debug: "DEBUG",
@@ -44,6 +43,8 @@ const SEVERITY_BY_LEVEL: Record<LogLevel, Severity> = {
 };
 
 const LIFTED_PROPERTY_KEYS = ["madeit.event", "madeit.trace_id", "madeit.span_id"];
+const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/;
+const SPAN_ID_PATTERN = /^[0-9a-f]{16}$/;
 
 // One leaf category per getLogger() call, so two loggers minted for the same
 // service and component never share sinks. configureSync is process-global,
@@ -104,6 +105,12 @@ function stringProperty(properties: Record<string, unknown>, key: string): strin
   return typeof value === "string" ? value : undefined;
 }
 
+// A caller can put any string under these keys; only a value shaped like the
+// real thing is trusted enough to become TraceId/SpanId on the record.
+function matching(value: string | undefined, pattern: RegExp): string | undefined {
+  return value !== undefined && pattern.test(value) ? value : undefined;
+}
+
 function withoutLiftedKeys(properties: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(properties)) {
@@ -113,8 +120,8 @@ function withoutLiftedKeys(properties: Record<string, unknown>): Record<string, 
 }
 
 function normalRecord(resource: Resource, entry: LogtapeRecord): LogRecord {
-  const traceId = stringProperty(entry.properties, "madeit.trace_id");
-  const spanId = stringProperty(entry.properties, "madeit.span_id");
+  const traceId = matching(stringProperty(entry.properties, "madeit.trace_id"), TRACE_ID_PATTERN);
+  const spanId = matching(stringProperty(entry.properties, "madeit.span_id"), SPAN_ID_PATTERN);
   return buildRecord({
     resource,
     severity: SEVERITY_BY_LEVEL[entry.level],
@@ -141,23 +148,31 @@ function metaRecord(resource: Resource, entry: LogtapeRecord): LogRecord {
   });
 }
 
-function build(logtapeLogger: LogtapeLogger): Logger {
+/**
+ * `trace` is carried explicitly rather than through logtape's `with()`,
+ * because `with()` lets a call-time property override the bound context,
+ * which would let a caller-supplied `madeit.trace_id` attribute overwrite
+ * the trace `withTrace` set. Spreading the caller's attributes first and the
+ * trace last, in the same properties object, makes the logger's own trace
+ * always win instead.
+ */
+function build(logtapeLogger: LogtapeLogger, trace?: { traceId: string; spanId: string }): Logger {
   const emit = (level: "debug" | "info" | "warn" | "error") =>
     (event: string, body: string, attributes: Record<string, unknown> = {}): void => {
-      logtapeLogger[level](body, { ...redact(attributes), "madeit.event": event });
+      const properties: Record<string, unknown> = { ...redact(attributes), "madeit.event": event };
+      if (trace !== undefined) {
+        properties["madeit.trace_id"] = trace.traceId;
+        properties["madeit.span_id"] = trace.spanId;
+      }
+      logtapeLogger[level](body, properties);
     };
   return {
     debug: emit("debug"),
     info: emit("info"),
     warn: emit("warn"),
     error: emit("error"),
-    withTrace: (traceparent) => {
-      const parsed = parseTraceparent(traceparent);
-      return build(
-        parsed === null
-          ? logtapeLogger
-          : logtapeLogger.with({ "madeit.trace_id": parsed.traceId, "madeit.span_id": parsed.spanId }),
-      );
-    },
+    // Always derives from the same root logger and a freshly parsed trace,
+    // so a second withTrace() replaces the first rather than layering onto it.
+    withTrace: (traceparent) => build(logtapeLogger, parseTraceparent(traceparent) ?? undefined),
   };
 }

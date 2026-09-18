@@ -22,11 +22,14 @@ logger.info("route", "dispatch routed", { "madeit.tool": "Bash" });
 ```
 
 `Body` is fixed per event; everything variable belongs in the attributes
-object, never in the body string.
+object, never in the body string. Call `getLogger` once per component at
+startup: each call opens its sinks and registers for the life of the
+process.
 
 ## Conventions
 
-Every record is validated against `src/log/schema/madeit-log-v1.json`.
+Every record conforms to `src/log/schema/madeit-log-v1.json`, and the test
+suites validate that.
 
 **Resource attributes** (constant for the process)
 
@@ -54,20 +57,20 @@ Every record is validated against `src/log/schema/madeit-log-v1.json`.
 
 | Event | Attributes | Answers |
 |---|---|---|
-| `route` | `hook_event`, `tool`, `answered`, `duration_ms` | what was dispatched |
-| `cue.evaluated` | `rule`, `fired`, `score` | what a cue decided |
-| `cue.declined` | `rule`, `reason` | why a cue wrote no row at all |
-| `cue.throttled` | `rule`, `bar`, `score` | why a cue that fired stayed quiet |
-| `cue.spoke` | `rule`, `audience` | what reached a human or the agent |
-| `daemon.lifecycle` | `phase`, `pid`, `socket` | spawn, listening, the exits |
-| `crash` | `error`, `stack_digest` | an uncaught error, as a queryable record |
+| `route` | `madeit.hook_event`, `madeit.tool`, `madeit.answered`, `madeit.duration_ms` | what was dispatched |
+| `cue.evaluated` | `madeit.rule`, `madeit.fired`, `madeit.score` | what a cue decided |
+| `cue.declined` | `madeit.rule`, `madeit.reason` | why a cue wrote no row at all |
+| `cue.throttled` | `madeit.rule`, `madeit.bar`, `madeit.score` | why a cue that fired stayed quiet |
+| `cue.spoke` | `madeit.rule`, `madeit.audience` | what reached a human or the agent |
+| `daemon.lifecycle` | `madeit.phase`, `madeit.pid`, `madeit.socket` | spawn, listening, the exits |
+| `crash` | `madeit.error`, `madeit.stack_digest` | an uncaught error, as a queryable record |
 
 ## Redaction
 
-`redact` runs inside the wrapper, before any sink sees a record. A credential-
-shaped attribute key (`token`, `secret`, `password`, `key`, and similar) is
-dropped and its absence recorded as `madeit.redacted`. Session ids are
-truncated to their 12-character prefix.
+`redact` runs inside the wrapper, before any sink sees a record. A
+credential-shaped attribute key (`token`, `secret`, `password`, `key`, and
+similar) is dropped and its absence recorded as `madeit.redacted`. Session
+ids are truncated to their 12-character prefix.
 
 ## Trace context
 
