@@ -33,4 +33,21 @@ describe("redact", () => {
   it("adds no redacted marker when nothing was dropped", () => {
     expect(redact({ "madeit.tool": "Bash" })["madeit.redacted"]).toBeUndefined();
   });
+
+  it("keeps a counted or plural token, which is a metric and not a credential", () => {
+    const out = redact({
+      "madeit.token_count": 12, "input_tokens": 3, "max_tokens": 4096,
+      "madeit.keyboard": "us", "hotkey": "cmd-k",
+    });
+    expect(Object.keys(out).sort()).toEqual(
+      ["hotkey", "input_tokens", "madeit.keyboard", "madeit.token_count", "max_tokens"]);
+    expect(out["madeit.redacted"]).toBeUndefined();
+  });
+
+  it("drops a credential however the word is joined to its neighbors", () => {
+    for (const key of ["private_key", "signing-key", "aws_access_key_id", "apiKey",
+                       "refreshToken", "madeit.bearer", "x.auth", "jwt"]) {
+      expect(redact({ [key]: "v" })[key], key).toBeUndefined();
+    }
+  });
 });

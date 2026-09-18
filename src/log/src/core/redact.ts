@@ -1,19 +1,38 @@
 /** What the cue throttle already keys on, so the two agree on identity. */
 export const SESSION_PREFIX_LEN = 12;
 
-// Substring match rather than an exact list: the key that leaks is always the
-// one nobody thought to enumerate, and a false positive costs one dropped
-// attribute while a false negative costs a credential.
-const CREDENTIAL = /(token|secret|password|credential|api[_.-]?key|^key$|authorization|cookie)/i;
+// Whole words rather than substrings: `keyboard` is not a key and `token_count`
+// is a metric, but `private_key` and `refresh_token` are exactly what must never land.
+const CREDENTIAL_WORDS = new Set([
+  "token", "secret", "password", "passwd", "credential", "credentials",
+  "authorization", "auth", "bearer", "cookie", "apikey", "key", "jwt",
+]);
+
+// A counted token is a number, not a credential, and this library serves LLM
+// tooling where token counts are the most common attribute of all.
+const COUNT_WORDS = new Set(["count", "used", "limit", "max", "total", "remaining"]);
 
 const SESSION_KEYS = new Set(["madeit.session_id", "session_id"]);
+
+function wordsOf(key: string): string[] {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((word) => word.length > 0);
+}
+
+function isCredentialKey(key: string): boolean {
+  const words = wordsOf(key);
+  if (!words.some((word) => CREDENTIAL_WORDS.has(word))) return false;
+  return !words.some((word) => COUNT_WORDS.has(word));
+}
 
 export function redact(attributes: Record<string, unknown>): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   const dropped: string[] = [];
   for (const [key, value] of Object.entries(attributes)) {
-    const leaf = key.split(".").at(-1) ?? key;
-    if (CREDENTIAL.test(key) || CREDENTIAL.test(leaf)) {
+    if (isCredentialKey(key)) {
       dropped.push(key);
       continue;
     }
