@@ -13,6 +13,7 @@
 ## File Structure
 
 **New package `src/codemap/`** (`@made-i-t/hdtw-codemap`, CJS, mirrors `src/engine/core/` layout):
+
 - `package.json`, `tsconfig.json`, `vitest.config.ts`, `eslint`-inherited
 - `src/symbols.ts` — `Symbol`, `SymbolKind`, pure `parseSymbols(content, language)`
 - `src/grammars.ts` — WASM grammar loading + registry, `languageForPath(path)`
@@ -20,12 +21,13 @@
 - `src/symbols.test.ts`, `src/index.test.ts`
 
 **Modified:**
+
 - `src/protocol/src/tours.ts` — add `symbol?` to `TourAnchor`
 - `src/engine/core/src/anchors.ts` — `"symbol-missing"` freshness + `checkSymbolAnchorFreshness`
-- `src/engine/server/src/symbolResolver.ts` *(new)* — server-side resolve + path guard + tiebreak
+- `src/engine/server/src/symbolResolver.ts` _(new)_ — server-side resolve + path guard + tiebreak
 - `src/engine/server/src/generationPipeline.ts` — `verifyStep` symbol branch
 - `src/engine/server/src/tourHandlers.ts` — `getTour` re-resolution; drift symbol states
-- `src/engine/server/src/codemapTools.ts` *(new)* — in-process SDK MCP tools
+- `src/engine/server/src/codemapTools.ts` _(new)_ — in-process SDK MCP tools
 - `src/engine/server/src/claudeTourGenerator.ts` — register tools + system-prompt rule
 - `src/engine/server/src/fakeTourGenerator.ts` — symbol-anchor draft path
 - `src/clients/vscode/src/driftBadge.ts` — `symbol-missing` badge
@@ -38,12 +40,14 @@
 **Goal:** Prove `web-tree-sitter` init + TS grammar load + a query that yields symbol line ranges, on one fixture, before any real code depends on the API shape.
 
 **Files:**
+
 - Create: `src/codemap/package.json`, `src/codemap/tsconfig.json`, `src/codemap/vitest.config.ts`
 - Create: `src/codemap/src/spike.test.ts` (temporary — deleted in Task 2)
 
 - [ ] **Step 1: Create the package manifest**
 
 `src/codemap/package.json`:
+
 ```json
 {
   "name": "@made-i-t/hdtw-codemap",
@@ -70,6 +74,7 @@
 ```
 
 `src/codemap/tsconfig.json` (copy `src/engine/core/tsconfig.json` verbatim — same CJS Node16 settings):
+
 ```json
 {
   "extends": "../../tsconfig.base.json",
@@ -83,6 +88,7 @@
 ```
 
 `src/codemap/vitest.config.ts` (copy `src/engine/core/vitest.config.ts`):
+
 ```ts
 import { defineConfig } from "vitest/config";
 
@@ -101,6 +107,7 @@ Expected: `web-tree-sitter` and `tree-sitter-wasms` resolve and link into `src/c
 - [ ] **Step 3: Write the spike test that locks the API**
 
 `src/codemap/src/spike.test.ts`:
+
 ```ts
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -116,16 +123,22 @@ test("web-tree-sitter loads the TS grammar and reports symbol line ranges", asyn
   const wasmPath = path.join(
     path.dirname(require.resolve("tree-sitter-wasms/package.json")),
     "out",
-    "tree-sitter-typescript.wasm"
+    "tree-sitter-typescript.wasm",
   );
   const TS = await Language.load(wasmPath);
   parser.setLanguage(TS);
 
-  const source = ["export function alpha() {", "  return 1;", "}", "", "class Beta {}"].join("\n");
+  const source = [
+    "export function alpha() {",
+    "  return 1;",
+    "}",
+    "",
+    "class Beta {}",
+  ].join("\n");
   const tree = parser.parse(source);
   const query = new Query(
     TS,
-    "(function_declaration name: (identifier) @name) (class_declaration name: (type_identifier) @name)"
+    "(function_declaration name: (identifier) @name) (class_declaration name: (type_identifier) @name)",
   );
   const captures = query.captures(tree.rootNode);
   const names = captures.map((c) => c.node.text);
@@ -163,6 +176,7 @@ git commit -m "feat(codemap): scaffold hdtw-codemap, lock web-tree-sitter API vi
 ## Task 2: Pure `parseSymbols(content, language)`
 
 **Files:**
+
 - Create: `src/codemap/src/symbols.ts`
 - Create: `src/codemap/src/grammars.ts`
 - Create: `src/codemap/src/symbols.test.ts`
@@ -171,6 +185,7 @@ git commit -m "feat(codemap): scaffold hdtw-codemap, lock web-tree-sitter API vi
 - [ ] **Step 1: Write the grammar loader**
 
 `src/codemap/src/grammars.ts`:
+
 ```ts
 import path from "node:path";
 import { createRequire } from "node:module";
@@ -191,13 +206,25 @@ let initialized: Promise<void> | undefined;
 /** Map a file path to a grammar, or undefined when unsupported. */
 export function languageForPath(filePath: string): CodemapLanguage | undefined {
   if (filePath.endsWith(".tsx") || filePath.endsWith(".jsx")) return "tsx";
-  if (filePath.endsWith(".ts") || filePath.endsWith(".mts") || filePath.endsWith(".cts")) return "ts";
-  if (filePath.endsWith(".js") || filePath.endsWith(".mjs") || filePath.endsWith(".cjs")) return "ts";
+  if (
+    filePath.endsWith(".ts")
+    || filePath.endsWith(".mts")
+    || filePath.endsWith(".cts")
+  )
+    return "ts";
+  if (
+    filePath.endsWith(".js")
+    || filePath.endsWith(".mjs")
+    || filePath.endsWith(".cjs")
+  )
+    return "ts";
   return undefined;
 }
 
 /** Load and cache a grammar Language; idempotent across calls. */
-export async function loadLanguage(language: CodemapLanguage): Promise<Language> {
+export async function loadLanguage(
+  language: CodemapLanguage,
+): Promise<Language> {
   initialized ??= Parser.init();
   await initialized;
   let pending = cache.get(language);
@@ -205,7 +232,7 @@ export async function loadLanguage(language: CodemapLanguage): Promise<Language>
     const wasmPath = path.join(
       path.dirname(require.resolve("tree-sitter-wasms/package.json")),
       "out",
-      WASM_FILE[language]
+      WASM_FILE[language],
     );
     pending = Language.load(wasmPath);
     cache.set(language, pending);
@@ -226,6 +253,7 @@ export async function newParser(language: CodemapLanguage): Promise<Parser> {
 - [ ] **Step 2: Write the failing test for `parseSymbols`**
 
 `src/codemap/src/symbols.test.ts`:
+
 ```ts
 import { expect, test } from "vitest";
 import { parseSymbols } from "./symbols.js";
@@ -248,10 +276,27 @@ test("parseSymbols finds top-level functions, classes, methods, and exported con
   const symbols = await parseSymbols(source, "ts");
   const byName = (n: string) => symbols.find((s) => s.name === n);
 
-  expect(byName("alpha")).toMatchObject({ kind: "function", startLine: 1, endLine: 3 });
-  expect(byName("Beta")).toMatchObject({ kind: "class", startLine: 5, endLine: 9 });
-  expect(byName("gamma")).toMatchObject({ kind: "method", startLine: 6, endLine: 8, qualifiedName: "Beta.gamma" });
-  expect(byName("delta")).toMatchObject({ kind: "const", startLine: 11, endLine: 11 });
+  expect(byName("alpha")).toMatchObject({
+    kind: "function",
+    startLine: 1,
+    endLine: 3,
+  });
+  expect(byName("Beta")).toMatchObject({
+    kind: "class",
+    startLine: 5,
+    endLine: 9,
+  });
+  expect(byName("gamma")).toMatchObject({
+    kind: "method",
+    startLine: 6,
+    endLine: 8,
+    qualifiedName: "Beta.gamma",
+  });
+  expect(byName("delta")).toMatchObject({
+    kind: "const",
+    startLine: 11,
+    endLine: 11,
+  });
 });
 
 test("parseSymbols disambiguates duplicate method names by qualifiedName", async () => {
@@ -273,18 +318,13 @@ Expected: FAIL — `parseSymbols` not defined.
 - [ ] **Step 4: Implement `parseSymbols`**
 
 `src/codemap/src/symbols.ts`:
+
 ```ts
 import { Query } from "web-tree-sitter";
 import { loadLanguage, newParser, type CodemapLanguage } from "./grammars.js";
 
 export type SymbolKind =
-  | "function"
-  | "method"
-  | "class"
-  | "interface"
-  | "const"
-  | "enum"
-  | "type";
+  "function" | "method" | "class" | "interface" | "const" | "enum" | "type";
 
 export interface CodeSymbol {
   name: string;
@@ -323,7 +363,7 @@ const CAPTURE_KIND: Record<string, SymbolKind> = {
 /** Pure: parse source text into the named symbols we can anchor to. */
 export async function parseSymbols(
   content: string,
-  language: CodemapLanguage
+  language: CodemapLanguage,
 ): Promise<CodeSymbol[]> {
   const lang = await loadLanguage(language);
   const parser = await newParser(language);
@@ -364,7 +404,10 @@ function qualify(name: string, declaration: TsNode): string {
   // Walk up to an enclosing class/interface to build "Owner.name".
   let cursor: TsNode | null = declaration.parent ?? null;
   while (cursor) {
-    if (cursor.type === "class_declaration" || cursor.type === "interface_declaration") {
+    if (
+      cursor.type === "class_declaration"
+      || cursor.type === "interface_declaration"
+    ) {
       const owner = ownerName(cursor);
       if (owner) return `${owner}.${name}`;
       break;
@@ -405,6 +448,7 @@ Expected: PASS (both tests). Then `rm src/codemap/src/spike.test.ts`.
 
 Run: `pnpm --filter @made-i-t/hdtw-codemap build && pnpm --filter @made-i-t/hdtw-codemap lint`
 Expected: clean.
+
 ```bash
 git add src/codemap
 git commit -m "feat(codemap): pure parseSymbols over TS/JS via tree-sitter"
@@ -415,12 +459,14 @@ git commit -m "feat(codemap): pure parseSymbols over TS/JS via tree-sitter"
 ## Task 3: fs facade — `fileOutline` and `findSymbol`
 
 **Files:**
+
 - Create: `src/codemap/src/index.ts`
 - Create: `src/codemap/src/index.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 `src/codemap/src/index.test.ts`:
+
 ```ts
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -454,12 +500,22 @@ test("fileOutline lists symbols; unsupported extension yields []", async () => {
 test("findSymbol resolves a unique name, flags ambiguity, and reports not-found", async () => {
   const p = await write(
     "b.ts",
-    ["export function only() {}", "class A { dup() {} }", "class B { dup() {} }"].join("\n")
+    [
+      "export function only() {}",
+      "class A { dup() {} }",
+      "class B { dup() {} }",
+    ].join("\n"),
   );
-  expect(await findSymbol(p, "only")).toMatchObject({ ok: true, symbol: { name: "only" } });
+  expect(await findSymbol(p, "only")).toMatchObject({
+    ok: true,
+    symbol: { name: "only" },
+  });
   expect(await findSymbol(p, "dup")).toMatchObject({ ok: "ambiguous" });
   // qualifiedName resolves uniquely
-  expect(await findSymbol(p, "A.dup")).toMatchObject({ ok: true, symbol: { qualifiedName: "A.dup" } });
+  expect(await findSymbol(p, "A.dup")).toMatchObject({
+    ok: true,
+    symbol: { qualifiedName: "A.dup" },
+  });
   expect(await findSymbol(p, "missing")).toEqual({ ok: false });
 });
 ```
@@ -472,6 +528,7 @@ Expected: FAIL — module `./index.js` has no `fileOutline`/`findSymbol`.
 - [ ] **Step 3: Implement the facade**
 
 `src/codemap/src/index.ts`:
+
 ```ts
 import { readFile } from "node:fs/promises";
 import { parseSymbols, type CodeSymbol } from "./symbols.js";
@@ -494,9 +551,14 @@ export async function fileOutline(absolutePath: string): Promise<CodeSymbol[]> {
 }
 
 /** Resolve a symbol by name or qualifiedName. */
-export async function findSymbol(absolutePath: string, name: string): Promise<FindSymbolResult> {
+export async function findSymbol(
+  absolutePath: string,
+  name: string,
+): Promise<FindSymbolResult> {
   const symbols = await fileOutline(absolutePath);
-  const matches = symbols.filter((s) => s.name === name || s.qualifiedName === name);
+  const matches = symbols.filter(
+    (s) => s.name === name || s.qualifiedName === name,
+  );
   if (matches.length === 0) return { ok: false };
   if (matches.length === 1) return { ok: true, symbol: matches[0] };
   // Exact qualifiedName match wins over bare-name collisions.
@@ -523,12 +585,14 @@ git commit -m "feat(codemap): fs facade fileOutline + findSymbol with ambiguity"
 ## Task 4: Protocol — additive `symbol` field on the anchor
 
 **Files:**
+
 - Modify: `src/protocol/src/tours.ts` (the `TourAnchor` interface shown above)
 - Test: `src/protocol/src/tours.test.ts` (or the existing protocol test file)
 
 - [ ] **Step 1: Add the field**
 
 In `src/protocol/src/tours.ts`, change `TourAnchor` to:
+
 ```ts
 export interface TourAnchor {
   /** Workspace-root-relative path, POSIX separators. */
@@ -551,13 +615,25 @@ export interface TourAnchor {
 - [ ] **Step 2: Add a type-level test**
 
 Append to the existing protocol test file (find it: `ls src/protocol/src/*.test.ts`). Add:
+
 ```ts
 import { test, expect } from "vitest";
 import type { TourAnchor } from "./tours.js";
 
 test("TourAnchor accepts an optional symbol (symbol-anchor) without breaking line-anchors", () => {
-  const lineAnchor: TourAnchor = { file: "a.ts", startLine: 1, endLine: 2, snippetHash: "sha256:x" };
-  const symbolAnchor: TourAnchor = { file: "a.ts", startLine: 1, endLine: 2, snippetHash: "sha256:x", symbol: "alpha" };
+  const lineAnchor: TourAnchor = {
+    file: "a.ts",
+    startLine: 1,
+    endLine: 2,
+    snippetHash: "sha256:x",
+  };
+  const symbolAnchor: TourAnchor = {
+    file: "a.ts",
+    startLine: 1,
+    endLine: 2,
+    snippetHash: "sha256:x",
+    symbol: "alpha",
+  };
   expect(symbolAnchor.symbol).toBe("alpha");
   expect((lineAnchor as TourAnchor).symbol).toBeUndefined();
 });
@@ -567,6 +643,7 @@ test("TourAnchor accepts an optional symbol (symbol-anchor) without breaking lin
 
 Run: `pnpm --filter @made-i-t/hdtw-protocol build && pnpm --filter @made-i-t/hdtw-protocol test`
 Expected: PASS.
+
 ```bash
 git add src/protocol/src/tours.ts src/protocol/src/*.test.ts
 git commit -m "feat(protocol): additive symbol field on TourAnchor (symbol-anchors)"
@@ -577,12 +654,14 @@ git commit -m "feat(protocol): additive symbol field on TourAnchor (symbol-ancho
 ## Task 5: engine-core — `symbol-missing` freshness + symbol-anchor branch (pure)
 
 **Files:**
+
 - Modify: `src/engine/core/src/anchors.ts`
 - Test: `src/engine/core/src/anchors.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 Append to `src/engine/core/src/anchors.test.ts`:
+
 ```ts
 import { checkSymbolAnchorFreshness } from "./anchors.js";
 
@@ -592,17 +671,27 @@ test("checkSymbolAnchorFreshness: resolved range hash match = fresh, mismatch = 
 
   // resolved to the same lines, hash matches -> fresh
   expect(
-    checkSymbolAnchorFreshness({ snippetHash: hash }, { startLine: 1, endLine: 3 }, file)
+    checkSymbolAnchorFreshness(
+      { snippetHash: hash },
+      { startLine: 1, endLine: 3 },
+      file,
+    ),
   ).toEqual({ state: "fresh", startLine: 1, endLine: 3, snippetHash: hash });
 
   // resolved to a new range whose content differs from the cached hash -> relocated (cache refreshed)
   const moved = ["", "", "function a() {", "  return 1;", "}"].join("\n");
-  const result = checkSymbolAnchorFreshness({ snippetHash: hash }, { startLine: 3, endLine: 5 }, moved);
+  const result = checkSymbolAnchorFreshness(
+    { snippetHash: hash },
+    { startLine: 3, endLine: 5 },
+    moved,
+  );
   expect(result.state).toBe("relocated");
   expect(result).toMatchObject({ startLine: 3, endLine: 5 });
 
   // symbol did not resolve -> symbol-missing
-  expect(checkSymbolAnchorFreshness({ snippetHash: hash }, undefined, file)).toEqual({
+  expect(
+    checkSymbolAnchorFreshness({ snippetHash: hash }, undefined, file),
+  ).toEqual({
     state: "symbol-missing",
   });
 });
@@ -618,6 +707,7 @@ Expected: FAIL — `checkSymbolAnchorFreshness` not defined.
 - [ ] **Step 3: Implement the pure branch**
 
 In `src/engine/core/src/anchors.ts`, extend the freshness type and add the function. After the existing `AnchorFreshness` type add:
+
 ```ts
 /** A range the server resolved for a symbol-anchor; undefined when the symbol is gone. */
 export interface ResolvedRange {
@@ -627,7 +717,12 @@ export interface ResolvedRange {
 
 export type SymbolFreshness =
   | { state: "fresh"; startLine: number; endLine: number; snippetHash: string }
-  | { state: "relocated"; startLine: number; endLine: number; snippetHash: string }
+  | {
+      state: "relocated";
+      startLine: number;
+      endLine: number;
+      snippetHash: string;
+    }
   | { state: "symbol-missing" };
 
 /**
@@ -638,16 +733,21 @@ export type SymbolFreshness =
 export function checkSymbolAnchorFreshness(
   anchor: { snippetHash: string },
   resolved: ResolvedRange | undefined,
-  fileContent: string
+  fileContent: string,
 ): SymbolFreshness {
   if (!resolved) {
     return { state: "symbol-missing" };
   }
   const snippetHash = computeSnippetHash(
-    extractAnchoredText(fileContent, resolved.startLine, resolved.endLine)
+    extractAnchoredText(fileContent, resolved.startLine, resolved.endLine),
   );
   const state = snippetHash === anchor.snippetHash ? "fresh" : "relocated";
-  return { state, startLine: resolved.startLine, endLine: resolved.endLine, snippetHash };
+  return {
+    state,
+    startLine: resolved.startLine,
+    endLine: resolved.endLine,
+    snippetHash,
+  };
 }
 ```
 
@@ -668,6 +768,7 @@ git commit -m "feat(engine-core): pure symbol-anchor freshness (fresh/relocated/
 ## Task 6: engine-server — `SymbolResolver` (codemap + path guard + tiebreak)
 
 **Files:**
+
 - Create: `src/engine/server/src/symbolResolver.ts`
 - Test: `src/engine/server/src/symbolResolver.test.ts`
 - Add dependency: `@made-i-t/hdtw-codemap` to `src/engine/server/package.json`
@@ -675,15 +776,18 @@ git commit -m "feat(engine-core): pure symbol-anchor freshness (fresh/relocated/
 - [ ] **Step 1: Add the workspace dependency**
 
 In `src/engine/server/package.json` `dependencies`, add:
+
 ```json
     "@made-i-t/hdtw-codemap": "workspace:*",
 ```
+
 Run: `pnpm install`
 Expected: links the workspace package.
 
 - [ ] **Step 2: Write the failing test**
 
 `src/engine/server/src/symbolResolver.test.ts`:
+
 ```ts
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -702,7 +806,9 @@ afterEach(async () => {
 test("resolveSymbol returns a range, picks nearest-to-cache on ambiguity, and guards path traversal", async () => {
   await writeFile(
     path.join(root, "a.ts"),
-    ["class A { dup() { return 1; } }", "class B { dup() { return 2; } }"].join("\n")
+    ["class A { dup() { return 1; } }", "class B { dup() { return 2; } }"].join(
+      "\n",
+    ),
   );
   // unique
   expect(await resolveSymbol(root, "a.ts", "A.dup", undefined)).toMatchObject({
@@ -711,16 +817,24 @@ test("resolveSymbol returns a range, picks nearest-to-cache on ambiguity, and gu
     endLine: 1,
   });
   // ambiguous bare name, nearest to cached line 2 -> the B.dup on line 2
-  expect(await resolveSymbol(root, "a.ts", "dup", { startLine: 2, endLine: 2 })).toMatchObject({
+  expect(
+    await resolveSymbol(root, "a.ts", "dup", { startLine: 2, endLine: 2 }),
+  ).toMatchObject({
     kind: "resolved",
     startLine: 2,
   });
   // missing symbol
-  expect(await resolveSymbol(root, "a.ts", "nope", undefined)).toEqual({ kind: "missing" });
+  expect(await resolveSymbol(root, "a.ts", "nope", undefined)).toEqual({
+    kind: "missing",
+  });
   // missing file
-  expect(await resolveSymbol(root, "ghost.ts", "x", undefined)).toEqual({ kind: "file-missing" });
+  expect(await resolveSymbol(root, "ghost.ts", "x", undefined)).toEqual({
+    kind: "file-missing",
+  });
   // path traversal is refused
-  expect(await resolveSymbol(root, "../escape.ts", "x", undefined)).toEqual({ kind: "file-missing" });
+  expect(await resolveSymbol(root, "../escape.ts", "x", undefined)).toEqual({
+    kind: "file-missing",
+  });
 });
 ```
 
@@ -732,6 +846,7 @@ Expected: FAIL — `resolveSymbol` not defined.
 - [ ] **Step 4: Implement the resolver**
 
 `src/engine/server/src/symbolResolver.ts`:
+
 ```ts
 import path from "node:path";
 import { fileOutline, type CodeSymbol } from "@made-i-t/hdtw-codemap";
@@ -751,11 +866,14 @@ export async function resolveSymbol(
   workspaceRoot: string,
   file: string,
   symbol: string,
-  cached: { startLine: number; endLine: number } | undefined
+  cached: { startLine: number; endLine: number } | undefined,
 ): Promise<ResolveSymbolResult> {
   const resolvedRoot = path.resolve(workspaceRoot);
   const resolved = path.resolve(resolvedRoot, ...file.split("/"));
-  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
+  if (
+    resolved !== resolvedRoot
+    && !resolved.startsWith(resolvedRoot + path.sep)
+  ) {
     return { kind: "file-missing" };
   }
 
@@ -766,7 +884,9 @@ export async function resolveSymbol(
     return { kind: "file-missing" };
   }
 
-  const matches = symbols.filter((s) => s.name === symbol || s.qualifiedName === symbol);
+  const matches = symbols.filter(
+    (s) => s.name === symbol || s.qualifiedName === symbol,
+  );
   const exact = matches.filter((s) => s.qualifiedName === symbol);
   const pool = exact.length > 0 ? exact : matches;
 
@@ -776,12 +896,20 @@ export async function resolveSymbol(
     chosen = pool[0];
   } else if (cached) {
     chosen = pool.reduce((best, s) =>
-      Math.abs(s.startLine - cached.startLine) < Math.abs(best.startLine - cached.startLine) ? s : best
+      Math.abs(s.startLine - cached.startLine)
+      < Math.abs(best.startLine - cached.startLine)
+        ? s
+        : best,
     );
   } else {
     return { kind: "ambiguous", candidates: pool };
   }
-  return { kind: "resolved", startLine: chosen.startLine, endLine: chosen.endLine, symbol: chosen };
+  return {
+    kind: "resolved",
+    startLine: chosen.startLine,
+    endLine: chosen.endLine,
+    symbol: chosen,
+  };
 }
 ```
 
@@ -789,6 +917,7 @@ export async function resolveSymbol(
 
 Run: `pnpm --filter @made-i-t/hdtw-engine-server test && pnpm --filter @made-i-t/hdtw-engine-server build && pnpm --filter @made-i-t/hdtw-engine-server lint`
 Expected: green.
+
 ```bash
 git add src/engine/server/src/symbolResolver.ts src/engine/server/src/symbolResolver.test.ts src/engine/server/package.json pnpm-lock.yaml
 git commit -m "feat(engine-server): SymbolResolver with path guard and nearest-cache tiebreak"
@@ -801,12 +930,14 @@ git commit -m "feat(engine-server): SymbolResolver with path guard and nearest-c
 **Context:** `verifyStep` in `src/engine/server/src/generationPipeline.ts` currently (see lines ~197-218) resolves a path, reads the file, runs `verifyAnchor`, and returns `{ title, narration, anchor: {...snippetHash} }` or an error string. A draft symbol-anchor arrives as `{ file, symbol }` with no line numbers; the engine must resolve symbol→range, then verify and fill the cache.
 
 **Files:**
+
 - Modify: `src/engine/server/src/generationPipeline.ts` (`verifyStep`, and the `DraftStep` anchor type in `tourGenerator.ts`)
 - Test: `src/engine/server/src/generationPipeline.test.ts` (create if absent) or extend an existing pipeline test
 
 - [ ] **Step 1: Allow a symbol on the draft anchor type**
 
 In `src/engine/server/src/tourGenerator.ts`, find the `DraftStep`/draft anchor type. Add an optional `symbol?: string` and make `startLine`/`endLine` optional on the DRAFT anchor only (the agent may omit them for a symbol-anchor):
+
 ```ts
 export interface DraftAnchor {
   file: string;
@@ -815,11 +946,13 @@ export interface DraftAnchor {
   symbol?: string;
 }
 ```
+
 (If the draft anchor is currently inlined in `DraftStep`, extract it to `DraftAnchor` and reference it.)
 
 - [ ] **Step 2: Write the failing test**
 
 Create `src/engine/server/src/generationPipeline.test.ts`:
+
 ```ts
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -837,21 +970,32 @@ afterEach(async () => {
 });
 
 test("verifyStep resolves a symbol-anchor to a range, fills the cache, and keeps the symbol", async () => {
-  await writeFile(path.join(root, "a.ts"), ["export function alpha() {", "  return 1;", "}"].join("\n"));
-  const step = { title: "t", narration: "n", anchor: { file: "a.ts", symbol: "alpha" } };
+  await writeFile(
+    path.join(root, "a.ts"),
+    ["export function alpha() {", "  return 1;", "}"].join("\n"),
+  );
+  const step = {
+    title: "t",
+    narration: "n",
+    anchor: { file: "a.ts", symbol: "alpha" },
+  };
   const verified = await verifyStep(root, step);
   expect(typeof verified).not.toBe("string");
   expect(verified).toMatchObject({
     anchor: { file: "a.ts", symbol: "alpha", startLine: 1, endLine: 3 },
   });
-  expect((verified as { anchor: { snippetHash: string } }).anchor.snippetHash).toBe(
-    computeSnippetHash("export function alpha() {\n  return 1;\n}")
-  );
+  expect(
+    (verified as { anchor: { snippetHash: string } }).anchor.snippetHash,
+  ).toBe(computeSnippetHash("export function alpha() {\n  return 1;\n}"));
 });
 
 test("verifyStep returns an error string when the symbol is missing", async () => {
   await writeFile(path.join(root, "a.ts"), "export function alpha() {}\n");
-  const step = { title: "t", narration: "n", anchor: { file: "a.ts", symbol: "ghost" } };
+  const step = {
+    title: "t",
+    narration: "n",
+    anchor: { file: "a.ts", symbol: "ghost" },
+  };
   expect(typeof (await verifyStep(root, step))).toBe("string");
 });
 ```
@@ -866,15 +1010,24 @@ Expected: FAIL — symbol branch not handled (resolves as a normal path / undefi
 - [ ] **Step 4: Implement the symbol branch in `verifyStep`**
 
 In `src/engine/server/src/generationPipeline.ts`, import the resolver and branch at the top of `verifyStep`:
+
 ```ts
 import { resolveSymbol } from "./symbolResolver.js";
 ```
+
 Replace the body of `verifyStep` so a symbol-anchor is resolved first:
+
 ```ts
-async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourStep | string> {
+async function verifyStep(
+  workspaceRoot: string,
+  step: DraftStep,
+): Promise<TourStep | string> {
   const resolvedRoot = path.resolve(workspaceRoot);
   const resolved = path.resolve(resolvedRoot, ...step.anchor.file.split("/"));
-  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
+  if (
+    resolved !== resolvedRoot
+    && !resolved.startsWith(resolvedRoot + path.sep)
+  ) {
     return `${step.anchor.file}: anchor path escapes the workspace`;
   }
   let fileContent: string;
@@ -886,16 +1039,23 @@ async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourS
 
   // Symbol-anchor: resolve the symbol to a range, then verify that range.
   if (step.anchor.symbol) {
-    const r = await resolveSymbol(workspaceRoot, step.anchor.file, step.anchor.symbol, undefined);
-    if (r.kind === "missing") return `${step.anchor.file}: symbol "${step.anchor.symbol}" not found`;
-    if (r.kind === "file-missing") return `${step.anchor.file}: file does not exist in the workspace`;
+    const r = await resolveSymbol(
+      workspaceRoot,
+      step.anchor.file,
+      step.anchor.symbol,
+      undefined,
+    );
+    if (r.kind === "missing")
+      return `${step.anchor.file}: symbol "${step.anchor.symbol}" not found`;
+    if (r.kind === "file-missing")
+      return `${step.anchor.file}: file does not exist in the workspace`;
     if (r.kind === "ambiguous") {
       const names = r.candidates.map((c) => c.qualifiedName).join(", ");
       return `${step.anchor.file}: symbol "${step.anchor.symbol}" is ambiguous (use one of: ${names})`;
     }
     const verification = verifyAnchor(
       { file: step.anchor.file, startLine: r.startLine, endLine: r.endLine },
-      fileContent
+      fileContent,
     );
     if (!verification.ok) return verification.errors.join("; ");
     return {
@@ -912,12 +1072,19 @@ async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourS
   }
 
   // Line-anchor (unchanged behavior).
-  if (step.anchor.startLine === undefined || step.anchor.endLine === undefined) {
+  if (
+    step.anchor.startLine === undefined
+    || step.anchor.endLine === undefined
+  ) {
     return `${step.anchor.file}: line-anchor missing startLine/endLine`;
   }
   const verification = verifyAnchor(
-    { file: step.anchor.file, startLine: step.anchor.startLine, endLine: step.anchor.endLine },
-    fileContent
+    {
+      file: step.anchor.file,
+      startLine: step.anchor.startLine,
+      endLine: step.anchor.endLine,
+    },
+    fileContent,
   );
   if (!verification.ok) {
     return verification.errors.join("; ");
@@ -941,6 +1108,7 @@ async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourS
 
 Run: `pnpm --filter @made-i-t/hdtw-engine-server test && pnpm --filter @made-i-t/hdtw-engine-server build && pnpm --filter @made-i-t/hdtw-engine-server lint`
 Expected: green (existing line-anchor tests still pass; two new symbol tests pass).
+
 ```bash
 git add src/engine/server/src/generationPipeline.ts src/engine/server/src/tourGenerator.ts src/engine/server/src/generationPipeline.test.ts
 git commit -m "feat(engine-server): verifyStep resolves and caches symbol-anchors"
@@ -953,12 +1121,14 @@ git commit -m "feat(engine-server): verifyStep resolves and caches symbol-anchor
 **Context:** `src/engine/server/src/tourHandlers.ts` holds `getTour` and `checkTourDrift`. Symbol-anchors must (a) re-resolve on `getTour` so a live walk highlights the current range, and (b) report `relocated`/`symbol-missing` in drift.
 
 **Files:**
+
 - Modify: `src/engine/server/src/tourHandlers.ts`
 - Test: `src/engine/server/tests/drift.e2e.test.ts` (extend) or a new unit test on the drift helper
 
 - [ ] **Step 1: Write the failing test**
 
 Add to `src/engine/server/tests/drift.e2e.test.ts` (it already spawns the server + writes fixtures; mirror its setup). Add a case:
+
 ```ts
 test("a symbol-anchor self-heals: moving code reports relocated, deleting the symbol reports symbol-missing", async () => {
   // ... using the same harness: write a source file with `function target(){...}`,
@@ -980,9 +1150,13 @@ Expected: FAIL — drift treats the symbol-anchor as a line-anchor (reports `dri
 - [ ] **Step 3: Implement re-resolution in drift + getTour**
 
 In `tourHandlers.ts`, where each step's drift state is computed, branch on `anchor.symbol`:
+
 ```ts
 import { resolveSymbol } from "./symbolResolver.js";
-import { checkSymbolAnchorFreshness, checkAnchorFreshness } from "@made-i-t/hdtw-engine-core";
+import {
+  checkSymbolAnchorFreshness,
+  checkAnchorFreshness,
+} from "@made-i-t/hdtw-engine-core";
 
 // inside the per-step drift computation, given `fileContent` (or undefined if unreadable):
 async function stepDriftState(workspaceRoot, anchor, fileContent) {
@@ -993,12 +1167,16 @@ async function stepDriftState(workspaceRoot, anchor, fileContent) {
       endLine: anchor.endLine,
     });
     if (r.kind === "file-missing") return { state: "file-missing" };
-    const resolved = r.kind === "resolved" ? { startLine: r.startLine, endLine: r.endLine } : undefined;
+    const resolved =
+      r.kind === "resolved"
+        ? { startLine: r.startLine, endLine: r.endLine }
+        : undefined;
     return checkSymbolAnchorFreshness(anchor, resolved, fileContent);
   }
   return { state: checkAnchorFreshness(anchor, fileContent) };
 }
 ```
+
 Normalize the two shapes (`checkAnchorFreshness` returns a string; `checkSymbolAnchorFreshness` returns an object) into the drift-state payload the handler already sends — keep the wire field names identical to today, adding `relocated` and `symbol-missing` as new possible `state` values, and include the refreshed `startLine`/`endLine`/`snippetHash` when `relocated`.
 
 For `getTour`: after loading+validating the tour, map symbol-anchored steps through `resolveSymbol`; when `kind === "resolved"`, replace the served anchor's `startLine`/`endLine` (and recompute `snippetHash` from the resolved range) so the client highlights the live location. On `missing`/`file-missing`, serve the cached range unchanged (the walk still works; drift surfaces the problem separately).
@@ -1009,6 +1187,7 @@ For `getTour`: after loading+validating the tour, map symbol-anchored steps thro
 
 Run: `pnpm --filter @made-i-t/hdtw-engine-server test && pnpm --filter @made-i-t/hdtw-engine-server build && pnpm --filter @made-i-t/hdtw-engine-server lint`
 Expected: green.
+
 ```bash
 git add src/engine/server/src/tourHandlers.ts src/engine/server/tests/drift.e2e.test.ts
 git commit -m "feat(engine-server): symbol-anchor self-heal in getTour + drift (relocated/symbol-missing)"
@@ -1019,6 +1198,7 @@ git commit -m "feat(engine-server): symbol-anchor self-heal in getTour + drift (
 ## Task 9: engine-server — code-map agent tools + system prompt + fake path
 
 **Files:**
+
 - Create: `src/engine/server/src/codemapTools.ts`
 - Modify: `src/engine/server/src/claudeTourGenerator.ts` (register tools + prompt rule)
 - Modify: `src/engine/server/src/fakeTourGenerator.ts` (emit a symbol-anchor)
@@ -1027,6 +1207,7 @@ git commit -m "feat(engine-server): symbol-anchor self-heal in getTour + drift (
 - [ ] **Step 1: Write the failing test for the tool handlers**
 
 `src/engine/server/src/codemapTools.test.ts`:
+
 ```ts
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1043,7 +1224,10 @@ afterEach(async () => {
 });
 
 test("fileOutline tool lists symbols; findSymbol returns a range; path traversal is refused", async () => {
-  await writeFile(path.join(root, "a.ts"), "export function alpha() { return 1; }\n");
+  await writeFile(
+    path.join(root, "a.ts"),
+    "export function alpha() { return 1; }\n",
+  );
   const outline = await runFileOutlineTool(root, "a.ts");
   expect(outline).toContain("alpha");
   const found = await runFindSymbolTool(root, "a.ts", "alpha");
@@ -1061,6 +1245,7 @@ Expected: FAIL — module not found.
 - [ ] **Step 3: Implement the tool helpers + the SDK MCP server**
 
 `src/engine/server/src/codemapTools.ts`:
+
 ```ts
 import path from "node:path";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
@@ -1070,20 +1255,33 @@ import { fileOutline, findSymbol } from "@made-i-t/hdtw-codemap";
 function guard(workspaceRoot: string, file: string): string | undefined {
   const root = path.resolve(workspaceRoot);
   const resolved = path.resolve(root, ...file.split("/"));
-  if (resolved !== root && !resolved.startsWith(root + path.sep)) return undefined;
+  if (resolved !== root && !resolved.startsWith(root + path.sep))
+    return undefined;
   return resolved;
 }
 
 /** Returned as plain text the agent reads. */
-export async function runFileOutlineTool(workspaceRoot: string, file: string): Promise<string> {
+export async function runFileOutlineTool(
+  workspaceRoot: string,
+  file: string,
+): Promise<string> {
   const resolved = guard(workspaceRoot, file);
   if (!resolved) return `Error: ${file} is outside the workspace.`;
   const symbols = await fileOutline(resolved);
-  if (symbols.length === 0) return `No symbols found in ${file} (unsupported type or empty).`;
-  return symbols.map((s) => `${s.qualifiedName} (${s.kind}) lines ${s.startLine}-${s.endLine}`).join("\n");
+  if (symbols.length === 0)
+    return `No symbols found in ${file} (unsupported type or empty).`;
+  return symbols
+    .map(
+      (s) => `${s.qualifiedName} (${s.kind}) lines ${s.startLine}-${s.endLine}`,
+    )
+    .join("\n");
 }
 
-export async function runFindSymbolTool(workspaceRoot: string, file: string, name: string): Promise<string> {
+export async function runFindSymbolTool(
+  workspaceRoot: string,
+  file: string,
+  name: string,
+): Promise<string> {
   const resolved = guard(workspaceRoot, file);
   if (!resolved) return `Error: ${file} is outside the workspace.`;
   const result = await findSymbol(resolved, name);
@@ -1106,14 +1304,35 @@ export function createCodemapMcpServer(workspaceRoot: string) {
       tool(
         "fileOutline",
         "List the named symbols (functions, classes, methods, consts) in a TS/JS file with their line ranges.",
-        { file: z.string().describe("Workspace-relative path, POSIX separators.") },
-        async (args) => ({ content: [{ type: "text", text: await runFileOutlineTool(workspaceRoot, args.file) }] })
+        {
+          file: z.string()
+                 .describe("Workspace-relative path, POSIX separators."),
+        },
+        async (args) => ({
+          content: [
+            {
+              type: "text",
+              text: await runFileOutlineTool(workspaceRoot, args.file),
+            },
+          ],
+        }),
       ),
       tool(
         "findSymbol",
         "Find a symbol by name (or Class.method) in a TS/JS file and get its current line range to anchor to.",
         { file: z.string(), name: z.string() },
-        async (args) => ({ content: [{ type: "text", text: await runFindSymbolTool(workspaceRoot, args.file, args.name) }] })
+        async (args) => ({
+          content: [
+            {
+              type: "text",
+              text: await runFindSymbolTool(
+                workspaceRoot,
+                args.file,
+                args.name,
+              ),
+            },
+          ],
+        }),
       ),
     ],
   });
@@ -1130,6 +1349,7 @@ Expected: PASS for `codemapTools.test.ts`.
 - [ ] **Step 5: Register the tools + prompt rule in `claudeTourGenerator`**
 
 In `src/engine/server/src/claudeTourGenerator.ts` `runQuery`, build the server and extend options:
+
 ```ts
 import { createCodemapMcpServer } from "./codemapTools.js";
 // ...
@@ -1140,14 +1360,22 @@ const response = query({
     cwd: workspaceRoot,
     model,
     maxTurns,
-    tools: ["Read", "Grep", "Glob", "mcp__codemap__fileOutline", "mcp__codemap__findSymbol"],
+    tools: [
+      "Read",
+      "Grep",
+      "Glob",
+      "mcp__codemap__fileOutline",
+      "mcp__codemap__findSymbol",
+    ],
     mcpServers: { codemap },
     systemPrompt: SYSTEM_PROMPT,
     abortController,
   },
 });
 ```
+
 Add to `SYSTEM_PROMPT` (after the anchor rules) — and update the JSON shape note so the agent knows it may emit `symbol`:
+
 ```
 Prefer a SYMBOL-ANCHOR when the code you are anchoring is a whole named declaration
 (function, class, method, exported const): use findSymbol to confirm it exists, then
@@ -1169,6 +1397,7 @@ In `src/engine/server/tests/generation.e2e.test.ts`, add a test that: writes `sa
 
 Run: `pnpm --filter @made-i-t/hdtw-engine-server test && pnpm --filter @made-i-t/hdtw-engine-server build && pnpm --filter @made-i-t/hdtw-engine-server lint`
 Expected: green.
+
 ```bash
 git add src/engine/server pnpm-lock.yaml
 git commit -m "feat(engine-server): code-map agent tools, symbol-anchor prompt, fake symbol path"
@@ -1179,12 +1408,14 @@ git commit -m "feat(engine-server): code-map agent tools, symbol-anchor prompt, 
 ## Task 10: VS Code — `symbol-missing` drift badge
 
 **Files:**
+
 - Modify: `src/clients/vscode/src/driftBadge.ts`
 - Test: `src/clients/vscode/src/driftBadge.test.ts`
 
 - [ ] **Step 1: Write the failing test**
 
 Append to `src/clients/vscode/src/driftBadge.test.ts`:
+
 ```ts
 test("symbol-missing yields a badge and is not reanchorable; relocated is treated as fresh", () => {
   expect(driftBadge("symbol-missing")).toMatch(/symbol/i);
@@ -1209,6 +1440,7 @@ In `src/clients/vscode/src/driftBadge.ts`, extend the badge map: `"symbol-missin
 
 Run: `pnpm --filter hdtw-vscode test && pnpm --filter hdtw-vscode build && pnpm --filter hdtw-vscode lint`
 Expected: green.
+
 ```bash
 git add src/clients/vscode/src/driftBadge.ts src/clients/vscode/src/driftBadge.test.ts
 git commit -m "feat(vscode): symbol-missing drift badge; relocated renders clean"
@@ -1219,6 +1451,7 @@ git commit -m "feat(vscode): symbol-missing drift badge; relocated renders clean
 ## Task 11: Docs — mark Chunk 4b shipped
 
 **Files:**
+
 - Modify: `docs/product-roadmap.md`
 
 - [ ] **Step 1: Update the roadmap**
@@ -1237,9 +1470,11 @@ git commit -m "docs: mark Chunk 4b code-map grounding shipped"
 ## Final verification (after all tasks)
 
 Run from repo root:
+
 ```bash
 pnpm build && pnpm test && pnpm lint
 ```
+
 Expected: all packages build; full suite green (6 packages now — protocol, observability, engine-core, **codemap**, engine-server, vscode); lint clean.
 
 **Dogfood (manual, F5):** generate a tour of a TS subsystem; confirm ≥1 step anchored by `symbol`; prepend lines above that symbol; run drift; confirm `relocated` (self-healed) while a line-anchor still uses 4a hash-window. Then re-walk the dogfood tours (anchors may have drifted from this chunk's own edits) before merge.

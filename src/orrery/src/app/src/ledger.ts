@@ -17,18 +17,19 @@ const ORDER: ReadonlyArray<[DropReason, string]> = [
 ];
 
 export function groupLedger(rows: DropRecord[]): LedgerGroup[] {
-  return ORDER
-    .map(([reason, label]) => ({ reason, label, rows: rows.filter((r) => r.reason === reason) }))
-    .filter((g) => g.rows.length > 0);
+  return ORDER.map(([reason, label]) => ({
+    reason,
+    label,
+    rows: rows.filter((r) => r.reason === reason),
+  })).filter((g) => g.rows.length > 0);
 }
 
 export function searchLedger(rows: DropRecord[], query: string): DropRecord[] {
   const q = query.trim().toLowerCase();
   if (!q) return rows;
   return rows.filter(
-    (r) =>
-      r.candidate.toLowerCase().includes(q) ||
-      r.detail.toLowerCase().includes(q) ||
-      r.rule.toLowerCase().includes(q),
+    (r) => r.candidate.toLowerCase().includes(q)
+           || r.detail.toLowerCase().includes(q)
+           || r.rule.toLowerCase().includes(q),
   );
 }

@@ -22,7 +22,10 @@ let observed: ObservabilityRecord[];
 
 beforeEach(async () => {
   workspaceRoot = await mkdtemp(path.join(tmpdir(), "hdtw-gen-"));
-  await writeFile(path.join(workspaceRoot, "README.md"), "fixture readme\nsecond line\n");
+  await writeFile(
+    path.join(workspaceRoot, "README.md"),
+    "fixture readme\nsecond line\n",
+  );
   progress = [];
   observed = [];
 });
@@ -31,7 +34,10 @@ afterEach(async () => {
   await rm(workspaceRoot, { recursive: true, force: true });
 });
 
-function run(generator: FakeTourGenerator, options: { maxBudgetUsd?: number; signal?: AbortSignal } = {}) {
+function run(
+  generator: FakeTourGenerator,
+  options: { maxBudgetUsd?: number; signal?: AbortSignal } = {},
+) {
   const controller = new AbortController();
   const observer = createObserver({
     sink: { record: (r) => observed.push(r) },
@@ -39,11 +45,15 @@ function run(generator: FakeTourGenerator, options: { maxBudgetUsd?: number; sig
     now: () => 0,
   });
   return runGeneration(
-    { workspaceRoot, topic: "how does it work", maxBudgetUsd: options.maxBudgetUsd },
+    {
+      workspaceRoot,
+      topic: "how does it work",
+      maxBudgetUsd: options.maxBudgetUsd,
+    },
     generator,
     observer,
     (p) => progress.push(p),
-    options.signal ?? controller.signal
+    options.signal ?? controller.signal,
   );
 }
 
@@ -64,8 +74,13 @@ describe("runGeneration", () => {
     const result = await run(new FakeTourGenerator());
     expect(result.savedPath).toBe(".hdtw/tours/fake-tour.tour.json");
     expect(result.tour.id).toBe("fake-tour");
-    expect(result.tour.steps[0].anchor.snippetHash).toMatch(/^sha256:[0-9a-f]{64}$/);
-    const onDisk = await readFile(path.join(workspaceRoot, result.savedPath), "utf8");
+    expect(result.tour.steps[0].anchor.snippetHash).toMatch(
+      /^sha256:[0-9a-f]{64}$/,
+    );
+    const onDisk = await readFile(
+      path.join(workspaceRoot, result.savedPath),
+      "utf8",
+    );
     expect(JSON.parse(onDisk).id).toBe("fake-tour");
     expect(progress.some((p) => p.phase === "verifying")).toBe(true);
     expect(progress.some((p) => p.phase === "saving")).toBe(true);
@@ -79,34 +94,49 @@ describe("runGeneration", () => {
   });
 
   test("fails after one repair round if anchors still bad", async () => {
-    const generator = new FakeTourGenerator({ draft: BAD_DRAFT, repairedDraft: BAD_DRAFT });
+    const generator = new FakeTourGenerator({
+      draft: BAD_DRAFT,
+      repairedDraft: BAD_DRAFT,
+    });
     await expect(run(generator)).rejects.toBeInstanceOf(GenerationFailedError);
-    const files = await readFile(path.join(workspaceRoot, ".hdtw/tours/fake-tour.tour.json"), "utf8").catch(() => undefined);
+    const files = await readFile(
+      path.join(workspaceRoot, ".hdtw/tours/fake-tour.tour.json"),
+      "utf8",
+    ).catch(() => undefined);
     expect(files).toBeUndefined(); // nothing written on failure
   });
 
   test("budget: aborts when estimated cost crosses maxBudgetUsd", async () => {
     const generator = new FakeTourGenerator({ costPerEvent: 5 });
-    await expect(run(generator, { maxBudgetUsd: 1 })).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run(generator, { maxBudgetUsd: 1 })).rejects.toBeInstanceOf(
+      BudgetExceededError,
+    );
   });
 
   test("budget: aborts when CUMULATIVE cost crosses budget even if no single event does", async () => {
     // exploring + drafting each add 0.8 → cumulative 1.6 > 1.5 on the second event
     const generator = new FakeTourGenerator({ costPerEvent: 0.8 });
-    await expect(run(generator, { maxBudgetUsd: 1.5 })).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(run(generator, { maxBudgetUsd: 1.5 })).rejects.toBeInstanceOf(
+      BudgetExceededError,
+    );
   });
 
   test("cancellation: pre-aborted signal cancels cleanly", async () => {
     const controller = new AbortController();
     controller.abort();
-    await expect(run(new FakeTourGenerator(), { signal: controller.signal })).rejects.toBeInstanceOf(
-      GenerationCancelledError
-    );
+    await expect(
+      run(new FakeTourGenerator(), { signal: controller.signal }),
+    ).rejects.toBeInstanceOf(GenerationCancelledError);
   });
 
   test("filename collision gets a numeric suffix", async () => {
-    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
-    await writeFile(path.join(workspaceRoot, ".hdtw/tours/fake-tour.tour.json"), "{}");
+    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), {
+      recursive: true,
+    });
+    await writeFile(
+      path.join(workspaceRoot, ".hdtw/tours/fake-tour.tour.json"),
+      "{}",
+    );
     const result = await run(new FakeTourGenerator());
     expect(result.savedPath).toBe(".hdtw/tours/fake-tour-2.tour.json");
     expect(result.tour.id).toBe("fake-tour-2");
@@ -124,45 +154,58 @@ describe("runGeneration", () => {
         },
       ],
     };
-    const generator = new FakeTourGenerator({ draft: escaping, repairedDraft: escaping });
+    const generator = new FakeTourGenerator({
+      draft: escaping,
+      repairedDraft: escaping,
+    });
     await expect(run(generator)).rejects.toBeInstanceOf(GenerationFailedError);
   });
 
   test("emits observability records across the run", async () => {
     await run(new FakeTourGenerator());
-    const logEvents = observed.filter((r) => r.kind === "log").map((r) => (r as { event: string }).event);
+    const logEvents = observed.filter((r) => r.kind === "log")
+                              .map((r) => (r as { event: string }).event);
     expect(logEvents).toContain("generate.start");
     expect(logEvents).toContain("verify.step");
     expect(logEvents).toContain("generate.done");
-    const metricNames = observed.filter((r) => r.kind === "metric").map((r) => (r as { name: string }).name);
+    const metricNames = observed.filter((r) => r.kind === "metric")
+                                .map((r) => (r as { name: string }).name);
     expect(metricNames).toContain("generate.duration_ms");
   });
 
   test("repair round is logged", async () => {
     await run(new FakeTourGenerator({ draft: BAD_DRAFT }));
-    const logEvents = observed.filter((r) => r.kind === "log").map((r) => (r as { event: string }).event);
+    const logEvents = observed.filter((r) => r.kind === "log")
+                              .map((r) => (r as { event: string }).event);
     expect(logEvents).toContain("repair.round");
   });
 
   test("save:false returns the tour and writes nothing", async () => {
     const controller = new AbortController();
-    const observer = createObserver({ sink: { record: () => {} }, minLevel: "error" });
+    const observer = createObserver({
+      sink: { record: () => {} },
+      minLevel: "error",
+    });
     const result = await runGeneration(
       { workspaceRoot, topic: "x", save: false },
       new FakeTourGenerator(),
       observer,
       () => {},
-      controller.signal
+      controller.signal,
     );
     expect(result.savedPath).toBeUndefined();
     expect(result.tour.steps).toHaveLength(1);
     const { readdir } = await import("node:fs/promises");
-    const entries = await readdir(path.join(workspaceRoot, ".hdtw", "tours")).catch(() => []);
+    const entries = await readdir(
+      path.join(workspaceRoot, ".hdtw", "tours"),
+    ).catch(() => []);
     expect(entries).toEqual([]);
   });
 
   test("keeps catalog-resolvable related links and drops the rest", async () => {
-    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
+    await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), {
+      recursive: true,
+    });
     await writeFile(
       path.join(workspaceRoot, ".hdtw/tours/existing.tour.json"),
       JSON.stringify({
@@ -174,10 +217,15 @@ describe("runGeneration", () => {
           {
             title: "s",
             narration: "n",
-            anchor: { file: "README.md", startLine: 1, endLine: 1, snippetHash: "sha256:aa" },
+            anchor: {
+              file: "README.md",
+              startLine: 1,
+              endLine: 1,
+              snippetHash: "sha256:aa",
+            },
           },
         ],
-      })
+      }),
     );
     const draft: DraftTour = {
       title: "Linked tour",
@@ -187,14 +235,21 @@ describe("runGeneration", () => {
           title: "The readme",
           narration: "x",
           anchor: { file: "README.md", startLine: 1, endLine: 1 },
-          relatedTours: [{ tourId: "existing" }, { tourId: "ghost", label: "Nope" }],
+          relatedTours: [
+            { tourId: "existing" },
+            { tourId: "ghost", label: "Nope" },
+          ],
         },
       ],
     };
     const result = await run(new FakeTourGenerator({ draft }));
     expect(result.tour.steps[0].relatedTours).toEqual([{ tourId: "existing" }]);
     const dropped = observed
-      .filter((r) => r.kind === "log" && (r as { event: string }).event === "verify.related_dropped")
+      .filter(
+        (r) =>
+          r.kind === "log"
+          && (r as { event: string }).event === "verify.related_dropped",
+      )
       .map((r) => (r as { fields?: { tourId?: string } }).fields?.tourId);
     expect(dropped).toContain("ghost");
   });

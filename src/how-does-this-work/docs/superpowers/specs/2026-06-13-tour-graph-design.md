@@ -43,7 +43,7 @@ No new RPC methods: the client already has `getTour` (fetch a sub-tour by id) an
 
 ## Engine-core (pure — no fs, no transport)
 
-`parseTour` validates `relatedTours` *shape* when present: it must be an array; each entry an object with a non-empty string `tourId` and an optional string `label`. Malformed → validation errors (the tour is badged invalid via the existing mechanism). Core does **not** verify that a target tour exists — that is cross-tour and belongs to the server/client.
+`parseTour` validates `relatedTours` _shape_ when present: it must be an array; each entry an object with a non-empty string `tourId` and an optional string `label`. Malformed → validation errors (the tour is badged invalid via the existing mechanism). Core does **not** verify that a target tour exists — that is cross-tour and belongs to the server/client.
 
 ## Engine-server (`@made-i-t/hdtw-engine-server`)
 
@@ -64,7 +64,7 @@ Operates on `WalkState[]` (reuses the existing `walkState.ts` per-walk helpers).
 - `pushWalk(stack, tour): WalkState[]` — begin a sub-tour at step 0.
 - `advance(stack): WalkState[]` — if the active walk has a next step, advance it; else if depth > 1, pop to the parent (unchanged at its branch step); else unchanged (root last step).
 - `retreat(stack): WalkState[]` — if the active walk has a previous step, retreat it; else if depth > 1, pop; else unchanged.
-- `breadcrumbLabel(stack): string` — the stack's tour titles joined with ` › `.
+- `breadcrumbLabel(stack): string` — the stack's tour titles joined with `›`.
 
 ### WalkController (holds the stack; stays thin)
 

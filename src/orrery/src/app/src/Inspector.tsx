@@ -99,13 +99,16 @@ export function Inspector({ node, graph, view, onNavigate, annotation, annotatio
       {modules.length > 0 && (
         <>
           <div className="orrery-panel__section">
-            declared by {modules.length === 1 ? "1 module" : `${modules.length} modules`}
+            declared by{" "}
+            {modules.length === 1 ? "1 module" : `${modules.length} modules`}
           </div>
           {modules.map((m) => (
             <div key={m.id}>
               <button
                 className="orrery-panel__link"
-                onClick={() => onNavigate({ ...view, lens: "declaration", selected: m.id })}
+                onClick={() =>
+                  onNavigate({ ...view, lens: "declaration", selected: m.id })
+                }
               >
                 {m.label}
               </button>
@@ -120,7 +123,9 @@ export function Inspector({ node, graph, view, onNavigate, annotation, annotatio
           {inferred.map((e) => (
             // The evidence is shown, not hidden. A guess the reader can check
             // is a different thing from a guess presented as a fact.
-            <div key={e.id} className="orrery-panel__evidence">{e.evidence}</div>
+            <div key={e.id} className="orrery-panel__evidence">
+              {e.evidence}
+            </div>
           ))}
         </>
       )}

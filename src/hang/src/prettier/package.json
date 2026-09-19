@@ -1,0 +1,25 @@
+{
+  "name": "@made-i-t/hang-prettier",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@made-i-t/hang-core": "workspace:*",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "prettier": "^3.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "prettier": "^3.9.6",
+    "vitest": "^3.1.0"
+  }
+}

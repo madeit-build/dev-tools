@@ -35,17 +35,22 @@ afterEach(async () => {
 });
 
 function startServer(): MessageConnection {
-  serverProcess = spawn(process.execPath, [serverEntry], { stdio: ["pipe", "pipe", "inherit"] });
+  serverProcess = spawn(process.execPath, [serverEntry], {
+    stdio: ["pipe", "pipe", "inherit"],
+  });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   connection.listen();
   return connection;
 }
 
 test("checkTourDrift reports fresh then drifted after the file shifts", async () => {
-  await writeFile(path.join(workspaceRoot, "src.ts"), "line1\nline2\nline3\nline4\n");
+  await writeFile(
+    path.join(workspaceRoot, "src.ts"),
+    "line1\nline2\nline3\nline4\n",
+  );
   await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
   const { computeSnippetHash } = await import("@made-i-t/hdtw-engine-core");
   const hash = computeSnippetHash("line2\nline3");
@@ -57,23 +62,41 @@ test("checkTourDrift reports fresh then drifted after the file shifts", async ()
       title: "T",
       summary: "",
       steps: [
-        { title: "s", narration: "n", anchor: { file: "src.ts", startLine: 2, endLine: 3, snippetHash: hash } },
+        {
+          title: "s",
+          narration: "n",
+          anchor: {
+            file: "src.ts",
+            startLine: 2,
+            endLine: 3,
+            snippetHash: hash,
+          },
+        },
       ],
-    })
+    }),
   );
 
   const conn = startServer();
-  const fresh = await conn.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
-    workspaceRoot,
-    tourId: "t",
-  });
+  const fresh = await conn.sendRequest<CheckTourDriftResult>(
+    CHECK_TOUR_DRIFT_METHOD,
+    {
+      workspaceRoot,
+      tourId: "t",
+    },
+  );
   expect(fresh.statuses).toEqual([{ index: 0, status: "fresh" }]);
 
-  await writeFile(path.join(workspaceRoot, "src.ts"), "pad\npad\nline1\nline2\nline3\nline4\n");
-  const drifted = await conn.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
-    workspaceRoot,
-    tourId: "t",
-  });
+  await writeFile(
+    path.join(workspaceRoot, "src.ts"),
+    "pad\npad\nline1\nline2\nline3\nline4\n",
+  );
+  const drifted = await conn.sendRequest<CheckTourDriftResult>(
+    CHECK_TOUR_DRIFT_METHOD,
+    {
+      workspaceRoot,
+      tourId: "t",
+    },
+  );
   expect(drifted.statuses).toEqual([{ index: 0, status: "drifted" }]);
 });
 
@@ -84,7 +107,9 @@ test("checkTourDrift reports relocated for a symbol-anchor whose function moved"
   // Write target.ts with a 3-line function at lines 1-3
   const originalContent = "export function target() {\n  return 42;\n}\n";
   await writeFile(path.join(workspaceRoot, "target.ts"), originalContent);
-  const hash = computeSnippetHash("export function target() {\n  return 42;\n}");
+  const hash = computeSnippetHash(
+    "export function target() {\n  return 42;\n}",
+  );
 
   await writeFile(
     path.join(workspaceRoot, ".hdtw/tours/sym.tour.json"),
@@ -106,20 +131,23 @@ test("checkTourDrift reports relocated for a symbol-anchor whose function moved"
           },
         },
       ],
-    })
+    }),
   );
 
   // Prepend two blank lines so the function is now at lines 3-5
   await writeFile(
     path.join(workspaceRoot, "target.ts"),
-    "\n\nexport function target() {\n  return 42;\n}\n"
+    "\n\nexport function target() {\n  return 42;\n}\n",
   );
 
   const conn = startServer();
-  const relocated = await conn.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
-    workspaceRoot,
-    tourId: "sym",
-  });
+  const relocated = await conn.sendRequest<CheckTourDriftResult>(
+    CHECK_TOUR_DRIFT_METHOD,
+    {
+      workspaceRoot,
+      tourId: "sym",
+    },
+  );
   expect(relocated.statuses).toEqual([{ index: 0, status: "relocated" }]);
 });
 
@@ -130,7 +158,9 @@ test("checkTourDrift reports symbol-missing when the symbol no longer exists", a
   // Write target.ts with a 3-line function at lines 1-3
   const originalContent = "export function target() {\n  return 42;\n}\n";
   await writeFile(path.join(workspaceRoot, "target.ts"), originalContent);
-  const hash = computeSnippetHash("export function target() {\n  return 42;\n}");
+  const hash = computeSnippetHash(
+    "export function target() {\n  return 42;\n}",
+  );
 
   await writeFile(
     path.join(workspaceRoot, ".hdtw/tours/sym2.tour.json"),
@@ -152,25 +182,31 @@ test("checkTourDrift reports symbol-missing when the symbol no longer exists", a
           },
         },
       ],
-    })
+    }),
   );
 
   // Overwrite target.ts with a file that does NOT contain `target`
   await writeFile(
     path.join(workspaceRoot, "target.ts"),
-    "export function other() { return 0; }\n"
+    "export function other() { return 0; }\n",
   );
 
   const conn = startServer();
-  const missing = await conn.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
-    workspaceRoot,
-    tourId: "sym2",
-  });
+  const missing = await conn.sendRequest<CheckTourDriftResult>(
+    CHECK_TOUR_DRIFT_METHOD,
+    {
+      workspaceRoot,
+      tourId: "sym2",
+    },
+  );
   expect(missing.statuses).toEqual([{ index: 0, status: "symbol-missing" }]);
 });
 
 test("reanchorStep relocates a drifted step and rewrites the tour", async () => {
-  await writeFile(path.join(workspaceRoot, "src.ts"), "line1\nline2\nline3\nline4\n");
+  await writeFile(
+    path.join(workspaceRoot, "src.ts"),
+    "line1\nline2\nline3\nline4\n",
+  );
   await mkdir(path.join(workspaceRoot, ".hdtw", "tours"), { recursive: true });
   const { computeSnippetHash } = await import("@made-i-t/hdtw-engine-core");
   const hash = computeSnippetHash("line2\nline3");
@@ -183,18 +219,33 @@ test("reanchorStep relocates a drifted step and rewrites the tour", async () => 
       title: "T",
       summary: "",
       steps: [
-        { title: "s", narration: "n", anchor: { file: "src.ts", startLine: 2, endLine: 3, snippetHash: hash } },
+        {
+          title: "s",
+          narration: "n",
+          anchor: {
+            file: "src.ts",
+            startLine: 2,
+            endLine: 3,
+            snippetHash: hash,
+          },
+        },
       ],
-    })
+    }),
   );
-  await writeFile(path.join(workspaceRoot, "src.ts"), "pad\npad\nline1\nline2\nline3\nline4\n");
+  await writeFile(
+    path.join(workspaceRoot, "src.ts"),
+    "pad\npad\nline1\nline2\nline3\nline4\n",
+  );
 
   const conn = startServer();
-  const reanchor = await conn.sendRequest<ReanchorStepResult>(REANCHOR_STEP_METHOD, {
-    workspaceRoot,
-    tourId: "t",
-    stepIndex: 0,
-  });
+  const reanchor = await conn.sendRequest<ReanchorStepResult>(
+    REANCHOR_STEP_METHOD,
+    {
+      workspaceRoot,
+      tourId: "t",
+      stepIndex: 0,
+    },
+  );
   expect(reanchor.outcome).toBe("reanchored");
   expect(reanchor.anchor).toMatchObject({ startLine: 4, endLine: 5 });
 
@@ -203,9 +254,12 @@ test("reanchorStep relocates a drifted step and rewrites the tour", async () => 
   expect(onDisk.steps[0].anchor.startLine).toBe(4);
   expect(onDisk.steps[0].anchor.endLine).toBe(5);
 
-  const recheck = await conn.sendRequest<CheckTourDriftResult>(CHECK_TOUR_DRIFT_METHOD, {
-    workspaceRoot,
-    tourId: "t",
-  });
+  const recheck = await conn.sendRequest<CheckTourDriftResult>(
+    CHECK_TOUR_DRIFT_METHOD,
+    {
+      workspaceRoot,
+      tourId: "t",
+    },
+  );
   expect(recheck.statuses).toEqual([{ index: 0, status: "fresh" }]);
 });

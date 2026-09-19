@@ -40,7 +40,10 @@ import { createStepAnswerer, runStepAnswer } from "./stepAnswerPipeline.js";
 import OpenAI from "openai";
 import { FakeTourGenerator } from "./fakeTourGenerator.js";
 import { ClaudeAgentTourGenerator } from "./claudeTourGenerator.js";
-import { OpenAiAgentTourGenerator, type ChatClient } from "./openaiTourGenerator.js";
+import {
+  OpenAiAgentTourGenerator,
+  type ChatClient,
+} from "./openaiTourGenerator.js";
 import { StderrSink } from "./stderrSink.js";
 import {
   AuthRequiredError,
@@ -55,7 +58,7 @@ const REQUEST_CANCELLED_ERROR_CODE = -32800;
 
 const connection = createMessageConnection(
   new StreamMessageReader(process.stdin),
-  new StreamMessageWriter(process.stdout)
+  new StreamMessageWriter(process.stdout),
 );
 
 const minLevel = parseLogLevel(process.env.HDTW_LOG_LEVEL, "info");
@@ -70,7 +73,10 @@ function createGenerator(params: GenerateTourParams): TourGenerator {
           apiKey: process.env.OPENAI_API_KEY ?? "ollama",
           baseURL: params.baseUrl,
         }) as unknown as ChatClient,
-      { usdPer1kInput: params.usdPer1kInput, usdPer1kOutput: params.usdPer1kOutput }
+      {
+        usdPer1kInput: params.usdPer1kInput,
+        usdPer1kOutput: params.usdPer1kOutput,
+      },
     );
   }
   return new ClaudeAgentTourGenerator();
@@ -78,7 +84,9 @@ function createGenerator(params: GenerateTourParams): TourGenerator {
 
 connection.onRequest(PING_METHOD, (params: PingParams) => handlePing(params));
 
-connection.onRequest(LIST_TOURS_METHOD, (params: ListToursParams) => listTours(params));
+connection.onRequest(LIST_TOURS_METHOD, (params: ListToursParams) =>
+  listTours(params),
+);
 
 connection.onRequest(GET_TOUR_METHOD, async (params: GetTourParams) => {
   try {
@@ -95,24 +103,39 @@ connection.onRequest(
   GENERATE_TOUR_METHOD,
   async (params: GenerateTourParams, token: CancellationToken) => {
     const abort = new AbortController();
-    const cancelSubscription = token.onCancellationRequested(() => abort.abort());
+    const cancelSubscription = token.onCancellationRequested(() =>
+      abort.abort(),
+    );
     try {
       return await runGeneration(
         params,
         createGenerator(params),
         observer,
-        (progress) => connection.sendNotification(GENERATION_PROGRESS_NOTIFICATION, progress),
-        abort.signal
+        (progress) =>
+          connection.sendNotification(
+            GENERATION_PROGRESS_NOTIFICATION,
+            progress,
+          ),
+        abort.signal,
       );
     } catch (error) {
       if (error instanceof GenerationCancelledError) {
-        throw new ResponseError(REQUEST_CANCELLED_ERROR_CODE, "generation cancelled");
+        throw new ResponseError(
+          REQUEST_CANCELLED_ERROR_CODE,
+          "generation cancelled",
+        );
       }
       if (error instanceof AuthRequiredError) {
-        throw new ResponseError(GENERATION_AUTH_REQUIRED_ERROR_CODE, error.message);
+        throw new ResponseError(
+          GENERATION_AUTH_REQUIRED_ERROR_CODE,
+          error.message,
+        );
       }
       if (error instanceof BudgetExceededError) {
-        throw new ResponseError(GENERATION_BUDGET_EXCEEDED_ERROR_CODE, error.message);
+        throw new ResponseError(
+          GENERATION_BUDGET_EXCEEDED_ERROR_CODE,
+          error.message,
+        );
       }
       if (error instanceof GenerationFailedError) {
         throw new ResponseError(GENERATION_FAILED_ERROR_CODE, error.message);
@@ -121,31 +144,46 @@ connection.onRequest(
     } finally {
       cancelSubscription.dispose();
     }
-  }
+  },
 );
 
 connection.onRequest(
   ASK_ABOUT_STEP_METHOD,
   async (params: AskAboutStepParams, token: CancellationToken) => {
     const abort = new AbortController();
-    const cancelSubscription = token.onCancellationRequested(() => abort.abort());
+    const cancelSubscription = token.onCancellationRequested(() =>
+      abort.abort(),
+    );
     try {
       return await runStepAnswer(
         params,
         createStepAnswerer(params),
         observer,
-        (progress) => connection.sendNotification(GENERATION_PROGRESS_NOTIFICATION, progress),
-        abort.signal
+        (progress) =>
+          connection.sendNotification(
+            GENERATION_PROGRESS_NOTIFICATION,
+            progress,
+          ),
+        abort.signal,
       );
     } catch (error) {
       if (error instanceof GenerationCancelledError) {
-        throw new ResponseError(REQUEST_CANCELLED_ERROR_CODE, "answer cancelled");
+        throw new ResponseError(
+          REQUEST_CANCELLED_ERROR_CODE,
+          "answer cancelled",
+        );
       }
       if (error instanceof AuthRequiredError) {
-        throw new ResponseError(GENERATION_AUTH_REQUIRED_ERROR_CODE, error.message);
+        throw new ResponseError(
+          GENERATION_AUTH_REQUIRED_ERROR_CODE,
+          error.message,
+        );
       }
       if (error instanceof BudgetExceededError) {
-        throw new ResponseError(GENERATION_BUDGET_EXCEEDED_ERROR_CODE, error.message);
+        throw new ResponseError(
+          GENERATION_BUDGET_EXCEEDED_ERROR_CODE,
+          error.message,
+        );
       }
       if (error instanceof GenerationFailedError) {
         throw new ResponseError(GENERATION_FAILED_ERROR_CODE, error.message);
@@ -154,7 +192,7 @@ connection.onRequest(
     } finally {
       cancelSubscription.dispose();
     }
-  }
+  },
 );
 
 connection.onRequest(SAVE_TOUR_METHOD, async (params: SaveTourParams) => {
@@ -168,27 +206,33 @@ connection.onRequest(SAVE_TOUR_METHOD, async (params: SaveTourParams) => {
   }
 });
 
-connection.onRequest(CHECK_TOUR_DRIFT_METHOD, async (params: CheckTourDriftParams) => {
-  try {
-    return await checkTourDrift(params);
-  } catch (error) {
-    if (error instanceof TourNotFoundError) {
-      throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
+connection.onRequest(
+  CHECK_TOUR_DRIFT_METHOD,
+  async (params: CheckTourDriftParams) => {
+    try {
+      return await checkTourDrift(params);
+    } catch (error) {
+      if (error instanceof TourNotFoundError) {
+        throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
+      }
+      throw error;
     }
-    throw error;
-  }
-});
+  },
+);
 
-connection.onRequest(REANCHOR_STEP_METHOD, async (params: ReanchorStepParams) => {
-  try {
-    return await reanchorStep(params);
-  } catch (error) {
-    if (error instanceof TourNotFoundError) {
-      throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
+connection.onRequest(
+  REANCHOR_STEP_METHOD,
+  async (params: ReanchorStepParams) => {
+    try {
+      return await reanchorStep(params);
+    } catch (error) {
+      if (error instanceof TourNotFoundError) {
+        throw new ResponseError(TOUR_NOT_FOUND_ERROR_CODE, error.message);
+      }
+      throw error;
     }
-    throw error;
-  }
-});
+  },
+);
 
 // Shutdown contract: the server exits when stdin reaches EOF, which doubles
 // as orphan cleanup — if the parent client dies, the closed pipe tears us

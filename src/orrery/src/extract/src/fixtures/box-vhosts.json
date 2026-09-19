@@ -1,1 +1,20 @@
-{"alerts.keep.madeit.build":{"extra":"reverse_proxy 127.0.0.1:39093\n"},"chat.keep.madeit.build":{"extra":"reverse_proxy localhost:31080\n"},"collab.keep.madeit.build":{"extra":"reverse_proxy 127.0.0.1:31060\n"},"grafana.keep.madeit.build":{"extra":"reverse_proxy 127.0.0.1:3000\n"},"health.keep.madeit.build":{"extra":"respond \"box: caddy + tailnet + DNS-01 OK\" 200\n"},"memory.keep.madeit.build":{"extra":"reverse_proxy 127.0.0.1:31090\n"},"ntfy.keep.madeit.build":{"extra":"reverse_proxy 127.0.0.1:2586\n"},"ollama.keep.madeit.build":{"extra":"# Ollama checks the Host header to defend against DNS rebinding and only\n# trusts localhost, so a forwarded Host of ollama.keep.madeit.build gets a\n# flat 403. Present the upstream's own host and it answers. Access control\n# is the tailnet's job here, not this header's.\nreverse_proxy localhost:11434 {\n  header_up Host {upstream_hostport}\n}\n"},"otlp.keep.madeit.build":{"extra":"reverse_proxy 127.0.0.1:4318\n"},"prometheus.keep.madeit.build":{"extra":"reverse_proxy 127.0.0.1:9090\n"},"reverie.keep.madeit.build":{"extra":"root * /var/lib/reverie\nfile_server\n"},"searxng.keep.madeit.build":{"extra":"reverse_proxy 127.0.0.1:31088\n"}}
+{
+  "alerts.keep.madeit.build": { "extra": "reverse_proxy 127.0.0.1:39093\n" },
+  "chat.keep.madeit.build": { "extra": "reverse_proxy localhost:31080\n" },
+  "collab.keep.madeit.build": { "extra": "reverse_proxy 127.0.0.1:31060\n" },
+  "grafana.keep.madeit.build": { "extra": "reverse_proxy 127.0.0.1:3000\n" },
+  "health.keep.madeit.build": {
+    "extra": "respond \"box: caddy + tailnet + DNS-01 OK\" 200\n"
+  },
+  "memory.keep.madeit.build": { "extra": "reverse_proxy 127.0.0.1:31090\n" },
+  "ntfy.keep.madeit.build": { "extra": "reverse_proxy 127.0.0.1:2586\n" },
+  "ollama.keep.madeit.build": {
+    "extra": "# Ollama checks the Host header to defend against DNS rebinding and only\n# trusts localhost, so a forwarded Host of ollama.keep.madeit.build gets a\n# flat 403. Present the upstream's own host and it answers. Access control\n# is the tailnet's job here, not this header's.\nreverse_proxy localhost:11434 {\n  header_up Host {upstream_hostport}\n}\n"
+  },
+  "otlp.keep.madeit.build": { "extra": "reverse_proxy 127.0.0.1:4318\n" },
+  "prometheus.keep.madeit.build": { "extra": "reverse_proxy 127.0.0.1:9090\n" },
+  "reverie.keep.madeit.build": {
+    "extra": "root * /var/lib/reverie\nfile_server\n"
+  },
+  "searxng.keep.madeit.build": { "extra": "reverse_proxy 127.0.0.1:31088\n" }
+}

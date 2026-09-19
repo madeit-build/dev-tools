@@ -1,6 +1,10 @@
 import path from "node:path";
 import * as vscode from "vscode";
-import type { StepDriftState, StepQaContext, Tour } from "@made-i-t/hdtw-protocol";
+import type {
+  StepDriftState,
+  StepQaContext,
+  Tour,
+} from "@made-i-t/hdtw-protocol";
 import { GENERATION_AUTH_REQUIRED_ERROR_CODE } from "@made-i-t/hdtw-protocol";
 import { currentStep, progressLabel, startWalk } from "./walkState.js";
 import {
@@ -26,18 +30,25 @@ export class WalkController implements vscode.Disposable {
   constructor(
     private readonly workspaceRoot: string,
     /** Returns the title of a tour id known to the workspace, or undefined when it does not exist. */
-    private readonly lookupTourTitle: (tourId: string) => string | undefined
+    private readonly lookupTourTitle: (tourId: string) => string | undefined,
   ) {
-    this.commentController = vscode.comments.createCommentController("hdtw-tour", "HDTW Tour Guide");
+    this.commentController = vscode.comments.createCommentController(
+      "hdtw-tour",
+      "HDTW Tour Guide",
+    );
     this.commentController.options = {
       prompt: "Ask a follow-up about this step…",
       placeHolder: "e.g. why is it done this way?",
     };
     this.decoration = vscode.window.createTextEditorDecorationType({
       isWholeLine: true,
-      backgroundColor: new vscode.ThemeColor("editor.findMatchHighlightBackground"),
+      backgroundColor: new vscode.ThemeColor(
+        "editor.findMatchHighlightBackground",
+      ),
     });
-    this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    this.statusBarItem = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Left,
+    );
   }
 
   async start(tour: Tour): Promise<void> {
@@ -107,7 +118,10 @@ export class WalkController implements vscode.Disposable {
   }
 
   /** Append the question + a thinking placeholder to the active thread, then swap in the answer. */
-  async askWhy(question: string, answer: (ctx: StepQaContext) => Promise<string>): Promise<void> {
+  async askWhy(
+    question: string,
+    answer: (ctx: StepQaContext) => Promise<string>,
+  ): Promise<void> {
     const thread = this.thread;
     const ctx = this.activeStepContext();
     if (!thread || !ctx) {
@@ -153,9 +167,11 @@ export class WalkController implements vscode.Disposable {
    * engine message as untrusted prose (an answer must never carry executable command links).
    */
   private errorBody(error: unknown): vscode.MarkdownString {
-    if ((error as { code?: number }).code === GENERATION_AUTH_REQUIRED_ERROR_CODE) {
+    if (
+      (error as { code?: number }).code === GENERATION_AUTH_REQUIRED_ERROR_CODE
+    ) {
       const body = new vscode.MarkdownString(
-        "Set your Anthropic API key to ask follow-ups. [Set API Key](command:hdtw.setApiKey)"
+        "Set your Anthropic API key to ask follow-ups. [Set API Key](command:hdtw.setApiKey)",
       );
       body.isTrusted = { enabledCommands: ["hdtw.setApiKey"] };
       return body;
@@ -178,7 +194,9 @@ export class WalkController implements vscode.Disposable {
     this.clearStepArtifacts();
     const active = activeWalk(this.stack);
     const step = currentStep(active);
-    const fileUri = vscode.Uri.file(path.join(this.workspaceRoot, ...step.anchor.file.split("/")));
+    const fileUri = vscode.Uri.file(
+      path.join(this.workspaceRoot, ...step.anchor.file.split("/")),
+    );
 
     let document: vscode.TextDocument | undefined;
     try {
@@ -189,19 +207,27 @@ export class WalkController implements vscode.Disposable {
 
     if (!document) {
       void vscode.window.showWarningMessage(
-        `HDTW step "${step.title}": anchor file ${step.anchor.file} is missing — code may have changed since this tour was authored.`
+        `HDTW step "${step.title}": anchor file ${step.anchor.file} is missing — code may have changed since this tour was authored.`,
       );
       this.updateStatusBar();
       return;
     }
 
-    const status: StepDriftState = this.driftByIndex.get(activeWalk(this.stack).stepIndex) ?? "fresh";
+    const status: StepDriftState =
+      this.driftByIndex.get(activeWalk(this.stack).stepIndex) ?? "fresh";
     const drifted = status !== "fresh";
     const startLine = Math.min(step.anchor.startLine, document.lineCount) - 1;
     const endLine = Math.min(step.anchor.endLine, document.lineCount) - 1;
-    const range = new vscode.Range(startLine, 0, endLine, document.lineAt(endLine).text.length);
+    const range = new vscode.Range(
+      startLine,
+      0,
+      endLine,
+      document.lineAt(endLine).text.length,
+    );
 
-    const editor = await vscode.window.showTextDocument(document, { preserveFocus: false });
+    const editor = await vscode.window.showTextDocument(document, {
+      preserveFocus: false,
+    });
     editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
 
     if (!drifted) {
@@ -213,32 +239,46 @@ export class WalkController implements vscode.Disposable {
     const reanchorLink =
       isReanchorable(status) && this.reanchorContext
         ? `\n\n[🔧 Re-anchor this step](command:hdtw.reanchorStep?${encodeURIComponent(
-            JSON.stringify([this.reanchorContext.tourId, activeWalk(this.stack).stepIndex])
+            JSON.stringify([
+              this.reanchorContext.tourId,
+              activeWalk(this.stack).stepIndex,
+            ]),
           )})`
         : "";
     const body =
-      (badge ? badge + "\n\n" : "") +
-      step.narration +
-      reanchorLink +
-      this.relatedSection(step.relatedTours);
+      (badge ? badge + "\n\n" : "")
+      + step.narration
+      + reanchorLink
+      + this.relatedSection(step.relatedTours);
     const narration = new vscode.MarkdownString(body);
-    narration.isTrusted = { enabledCommands: ["hdtw.followRelated", "hdtw.reanchorStep"] };
+    narration.isTrusted = {
+      enabledCommands: ["hdtw.followRelated", "hdtw.reanchorStep"],
+    };
     const comments: vscode.Comment[] = [
       {
         body: narration,
         mode: vscode.CommentMode.Preview,
-        author: { name: `🧭 HDTW Guide — ${step.title} (${progressLabel(active)})` },
+        author: {
+          name: `🧭 HDTW Guide — ${step.title} (${progressLabel(active)})`,
+        },
       },
     ];
-    this.thread = this.commentController.createCommentThread(fileUri, range, comments);
-    this.thread.collapsibleState = vscode.CommentThreadCollapsibleState.Expanded;
+    this.thread = this.commentController.createCommentThread(
+      fileUri,
+      range,
+      comments,
+    );
+    this.thread.collapsibleState =
+      vscode.CommentThreadCollapsibleState.Expanded;
     this.thread.canReply = true;
     this.thread.label = breadcrumbLabel(this.stack);
 
     this.updateStatusBar();
   }
 
-  private relatedSection(related: Tour["steps"][number]["relatedTours"]): string {
+  private relatedSection(
+    related: Tour["steps"][number]["relatedTours"],
+  ): string {
     if (!related || related.length === 0) {
       return "";
     }

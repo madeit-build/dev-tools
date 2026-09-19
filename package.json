@@ -9,6 +9,7 @@
     "format": "prettier --write ."
   },
   "devDependencies": {
+    "@made-i-t/hang-prettier": "workspace:*",
     "eslint": "^9.27.0",
     "prettier": "^3.5.3",
     "turbo": "^2.5.0",

@@ -1,4 +1,10 @@
-import { ReactFlow, Background, Controls, type Edge, type Node } from "@xyflow/react";
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  type Edge,
+  type Node,
+} from "@xyflow/react";
 import { useCallback, useEffect, useState, type JSX } from "react";
 import "@xyflow/react/dist/style.css";
 import { useGraph } from "./useGraph";
@@ -86,33 +92,51 @@ export function App(): JSX.Element {
     return () => { live = false; };
   }, [graph, view, showJobs, annotations]);
 
-  const onNodeClick = useCallback((_: unknown, n: Node) => {
-    go({ ...view, selected: n.id });
-  }, [go, view]);
+  const onNodeClick = useCallback(
+    (_: unknown, n: Node) => {
+      go({ ...view, selected: n.id });
+    },
+    [go, view],
+  );
 
-  const onNodeDoubleClick = useCallback((_: unknown, n: Node) => {
-    const { node } = n.data as OrreryNodeData;
-    go({ ...view, path: [...view.path, node.label], selected: null });
-  }, [go, view]);
+  const onNodeDoubleClick = useCallback(
+    (_: unknown, n: Node) => {
+      const { node } = n.data as OrreryNodeData;
+      go({ ...view, path: [...view.path, node.label], selected: null });
+    },
+    [go, view],
+  );
 
   if (error) {
-    return <pre style={{ padding: 24, fontFamily: "var(--font-mono)" }}>{error}</pre>;
+    return (
+      <pre style={{ padding: 24, fontFamily: "var(--font-mono)" }}>{error}</pre>
+    );
   }
-  if (!graph) return <div style={{ padding: 24, fontFamily: "var(--font-mono)" }}>loading</div>;
+  if (!graph)
+    return (
+      <div style={{ padding: 24, fontFamily: "var(--font-mono)" }}>loading</div>
+    );
 
-  const selected = view.selected ? graph.nodes.find((n) => n.id === view.selected) : undefined;
+  const selected = view.selected
+    ? graph.nodes.find((n) => n.id === view.selected)
+    : undefined;
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <header className="orrery-header">
-        <button className="orrery-crumb" onClick={() => go({ ...view, path: [], selected: null })}>
+        <button
+          className="orrery-crumb"
+          onClick={() => go({ ...view, path: [], selected: null })}
+        >
           fleet
         </button>
         {view.path.map((seg, i) => (
           <button
             key={seg}
             className="orrery-crumb"
-            onClick={() => go({ ...view, path: view.path.slice(0, i + 1), selected: null })}
+            onClick={() =>
+              go({ ...view, path: view.path.slice(0, i + 1), selected: null })
+            }
           >
             / {seg}
           </button>
@@ -142,7 +166,12 @@ export function App(): JSX.Element {
             {graph.ledger.length} not drawn
           </button>
           <button
-            onClick={() => go({ ...view, lens: view.lens === "runtime" ? "declaration" : "runtime" })}
+            onClick={() =>
+              go({
+                ...view,
+                lens: view.lens === "runtime" ? "declaration" : "runtime",
+              })
+            }
           >
             lens: {view.lens}
           </button>
@@ -172,7 +201,6 @@ export function App(): JSX.Element {
             onAnnotate={onAnnotate}
           />
         )}
-        {showLedger && <LedgerPanel rows={graph.ledger} onClose={() => setShowLedger(false)} />}
       </div>
     </div>
   );

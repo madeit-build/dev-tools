@@ -1,1 +1,6 @@
-{}
+{
+  "plugins": ["@made-i-t/hang-prettier"],
+  "printWidth": 80,
+  "hangWidth": 100,
+  "experimentalOperatorPosition": "start"
+}

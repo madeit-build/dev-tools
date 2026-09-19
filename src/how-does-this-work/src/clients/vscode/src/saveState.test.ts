@@ -9,7 +9,9 @@ describe("saveState", () => {
   });
   test("an unsaved walk exposes its tour until saved", () => {
     const s = createSaveState();
-    const tour = { id: "t" } as unknown as import("@made-i-t/hdtw-protocol").Tour;
+    const tour = {
+      id: "t",
+    } as unknown as import("@made-i-t/hdtw-protocol").Tour;
     s.setUnsaved(tour);
     expect(s.unsavedTour()).toBe(tour);
     s.setSaved();

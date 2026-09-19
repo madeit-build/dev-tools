@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@made-i-t/hang-prettier':
+        specifier: workspace:*
+        version: link:src/hang/src/prettier
       eslint:
         specifier: ^9.27.0
         version: 9.39.4
@@ -23,6 +26,59 @@ importers:
       typescript-eslint:
         specifier: ^8.32.0
         version: 8.61.0(eslint@9.39.4)(typescript@5.9.3)
+
+  src/hang/src/cli:
+    dependencies:
+      '@made-i-t/hang-core':
+        specifier: workspace:*
+        version: link:../core
+      '@made-i-t/hang-prettier':
+        specifier: workspace:*
+        version: link:../prettier
+      prettier:
+        specifier: ^3.9.6
+        version: 3.9.6
+      tinyglobby:
+        specifier: ^0.2.10
+        version: 0.2.17
+    devDependencies:
+      '@types/node':
+        specifier: ^20.17.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.0
+        version: 3.2.6(@types/node@20.19.43)(lightningcss@1.33.0)
+
+  src/hang/src/core:
+    devDependencies:
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.1.0
+        version: 3.2.6(@types/node@20.19.43)(lightningcss@1.33.0)
+
+  src/hang/src/prettier:
+    dependencies:
+      '@made-i-t/hang-core':
+        specifier: workspace:*
+        version: link:../core
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+    devDependencies:
+      '@types/node':
+        specifier: ^20.17.0
+        version: 20.19.43
+      prettier:
+        specifier: ^3.9.6
+        version: 3.9.6
+      vitest:
+        specifier: ^3.1.0
+        version: 3.2.6(@types/node@20.19.43)(lightningcss@1.33.0)
 
   src/how-does-this-work/src/clients/vscode:
     dependencies:
@@ -1716,6 +1772,11 @@ packages:
 
   prettier@3.8.4:
     resolution: {integrity: sha512-N2MylSdi48+5N/6S5j+maeHbUSIzzZ5uOcX5Hm4QpV8Dkb1HFjfAKTKX6yNPJQD9AhcT3ifHNB66tWTTJDi11Q==}
+    engines: {node: '>=14'}
+    hasBin: true
+
+  prettier@3.9.6:
+    resolution: {integrity: sha512-OpN0zzVdiaiAhxpuuj5efpIS4sY9j7bY6uR5mnj5yPzGkdkjNKSJeUThPb60Jw29QuAZgA4o+/iB49kFiaBX6g==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -3437,6 +3498,8 @@ snapshots:
   prelude-ls@1.2.1: {}
 
   prettier@3.8.4: {}
+
+  prettier@3.9.6: {}
 
   proxy-addr@2.0.7:
     dependencies:

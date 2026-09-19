@@ -48,8 +48,8 @@ identical to the box's stored config:
 }
 ```
 
-- `workflow`  maps 1:1 to open-webui's `COMFYUI_WORKFLOW`
-- `map`        maps 1:1 to open-webui's `COMFYUI_WORKFLOW_NODES`
+- `workflow` maps 1:1 to open-webui's `COMFYUI_WORKFLOW`
+- `map` maps 1:1 to open-webui's `COMFYUI_WORKFLOW_NODES`
 
 Graduating a proven graph into the box is therefore a copy of two fields into
 `chat.nix`, no format conversion, no drift. Experiment-format == deploy-format.
@@ -89,13 +89,13 @@ manual `ssh -L` command and exits clean.
 No address or path is a literal in the code. Precedence is
 **CLI flag > env var > default**.
 
-| Concern                  | CLI flag       | Env var                | Default                 |
-| ------------------------ | -------------- | ---------------------- | ----------------------- |
-| SSH host (tunnel target) | `--host`       | `COMFY_LAB_HOST`       | `box`                   |
-| ComfyUI URL (local end)  | `--url`        | `COMFY_LAB_URL`        | `http://127.0.0.1:8188` |
-| Remote bind to forward   | `--remote`     | `COMFY_LAB_REMOTE`     | `127.0.0.1:8188`        |
-| Output dir               | `--out`        | `COMFY_LAB_OUT`        | `./out/`                |
-| Workflows dir            | `--workflows`  | `COMFY_LAB_WORKFLOWS`  | `<tool>/workflows/`     |
+| Concern                  | CLI flag      | Env var               | Default                 |
+| ------------------------ | ------------- | --------------------- | ----------------------- |
+| SSH host (tunnel target) | `--host`      | `COMFY_LAB_HOST`      | `box`                   |
+| ComfyUI URL (local end)  | `--url`       | `COMFY_LAB_URL`       | `http://127.0.0.1:8188` |
+| Remote bind to forward   | `--remote`    | `COMFY_LAB_REMOTE`    | `127.0.0.1:8188`        |
+| Output dir               | `--out`       | `COMFY_LAB_OUT`       | `./out/`                |
+| Workflows dir            | `--workflows` | `COMFY_LAB_WORKFLOWS` | `<tool>/workflows/`     |
 
 The tunnel's local port is derived from `--url`'s port so the two never
 disagree.

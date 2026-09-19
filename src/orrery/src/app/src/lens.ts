@@ -1,8 +1,25 @@
-import type { EdgeType, Graph, NodeType, OrreryEdge, OrreryNode } from "@made-i-t/orrery-model";
+import type {
+  EdgeType,
+  Graph,
+  NodeType,
+  OrreryEdge,
+  OrreryNode,
+} from "@made-i-t/orrery-model";
 import type { View } from "./route";
 
-const RUNTIME_EDGES = new Set<EdgeType>(["proxies-to", "listens-on", "reads", "writes", "depends-on"]);
-const DECLARATION_EDGES = new Set<EdgeType>(["declared-by", "defines", "imports", "provides"]);
+const RUNTIME_EDGES = new Set<EdgeType>([
+  "proxies-to",
+  "listens-on",
+  "reads",
+  "writes",
+  "depends-on",
+]);
+const DECLARATION_EDGES = new Set<EdgeType>([
+  "declared-by",
+  "defines",
+  "imports",
+  "provides",
+]);
 
 // Source-side node types. They exist in both lenses' data but only belong on
 // screen in Declaration, where the question is "what code put this here".
@@ -16,7 +33,8 @@ export interface LensOptions {
 // axis, so "what is visible" is exactly "the children of where I am".
 function childrenOf(graph: Graph, parentId: string): OrreryNode[] {
   const childIds = new Set(
-    graph.edges.filter((e) => e.type === "contains" && e.from === parentId).map((e) => e.to),
+    graph.edges.filter((e) => e.type === "contains" && e.from === parentId)
+               .map((e) => e.to),
   );
   return graph.nodes.filter((n) => childIds.has(n.id));
 }
@@ -45,7 +63,8 @@ export function visibleFor(
   // The jobs toggle governs both lenses. Applying it only to Runtime meant
   // flipping the lens silently added 45 boot-time jobs back to the canvas,
   // which reads as the flip having lost your place.
-  if (!options.showJobs) nodes = nodes.filter((n) => n.attrs.lifecycle !== "oneshot");
+  if (!options.showJobs)
+    nodes = nodes.filter((n) => n.attrs.lifecycle !== "oneshot");
 
   if (view.lens === "runtime") {
     nodes = nodes.filter((n) => !SOURCE_TYPES.has(n.type));
@@ -56,9 +75,8 @@ export function visibleFor(
     // the selection across a flip.
     const visible = new Set(nodes.map((n) => n.id));
     const attached = new Set(
-      graph.edges
-        .filter((e) => DECLARATION_EDGES.has(e.type) && visible.has(e.from))
-        .map((e) => e.to),
+      graph.edges.filter((e) => DECLARATION_EDGES.has(e.type) && visible.has(e.from))
+                 .map((e) => e.to),
     );
     nodes = [...nodes, ...graph.nodes.filter((n) => attached.has(n.id))];
   }

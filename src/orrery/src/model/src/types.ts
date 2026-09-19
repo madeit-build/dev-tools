@@ -10,8 +10,15 @@ export type NodeType = (typeof NODE_TYPES)[number];
 
 export const EDGE_TYPES = [
   "contains",
-  "proxies-to", "listens-on", "reads", "writes", "depends-on",
-  "declared-by", "defines", "imports", "provides",
+  "proxies-to",
+  "listens-on",
+  "reads",
+  "writes",
+  "depends-on",
+  "declared-by",
+  "defines",
+  "imports",
+  "provides",
 ] as const;
 export type EdgeType = (typeof EDGE_TYPES)[number];
 
@@ -47,7 +54,10 @@ export interface OrreryEdge {
 }
 
 export const DROP_REASONS = [
-  "no-exec", "filtered-by-rule", "rule-error", "eval-failed",
+  "no-exec",
+  "filtered-by-rule",
+  "rule-error",
+  "eval-failed",
 ] as const;
 export type DropReason = (typeof DROP_REASONS)[number];
 

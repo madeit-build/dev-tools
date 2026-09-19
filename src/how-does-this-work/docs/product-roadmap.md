@@ -4,71 +4,71 @@
 
 ## Vision
 
-An IDE extension that explains how a codebase works — from entrypoint to exit — the way a **principal engineer walks a new hire through the platform**: guided, rails-driven tours through real code, narrated with the architecture, implementation patterns, and the *why* behind them. Powered by an AI agent that has genuinely explored the codebase.
+An IDE extension that explains how a codebase works — from entrypoint to exit — the way a **principal engineer walks a new hire through the platform**: guided, rails-driven tours through real code, narrated with the architecture, implementation patterns, and the _why_ behind them. Powered by an AI agent that has genuinely explored the codebase.
 
 ## Two load-bearing architectural insights
 
-1. **Generation and playback are different products.** An agent (expensive, occasional) *generates* tour artifacts; the rails experience *replays* them deterministically — free, offline, instant, no LLM. One person generates; the whole team walks.
+1. **Generation and playback are different products.** An agent (expensive, occasional) _generates_ tour artifacts; the rails experience _replays_ them deterministically — free, offline, instant, no LLM. One person generates; the whole team walks.
 2. **Tours are the universal currency.** A saved catalog tour and a live conversational walk are the same artifact — conversation is just one way of minting tours. Both entry experiences ride one system.
 
 ## Decisions log
 
-| Decision | Choice | Rationale |
-|---|---|---|
-| Agent runtime | Embedded agentic loop (Claude Agent SDK) in the engine, staged toward hybrid grounding | Full UX control; lives in the engine so every IDE client benefits; incremental path from file tools to code-map grounding |
-| Cost model | BYOK / user's existing subscription auth | Token costs are never ours; authors need auth, tour consumers never do |
-| Build sequencing | Vertical capability milestones (usable product at every chunk) | Artifact model — the sharing/monetization core — proven first; agent lands on stable rails |
-| V1 entry experiences | Both catalog and ask-first conversation (chunks 1–3) | Unified by the tours-as-currency insight |
-| Walk UX | Inline narration thread in the editor (VS Code Comments API), collapsible; tours sidebar; status-bar progress | Zero eye travel; "senior engineer commenting on your screen"; native markdown/theming/collapse |
-| Tour storage | `.hdtw/tours/*.tour.json` committed alongside source | The repo is the distribution channel; sharing = `git pull` |
-| Generation auth | API key (SecretStorage) → Claude Code CLI credential fallback | Zero-setup for subscription holders; key path for everyone else; consumers never need auth |
-| Agent backend seam | All generation behind a `TourGenerator` port | Bring-your-own-agent (Codex, Copilot, …) can land later without touching pipeline/protocol/clients |
+| Decision             | Choice                                                                                                        | Rationale                                                                                                                 |
+| -------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Agent runtime        | Embedded agentic loop (Claude Agent SDK) in the engine, staged toward hybrid grounding                        | Full UX control; lives in the engine so every IDE client benefits; incremental path from file tools to code-map grounding |
+| Cost model           | BYOK / user's existing subscription auth                                                                      | Token costs are never ours; authors need auth, tour consumers never do                                                    |
+| Build sequencing     | Vertical capability milestones (usable product at every chunk)                                                | Artifact model — the sharing/monetization core — proven first; agent lands on stable rails                                |
+| V1 entry experiences | Both catalog and ask-first conversation (chunks 1–3)                                                          | Unified by the tours-as-currency insight                                                                                  |
+| Walk UX              | Inline narration thread in the editor (VS Code Comments API), collapsible; tours sidebar; status-bar progress | Zero eye travel; "senior engineer commenting on your screen"; native markdown/theming/collapse                            |
+| Tour storage         | `.hdtw/tours/*.tour.json` committed alongside source                                                          | The repo is the distribution channel; sharing = `git pull`                                                                |
+| Generation auth      | API key (SecretStorage) → Claude Code CLI credential fallback                                                 | Zero-setup for subscription holders; key path for everyone else; consumers never need auth                                |
+| Agent backend seam   | All generation behind a `TourGenerator` port                                                                  | Bring-your-own-agent (Codex, Copilot, …) can land later without touching pipeline/protocol/clients                        |
 
 ## Chunks
 
 ### Chunk 0 — Monorepo skeleton ✅ shipped 2026-06-12
 
-| Feature | Capability |
-|---|---|
-| pnpm + Turborepo monorepo, four packages | Multi-team, multi-IDE delivery structure |
-| `@made-i-t/hdtw-protocol` | Typed engine↔client JSON-RPC contract |
-| `@made-i-t/hdtw-engine-server` + `engine-core` | Standalone engine process over stdio; pure domain core |
+| Feature                                          | Capability                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------- |
+| pnpm + Turborepo monorepo, four packages         | Multi-team, multi-IDE delivery structure                      |
+| `@made-i-t/hdtw-protocol`                        | Typed engine↔client JSON-RPC contract                         |
+| `@made-i-t/hdtw-engine-server` + `engine-core`   | Standalone engine process over stdio; pure domain core        |
 | `hdtw-vscode` thin client (`madeit.hdtw-vscode`) | Spawns engine, ping/pong handshake, fail-fast error surfacing |
 
 ### Chunk 1 — Tour artifacts + rails playback ✅ shipped 2026-06-12
 
 Spec: `docs/superpowers/specs/2026-06-12-chunk-1-rails-playback-design.md`
 
-| Feature | Capability |
-|---|---|
-| Tour artifact schema (`schemaVersion`, steps, anchors with `snippetHash`) | Durable, versionable, shareable walkthroughs; hash stored now enables Chunk 4 drift detection retroactively |
-| Engine: `hdtw/listTours`, `hdtw/getTour` (stateless) | Any client can enumerate and fetch a repo's tours |
-| Tours sidebar (activity bar + TreeView) | Discover a repo's tours at a glance |
-| Rails walking: open → reveal → highlight → inline narration thread (collapsible) with Back/Next/Exit; status-bar progress | The core onboarding experience — free, offline, no agent needed |
-| Graceful degradation: invalid tours badged with precise errors; drifted anchors warn but don't break the walk | Tours stay useful as code evolves |
-| Dogfood artifact: committed tour of this repo's architecture | Proves the format; doubles as our own onboarding |
+| Feature                                                                                                                   | Capability                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Tour artifact schema (`schemaVersion`, steps, anchors with `snippetHash`)                                                 | Durable, versionable, shareable walkthroughs; hash stored now enables Chunk 4 drift detection retroactively |
+| Engine: `hdtw/listTours`, `hdtw/getTour` (stateless)                                                                      | Any client can enumerate and fetch a repo's tours                                                           |
+| Tours sidebar (activity bar + TreeView)                                                                                   | Discover a repo's tours at a glance                                                                         |
+| Rails walking: open → reveal → highlight → inline narration thread (collapsible) with Back/Next/Exit; status-bar progress | The core onboarding experience — free, offline, no agent needed                                             |
+| Graceful degradation: invalid tours badged with precise errors; drifted anchors warn but don't break the walk             | Tours stay useful as code evolves                                                                           |
+| Dogfood artifact: committed tour of this repo's architecture                                                              | Proves the format; doubles as our own onboarding                                                            |
 
 ### Chunk 2 — Embedded agent + tour generation ✅ shipped 2026-06-12 (F5 dogfood pending)
 
 Spec: `docs/superpowers/specs/2026-06-12-chunk-2-agent-tour-generation-design.md`
 
-| Feature | Capability |
-|---|---|
-| Agent SDK embedded in engine; API-key or Claude Code subscription auth | The "principal engineer" comes alive — explores with read/grep/glob tools |
-| "Generate Tour…" flow (topic prompt → exploration → verified tour → auto-walk) | Tours created on demand for any codebase; git is the review mechanism |
-| Live progress + token-cost visibility; budget caps; cancellation | Users trust the product with their key |
-| Engine-owned anchor verification + repair round (agent never supplies hashes) | Generated steps must point at real code (no hallucinated anchors) |
-| `TourGenerator` port (Claude implementation + test fake) | Reserved seam for future bring-your-own-agent backends (Codex, Copilot, …) |
+| Feature                                                                        | Capability                                                                 |
+| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| Agent SDK embedded in engine; API-key or Claude Code subscription auth         | The "principal engineer" comes alive — explores with read/grep/glob tools  |
+| "Generate Tour…" flow (topic prompt → exploration → verified tour → auto-walk) | Tours created on demand for any codebase; git is the review mechanism      |
+| Live progress + token-cost visibility; budget caps; cancellation               | Users trust the product with their key                                     |
+| Engine-owned anchor verification + repair round (agent never supplies hashes)  | Generated steps must point at real code (no hallucinated anchors)          |
+| `TourGenerator` port (Claude implementation + test fake)                       | Reserved seam for future bring-your-own-agent backends (Codex, Copilot, …) |
 
 ### Chunk 2.5 — Observability ✅ shipped 2026-06-13
 
 Spec: `docs/superpowers/specs/2026-06-13-observability-design.md`
 
-| Feature | Capability |
-|---|---|
-| `@made-i-t/hdtw-observability` — injected `Logger` + `Metrics` + sink seam | Structured observability shared across packages; one seam for future telemetry export |
+| Feature                                                                                      | Capability                                                                                             |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `@made-i-t/hdtw-observability` — injected `Logger` + `Metrics` + sink seam                   | Structured observability shared across packages; one seam for future telemetry export                  |
 | Engine emits NDJSON records to stderr; client renders them in a native "HDTW" Output channel | See the agent's tool use, anchor verification, repair rounds, and timings live — even on startup/crash |
-| `hdtw.logLevel` setting → `HDTW_LOG_LEVEL` engine env | One control for engine + client verbosity |
+| `hdtw.logLevel` setting → `HDTW_LOG_LEVEL` engine env                                        | One control for engine + client verbosity                                                              |
 
 ### Chunk 3a — Conversational Ask ✅ shipped 2026-06-13
 
@@ -76,19 +76,19 @@ Spec: `docs/superpowers/specs/2026-06-13-conversational-ask-design.md`
 
 Split from "Chunk 3 — Conversational walks": the ask-first entry + ephemeral/save lifecycle ships first; the "Why?" detour is 3b.
 
-| Feature | Capability |
-|---|---|
+| Feature                                                                          | Capability                                                                                               |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | "HDTW: Ask…" → input box → ephemeral generated walk (`generateTour{save:false}`) | Ask-first magic; the answer is a tour you walk, not a wall of text — and casual questions leave no trace |
-| "Save to catalog" promotes the walk into `.hdtw/tours/` (`hdtw/saveTour`) | Conversation mints durable artifacts only when you want them |
+| "Save to catalog" promotes the walk into `.hdtw/tours/` (`hdtw/saveTour`)        | Conversation mints durable artifacts only when you want them                                             |
 
 ### Chunk 3b — "Why?" detours ✅ shipped 2026-06-14
 
 Spec: `docs/superpowers/specs/2026-06-14-why-detours-design.md`
 
-| Feature | Capability |
-|---|---|
+| Feature                                                                                                                            | Capability                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | Reply to the narration thread → `hdtw/askAboutStep` → read-only capped agent answers in step context → answer appended ephemerally | The new hire interrupts a step, the principal engineer answers in context, then [Next] resumes the rails — Q&A never alters the tour |
-| Read-only agent (Read/Grep/Glob, maxTurns 6, budget-capped, cancellable) + "🧠 thinking…" placeholder replaced by the answer | A quick "why" stays quick and cheap but can follow a reference to answer well; auth/budget/cancel reuse the Chunk 2 guard layer |
+| Read-only agent (Read/Grep/Glob, maxTurns 6, budget-capped, cancellable) + "🧠 thinking…" placeholder replaced by the answer       | A quick "why" stays quick and cheap but can follow a reference to answer well; auth/budget/cancel reuse the Chunk 2 guard layer      |
 
 **Completes V1 (chunks 1–3).**
 
@@ -98,22 +98,22 @@ Spec: `docs/superpowers/specs/2026-06-13-drift-detection-design.md`
 
 Split out from the original "Chunk 4 — Grounding & drift": drift is playback-side, low-risk, and uses infrastructure we already have, so it ships first.
 
-| Feature | Capability |
-|---|---|
-| Engine recomputes each step's `snippetHash` on load → `fresh`/`drifted`/`out-of-range`/`file-missing` (`hdtw/checkTourDrift`) | Tours stay trustworthy as code evolves; hash-accurate, not a line-count heuristic |
+| Feature                                                                                                                                | Capability                                                                             |
+| -------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Engine recomputes each step's `snippetHash` on load → `fresh`/`drifted`/`out-of-range`/`file-missing` (`hdtw/checkTourDrift`)          | Tours stay trustworthy as code evolves; hash-accurate, not a line-count heuristic      |
 | Hash-window re-anchor (`hdtw/reanchorStep`): slide a window of the anchor's length, match the stored hash, rewrite the step atomically | Deterministic, no-agent relocation of verbatim-moved code; author reviews the git diff |
-| Walk badges + "Re-anchor this step" link; sidebar `⚠ N drifted` on demand | Drift surfaced where you walk; re-anchor is one click |
+| Walk badges + "Re-anchor this step" link; sidebar `⚠ N drifted` on demand                                                              | Drift surfaced where you walk; re-anchor is one click                                  |
 
 ### Chunk 4b — Code-map grounding ✅ shipped 2026-06-14
 
 Spec: `docs/superpowers/specs/2026-06-14-codemap-grounding-design.md`
 
-| Feature | Capability |
-|---|---|
-| `@made-i-t/hdtw-codemap` — tree-sitter (web-tree-sitter WASM) structural index for TS/JS; pure `parseSymbols` + `fileOutline`/`findSymbol` facade | A verified, syntactic map of a file's named declarations — no language server, runs anywhere the engine runs |
-| Two read-only agent tools (`fileOutline`, `findSymbol`) exposed via the Agent SDK's in-process MCP, path-guarded | The agent confirms a symbol exists and gets its real line range instead of guessing — fewer hallucinated anchors, cheaper than re-reading whole files |
+| Feature                                                                                                                                                                      | Capability                                                                                                                                                              |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@made-i-t/hdtw-codemap` — tree-sitter (web-tree-sitter WASM) structural index for TS/JS; pure `parseSymbols` + `fileOutline`/`findSymbol` facade                            | A verified, syntactic map of a file's named declarations — no language server, runs anywhere the engine runs                                                            |
+| Two read-only agent tools (`fileOutline`, `findSymbol`) exposed via the Agent SDK's in-process MCP, path-guarded                                                             | The agent confirms a symbol exists and gets its real line range instead of guessing — fewer hallucinated anchors, cheaper than re-reading whole files                   |
 | Self-healing **symbol-relative anchors** — additive `symbol` field; the engine resolves symbol→range at generate/verify/getTour/drift (cache stays for engine-free playback) | An anchor names a durable symbol identity; when code moves, the engine re-resolves and refreshes the cached range instead of warning — drift becomes a silent self-heal |
-| New drift states `relocated` (self-healed) + `symbol-missing`; line-anchors keep the 4a hash-window path | Symbol-anchors and classic line-anchors coexist; each step is whichever fits |
+| New drift states `relocated` (self-healed) + `symbol-missing`; line-anchors keep the 4a hash-window path                                                                     | Symbol-anchors and classic line-anchors coexist; each step is whichever fits                                                                                            |
 
 Foundation-first slice: syntactic (tree-sitter) only. The semantic call-graph / entrypoint layer (LSP-grade) remains deferred to its own chunk.
 
@@ -121,45 +121,46 @@ Foundation-first slice: syntactic (tree-sitter) only. The semantic call-graph / 
 
 Spec: `docs/superpowers/specs/2026-06-15-openai-byom-design.md`
 
-| Feature | Capability |
-|---|---|
-| `OpenAiAgentTourGenerator` — second `TourGenerator` implementation; manual tool-calling explore loop over any OpenAI-compatible endpoint | Authors may drive generation with OpenAI, OpenRouter, Gemini-compat, or a local Ollama model — no Anthropic account required |
-| Shared provider-agnostic read-only tool layer (`read_file` / `grep` / `glob` + codemap `fileOutline` / `findSymbol`) | Both backends use the same tool surface; the engine's anchor verification, repair, and symbol-resolution pipeline is fully backend-blind |
-| `hdtw.generation.provider` (`"anthropic"` \| `"openai"`), `hdtw.generation.baseUrl`, `hdtw.generation.usdPer1kInput/Output` | One setting switches backends; custom base URL enables any OpenAI-wire-compatible host; per-model pricing surfaced accurately in progress |
-| Provider-aware key — `OPENAI_API_KEY` from SecretStorage injected at engine spawn (Anthropic path unchanged) | Same zero-setup BYOK model as Chunk 2; consumers still need no auth |
-| `TourGenerator` port paid off — engine pipeline (verification / repair / anchor resolution / symbol-relative anchors) untouched | The seam introduced in Chunk 2 absorbed a full backend swap with zero protocol or client changes |
+| Feature                                                                                                                                  | Capability                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `OpenAiAgentTourGenerator` — second `TourGenerator` implementation; manual tool-calling explore loop over any OpenAI-compatible endpoint | Authors may drive generation with OpenAI, OpenRouter, Gemini-compat, or a local Ollama model — no Anthropic account required              |
+| Shared provider-agnostic read-only tool layer (`read_file` / `grep` / `glob` + codemap `fileOutline` / `findSymbol`)                     | Both backends use the same tool surface; the engine's anchor verification, repair, and symbol-resolution pipeline is fully backend-blind  |
+| `hdtw.generation.provider` (`"anthropic"` \| `"openai"`), `hdtw.generation.baseUrl`, `hdtw.generation.usdPer1kInput/Output`              | One setting switches backends; custom base URL enables any OpenAI-wire-compatible host; per-model pricing surfaced accurately in progress |
+| Provider-aware key — `OPENAI_API_KEY` from SecretStorage injected at engine spawn (Anthropic path unchanged)                             | Same zero-setup BYOK model as Chunk 2; consumers still need no auth                                                                       |
+| `TourGenerator` port paid off — engine pipeline (verification / repair / anchor resolution / symbol-relative anchors) untouched          | The seam introduced in Chunk 2 absorbed a full backend swap with zero protocol or client changes                                          |
 
 **Q&A BYOM shipped 2026-06-15** (spec: `docs/superpowers/specs/2026-06-15-qa-byom-design.md`): the `StepAnswerer` port now has an OpenAI backend — `ClauseStepAnswerer` and its OpenAI counterpart share the same `runOpenAiToolLoop` used for generation. The `hdtw.generation.provider` setting now governs **both** generation and "Why?" detours uniformly; switching to `"openai"` routes every agent call — tour generation and in-step Q&A — through the OpenAI-compatible endpoint.
 
 **BYOM is now complete.** Marketplace packaging (wasm bundling for OpenRouter/Ollama distribution) remains the v1 gate.
 
 ### Tour Graph — related-tour links + walk stack ✅ shipped 2026-06-13
+
 Spec: `docs/superpowers/specs/2026-06-13-tour-graph-design.md`
 
-| Feature | Capability |
-|---|---|
-| Optional `relatedTours` (`{tourId,label?}`) on tour steps (schema-additive — no version bump; old clients ignore it) | Tours stay flat as artifacts; hierarchy is composed at walk time |
+| Feature                                                                                                                                                                     | Capability                                                                                                                            |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Optional `relatedTours` (`{tourId,label?}`) on tour steps (schema-additive — no version bump; old clients ignore it)                                                        | Tours stay flat as artifacts; hierarchy is composed at walk time                                                                      |
 | Narration thread renders related-tour links; following one pushes the current walk onto a stack, walks the sub-tour, auto-returns to the parent step; status-bar breadcrumb | "I'm on a monorepo-architecture step and there's a whole tour on how JSON-RPC plays in" — detour and return without losing your place |
-| Agent cross-linking — the tour catalog is injected into generation; the engine keeps only catalog-resolvable links (`verify.related_dropped`) | The tour graph grows itself as tours accumulate |
+| Agent cross-linking — the tour catalog is injected into generation; the engine keeps only catalog-resolvable links (`verify.related_dropped`)                               | The tour graph grows itself as tours accumulate                                                                                       |
 
 ### Candidate — GitHub browser client (cross-repo tours) ⬜ idea (2026-06-13)
 
 A browser extension that renders `.hdtw/tours/*.tour.json` inline on github.com, plus cross-repo references.
 
-| Feature | Capability |
-|---|---|
+| Feature                                                                                                                      | Capability                                                                                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Browser playback client — fetch tour JSON + anchored file blobs via the GitHub API, render the rails over GitHub's code view | Walk a tour with **zero install, zero clone** — playback is engine-free (Chunk 1), so the browser needs no engine/LLM. GitHub becomes the discovery channel; the repo is already the distribution channel |
-| Cross-repo related-tour links — qualify a `relatedTours` id with a repo (e.g. `owner/repo#tourId`) | Builds directly on the walk-stack from the Tour Graph chunk; only the sub-tour *fetch* differs (GitHub API vs local). A tour can branch into another repo's tour |
-| (Later) hosted generation with managed keys | Generation needs an engine; in-browser generation implies a hosted engine — ties to the monetization thread |
+| Cross-repo related-tour links — qualify a `relatedTours` id with a repo (e.g. `owner/repo#tourId`)                           | Builds directly on the walk-stack from the Tour Graph chunk; only the sub-tour _fetch_ differs (GitHub API vs local). A tour can branch into another repo's tour                                          |
+| (Later) hosted generation with managed keys                                                                                  | Generation needs an engine; in-browser generation implies a hosted engine — ties to the monetization thread                                                                                               |
 
 Strategic note: highest-value first slice is **browser playback** (low risk, large distribution leverage, leans on the engine-free playback model). Cross-repo references extend the Tour Graph branching. Risks: GitHub's DOM is a moving target for overlay UI; private-repo auth; a separate web-extension build/store pipeline. Sequencing: after Tour Graph ships.
 
 ### Chunk 5 — Team & beyond ⬜ not started
 
-| Feature | Capability |
-|---|---|
-| Tour-freshness CI check | Teams keep committed tours honest in PRs |
-| JetBrains thin client (same protocol) | Second IDE; validates the engine/client architecture |
+| Feature                                                                                     | Capability                                                     |
+| ------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Tour-freshness CI check                                                                     | Teams keep committed tours honest in PRs                       |
+| JetBrains thin client (same protocol)                                                       | Second IDE; validates the engine/client architecture           |
 | Monetization experiments (hosted generation with managed keys, team features, marketplaces) | Free BYOK core stays free; paid layers ride the same artifacts |
 
 ## Sequencing rationale

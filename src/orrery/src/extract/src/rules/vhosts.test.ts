@@ -13,7 +13,8 @@ describe("parseUpstreams", () => {
 
   it("reads localhost as well as a dotted address", () => {
     expect(parseUpstreams("reverse_proxy localhost:31080\n")[0]).toMatchObject({
-      host: "localhost", port: 31080,
+      host: "localhost",
+      port: 31080,
     });
   });
 
@@ -24,7 +25,11 @@ describe("parseUpstreams", () => {
       "}",
     ].join("\n");
     expect(parseUpstreams(extra)).toEqual([
-      { host: "localhost", port: 11434, raw: "reverse_proxy localhost:11434 {" },
+      {
+        host: "localhost",
+        port: 11434,
+        raw: "reverse_proxy localhost:11434 {",
+      },
     ]);
   });
 
@@ -39,11 +44,15 @@ describe("parseUpstreams", () => {
   });
 
   it("finds nothing in a respond directive", () => {
-    expect(parseUpstreams('respond "box: caddy + tailnet + DNS-01 OK" 200\n')).toEqual([]);
+    expect(
+      parseUpstreams('respond "box: caddy + tailnet + DNS-01 OK" 200\n'),
+    ).toEqual([]);
   });
 
   it("finds nothing in a file_server directive", () => {
-    expect(parseUpstreams("root * /var/lib/reverie\nfile_server\n")).toEqual([]);
+    expect(parseUpstreams("root * /var/lib/reverie\nfile_server\n")).toEqual(
+      [],
+    );
   });
 });
 
@@ -51,13 +60,33 @@ describe("vhostsRule", () => {
   const units = new Set(["caddy", "ollama", "open-webui"]);
 
   it("emits a vhost node and a contains edge from the host", () => {
-    const r = vhostsRule("box", { "ollama.keep.madeit.build": { extra: "reverse_proxy localhost:11434\n" } }, units, { 11434: "ollama" });
+    const r = vhostsRule(
+      "box",
+      {
+        "ollama.keep.madeit.build": {
+          extra: "reverse_proxy localhost:11434\n",
+        },
+      },
+      units,
+      { 11434: "ollama" },
+    );
     expect(r.nodes.map((n) => n.type)).toContain("vhost");
-    expect(r.edges.some((e) => e.type === "contains" && e.from === "host:box")).toBe(true);
+    expect(
+      r.edges.some((e) => e.type === "contains" && e.from === "host:box"),
+    ).toBe(true);
   });
 
   it("marks a proxy edge as inferred and carries the matched text as evidence", () => {
-    const r = vhostsRule("box", { "ollama.keep.madeit.build": { extra: "reverse_proxy localhost:11434\n" } }, units, { 11434: "ollama" });
+    const r = vhostsRule(
+      "box",
+      {
+        "ollama.keep.madeit.build": {
+          extra: "reverse_proxy localhost:11434\n",
+        },
+      },
+      units,
+      { 11434: "ollama" },
+    );
     const proxy = r.edges.filter((e) => e.type === "proxies-to");
     expect(proxy).toHaveLength(1);
     expect(proxy[0].source).toBe("inferred");
@@ -66,18 +95,33 @@ describe("vhostsRule", () => {
   });
 
   it("draws no proxy edge for a vhost that only responds inline", () => {
-    const r = vhostsRule("box", { "health.keep.madeit.build": { extra: 'respond "ok" 200\n' } }, units, {});
+    const r = vhostsRule(
+      "box",
+      { "health.keep.madeit.build": { extra: 'respond "ok" 200\n' } },
+      units,
+      {},
+    );
     expect(r.edges.filter((e) => e.type === "proxies-to")).toHaveLength(0);
     expect(r.nodes.filter((n) => n.type === "vhost")).toHaveLength(1);
   });
 
   it("draws no proxy edge when the port maps to no known service", () => {
-    const r = vhostsRule("box", { "x.example": { extra: "reverse_proxy 127.0.0.1:65000\n" } }, units, {});
+    const r = vhostsRule(
+      "box",
+      { "x.example": { extra: "reverse_proxy 127.0.0.1:65000\n" } },
+      units,
+      {},
+    );
     expect(r.edges.filter((e) => e.type === "proxies-to")).toHaveLength(0);
   });
 
   it("records an unresolvable upstream in the ledger rather than dropping it silently", () => {
-    const r = vhostsRule("box", { "x.example": { extra: "reverse_proxy 127.0.0.1:65000\n" } }, units, {});
+    const r = vhostsRule(
+      "box",
+      { "x.example": { extra: "reverse_proxy 127.0.0.1:65000\n" } },
+      units,
+      {},
+    );
     expect(r.ledger).toHaveLength(1);
     expect(r.ledger[0].reason).toBe("filtered-by-rule");
     expect(r.ledger[0].detail).toMatch(/65000/);
@@ -86,14 +130,18 @@ describe("vhostsRule", () => {
   describe("against the real captured fleet", () => {
     it("emits a node for every vhost in the fixture", () => {
       const r = vhostsRule("box", fixture, new Set(), {});
-      expect(r.nodes.filter((n) => n.type === "vhost")).toHaveLength(Object.keys(fixture).length);
+      expect(r.nodes.filter((n) => n.type === "vhost")).toHaveLength(
+        Object.keys(fixture).length,
+      );
     });
 
     it("finds an upstream for ten of the twelve, and none for health and reverie", () => {
       const withUpstream = Object.entries(fixture)
         .filter(([, v]) => parseUpstreams(v.extra).length > 0)
         .map(([k]) => k);
-      const without = Object.keys(fixture).filter((k) => !withUpstream.includes(k));
+      const without = Object.keys(fixture).filter(
+        (k) => !withUpstream.includes(k),
+      );
       expect(without.sort()).toEqual([
         "health.keep.madeit.build",
         "reverie.keep.madeit.build",
@@ -101,7 +149,9 @@ describe("vhostsRule", () => {
     });
 
     it("marks every single proxy edge as inferred, never as declared", () => {
-      const r = vhostsRule("box", fixture, new Set(["ollama"]), { 11434: "ollama" });
+      const r = vhostsRule("box", fixture, new Set(["ollama"]), {
+        11434: "ollama",
+      });
       for (const e of r.edges.filter((x) => x.type === "proxies-to")) {
         expect(e.source).toBe("inferred");
       }

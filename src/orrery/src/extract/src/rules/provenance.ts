@@ -1,14 +1,17 @@
 import {
-  moduleId, optionId, toRepoPath,
-  type DropRecord, type OrreryEdge, type OrreryNode,
+  moduleId,
+  optionId,
+  toRepoPath,
+  type DropRecord,
+  type OrreryEdge,
+  type OrreryNode,
 } from "@made-i-t/orrery-model";
 import type { RuleResult } from "./services";
 
 // definitionsWithLocations, not options.<path>.files. The former says which
 // file contributed which keys; the latter says only that eight files touched
 // the option, which would link every module to every vhost.
-export const PROVENANCE_APPLY =
-  `o: builtins.map (d: { file = d.file; names = builtins.attrNames d.value; }) o.definitionsWithLocations`;
+export const PROVENANCE_APPLY = `o: builtins.map (d: { file = d.file; names = builtins.attrNames d.value; }) o.definitionsWithLocations`;
 
 // Option paths worth attributing. Each is an attrset-of-submodules whose keys
 // are already nodes in the graph, which is what makes per-key attribution
@@ -42,7 +45,10 @@ export function provenanceRule(
 
   const optId = optionId(host, option);
   nodes.push({
-    id: optId, type: "option", label: option, host,
+    id: optId,
+    type: "option",
+    label: option,
+    host,
     attrs: { definitions: defs.length },
     provenance: { files: defs.map((d) => toRepoPath(d.file)), option },
   });
@@ -56,13 +62,20 @@ export function provenanceRule(
     if (!seenModules.has(modId)) {
       seenModules.add(modId);
       nodes.push({
-        id: modId, type: "module", label: repoPath, host: null,
-        attrs: {}, provenance: { files: [repoPath] },
+        id: modId,
+        type: "module",
+        label: repoPath,
+        host: null,
+        attrs: {},
+        provenance: { files: [repoPath] },
       });
       edges.push({
         id: `defines:${modId}->${optId}`,
-        from: modId, to: optId,
-        type: "defines", source: "declared", evidence: null,
+        from: modId,
+        to: optId,
+        type: "defines",
+        source: "declared",
+        evidence: null,
       });
     }
 
@@ -74,7 +87,9 @@ export function provenanceRule(
       if (!target) {
         ledger.push({
           candidate: `${option}.${name}`,
-          host, rule: RULE, reason: "filtered-by-rule",
+          host,
+          rule: RULE,
+          reason: "filtered-by-rule",
           detail: `defined in ${repoPath} but has no node in the graph`,
         });
         continue;
@@ -82,10 +97,12 @@ export function provenanceRule(
 
       edges.push({
         id: `declared-by:${target}->${modId}`,
-        from: target, to: modId,
+        from: target,
+        to: modId,
         // Nix told us which file this definition came from. Nothing here is
         // a reading of free text, so this is as declared as an edge gets.
-        type: "declared-by", source: "declared",
+        type: "declared-by",
+        source: "declared",
         evidence: `${option}.${name}`,
       });
     }

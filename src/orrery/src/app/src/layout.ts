@@ -38,15 +38,22 @@ export async function layoutGraph(
   // picture. The test asserts exactly this.
   const sorted = [...nodes].sort((a, b) => a.id.localeCompare(b.id));
   const present = new Set(sorted.map((n) => n.id));
-  const sortedEdges = [...edges]
-    .filter((e) => present.has(e.from) && present.has(e.to))
-    .sort((a, b) => a.id.localeCompare(b.id));
+  const sortedEdges = [...edges].filter((e) => present.has(e.from) && present.has(e.to))
+                                .sort((a, b) => a.id.localeCompare(b.id));
 
   const result = await elk.layout({
     id: "root",
     layoutOptions: OPTIONS,
-    children: sorted.map((n) => ({ id: n.id, width: NODE_WIDTH, height: NODE_HEIGHT })),
-    edges: sortedEdges.map((e) => ({ id: e.id, sources: [e.from], targets: [e.to] })),
+    children: sorted.map((n) => ({
+      id: n.id,
+      width: NODE_WIDTH,
+      height: NODE_HEIGHT,
+    })),
+    edges: sortedEdges.map((e) => ({
+      id: e.id,
+      sources: [e.from],
+      targets: [e.to],
+    })),
   });
 
   return (result.children ?? []).map((c) => ({
