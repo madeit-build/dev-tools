@@ -8,13 +8,24 @@ import env from "./fixtures/box-env.json";
 import provenance from "./fixtures/box-provenance.json";
 import servicePorts from "./fixtures/box-service-ports.json";
 import parts from "./fixtures/box-parts.json";
+import agents from "./fixtures/martinez-agents.json";
+import brew from "./fixtures/martinez-homebrew.json";
 
 // A fake evaluator that answers from the committed fixtures. The whole
 // assembly is therefore testable with no nix on the machine.
 const deps = {
-  discover: async () => [{ name: "box", kind: "nixos" as const }],
+  discover: async () => [
+    { name: "box", kind: "nixos" as const },
+    { name: "martinez", kind: "darwin" as const },
+  ],
   metadata: async () => ({ locks: { nodes: { root: { inputs: { nixpkgs: "nixpkgs" } } } } }),
   evaluate: async (_ref: string, attr: string, apply?: string) => {
+    if (attr.includes("darwinConfigurations.martinez")) {
+      if (attr.endsWith("home-manager.users")) return ["matt"];
+      if (attr.includes("launchd.agents")) return agents;
+      if (attr.endsWith("config.homebrew")) return brew;
+      return null;
+    }
     if (attr.includes("options.services.caddy.virtualHosts")) return provenance;
     if (attr.endsWith("config.services.caddy.virtualHosts")) return vhosts;
     if (attr.endsWith("config.services")) return servicePorts;
@@ -108,6 +119,23 @@ describe("buildGraph", () => {
       (e) => e.type === "contains" && e.to.startsWith("datastore:box/caddy"),
     );
     expect(edge?.from).toBe("service:box/caddy");
+  });
+
+  it("draws martinez's darwin surface beside box's nixos one", async () => {
+    const g = await buildGraph(".", deps);
+    const ids = new Set(g.nodes.map((n) => n.id));
+    expect(ids.has("service:martinez/hippocampus-ship")).toBe(true);
+    expect(ids.has("app:martinez/ghostty")).toBe(true);
+    expect(ids.has("service:box/caddy")).toBe(true);
+  });
+
+  it("contains martinez's agents and apps under the martinez host node", async () => {
+    const g = await buildGraph(".", deps);
+    for (const to of ["service:martinez/colima", "app:martinez/obsidian"]) {
+      expect(g.edges.some(
+        (e) => e.type === "contains" && e.from === "host:martinez" && e.to === to,
+      ), to).toBe(true);
+    }
   });
 
   it("attributes a vhost to the module that declared it, end to end", async () => {

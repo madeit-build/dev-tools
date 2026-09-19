@@ -9,6 +9,11 @@ import { buildPortIndex, linksRule, servicePortsApply, CONTAINERS_APPLY, ENV_APP
 import { vhostsRule, VHOSTS_APPLY, type RawVHost } from "./rules/vhosts";
 import { provenanceRule, PROVENANCE_APPLY, type RawDefinition } from "./rules/provenance";
 import { partsRule, PARTS_APPLY, type RawParts } from "./rules/parts";
+import {
+  launchdAgentsRule, homebrewRule,
+  LAUNCHD_AGENTS_APPLY, HOMEBREW_APPLY,
+  type RawAgent, type RawHomebrew,
+} from "./rules/darwin";
 import { inputsRule } from "./rules/inputs";
 import { log } from "./log";
 
@@ -75,6 +80,35 @@ export async function buildGraph(flakeRef: string, deps: Deps = realDeps): Promi
       from: fleetId(), to: hostId(host.name),
       type: "contains", source: "declared", evidence: null,
     });
+
+    if (host.kind === "darwin") {
+      // A Mac's declared surface is home-manager launchd agents and homebrew
+      // applications; the NixOS rules below would all be missing-attrs. The
+      // user enumeration is real, not assumed: a multi-user Mac gets every
+      // user's agents, disambiguated by name only if they ever collide.
+      const users = (await guard("darwin-users", host.name, ledger, () =>
+        deps.evaluate(flakeRef, `${cfg}.home-manager.users`, "builtins.attrNames") as Promise<string[] | null>)) ?? [];
+
+      for (const user of [...users].sort()) {
+        const rawAgents = await guard("launchd-agents", host.name, ledger, () =>
+          deps.evaluate(flakeRef, `${cfg}.home-manager.users.${user}.launchd.agents`,
+                        LAUNCHD_AGENTS_APPLY) as Promise<Record<string, RawAgent> | null>);
+        if (rawAgents) {
+          const r = launchdAgentsRule(host.name, rawAgents);
+          nodes.push(...r.nodes); edges.push(...r.edges); ledger.push(...r.ledger);
+          log("rule.done", { rule: "launchd-agents", host: host.name, user, nodes: r.nodes.length });
+        }
+      }
+
+      const rawBrew = await guard("homebrew", host.name, ledger, () =>
+        deps.evaluate(flakeRef, `${cfg}.homebrew`, HOMEBREW_APPLY) as Promise<RawHomebrew | null>);
+      if (rawBrew) {
+        const r = homebrewRule(host.name, rawBrew);
+        nodes.push(...r.nodes); edges.push(...r.edges); ledger.push(...r.ledger);
+        log("rule.done", { rule: "homebrew", host: host.name, nodes: r.nodes.length });
+      }
+      continue;
+    }
 
     // Services first: everything downstream needs to know which units exist.
     const rawServices = await guard("services", host.name, ledger, () =>
