@@ -1,1 +1,1089 @@
-{"ModemManager":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"NetworkManager":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":["multi-user.target"]},"NetworkManager-dispatcher":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":["multi-user.target"]},"NetworkManager-wait-online":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":["network-online.target"]},"box-dns-publish":{"after":["tailscaled.service","network-online.target"],"description":"Publish *.keep.madeit.build A -> current tailscale IP (Cloudflare DNS)","exec":"/nix/store/f9g42bxpf2n8333l1dcr183nkvpy0d2d-box-dns-publish/bin/box-dns-publish","type":"oneshot","user":null,"wantedBy":[]},"box-doctor-export":{"after":["network-online.target","docker-otelcol.service"],"description":"run the box health checks and ship them as OTLP","exec":"/nix/store/7a5sylnxkznd3carikysn25jk0zkss6j-box-doctor/bin/box-doctor --otlp","type":"oneshot","user":null,"wantedBy":[]},"box-image-freshness":{"after":["docker-otelcol.service","network-online.target"],"description":"report whether pinned container images have a newer build (OTLP metric)","exec":"/nix/store/igklyzqk6pr0g6phi2zwvi3rdd13287f-box-image-freshness/bin/box-image-freshness","type":"oneshot","user":null,"wantedBy":[]},"box-image-scan":{"after":["docker-otelcol.service","network-online.target"],"description":"scan declared container images for CVEs and ship counts as OTLP","exec":"/nix/store/nq3hvnkc58scjgjzfglckvjsk8w13z4k-box-image-scan/bin/box-image-scan","type":"oneshot","user":null,"wantedBy":[]},"box-llm-bench-light":{"after":["ollama.service","docker-otelcol.service","network-online.target"],"description":"measure throughput for the cheap models and ship it as OTLP","exec":"/nix/store/dddx4530101bb51c47nh1sk4bf20whhm-box-llm-bench/bin/box-llm-bench qwen2.5-coder:1.5b-base qwen3.6:35b qwen3.8:27b","type":"oneshot","user":"llmbench","wantedBy":[]},"box-vulnix-scan":{"after":["docker-otelcol.service","network-online.target"],"description":"scan the store closure for CVEs and ship counts as OTLP","exec":"/nix/store/x4hbspi5a2pd81h2h7xlc5zdbdpgcwq3-box-vulnix-scan/bin/box-vulnix-scan","type":"oneshot","user":null,"wantedBy":[]},"box-wan-exporter":{"after":["docker-otelcol.service","network-online.target"],"description":"DOCSIS modem scraper -> OTLP (box-native, replaces the Mac's launchd agent)","exec":"/nix/store/p280s1kafb4r2wq1z1l4vqf4niq07nw5-box-wan-exporter/bin/box-wan-exporter","type":"oneshot","user":null,"wantedBy":[]},"bus-drain":{"after":["postgresql.service","nats.service","bus-schema.service"],"description":"publish queued domain events onto the bus","exec":"/nix/store/n870jf296xc1qj2vilhyh5cnma5mxpbv-bus-drain/bin/bus-drain","type":"oneshot","user":"busdrain","wantedBy":[]},"bus-schema":{"after":["postgresql-setup.service","claude-mem-schema.service","hippocampus-schema.service"],"description":"apply the bus schema (idempotent)","exec":"/nix/store/r4pc2xr56b1z9g3fl24f8sbrk39ryb8g-unit-script-bus-schema-start/bin/bus-schema-start ","type":"oneshot","user":"postgres","wantedBy":["multi-user.target"]},"caddy":{"after":[],"description":"","exec":["","/nix/store/7ziy347kvdglr6gjlmq9wn30zwgkhiwb-caddy-2.11.4/bin/caddy run --config /etc/caddy/caddy_config --adapter caddyfile "],"type":null,"user":"caddy","wantedBy":["multi-user.target"]},"cerberus-vault":{"after":["network-online.target"],"description":"nightly restic push of the box's irreplaceable state to the vault head","exec":"/nix/store/a8lazs1k2xx5fffg1qx0nmnw02mz32q1-cerberus-vault-run/bin/cerberus-vault-run","type":"oneshot","user":null,"wantedBy":[]},"claude-mem-db-password":{"after":["postgresql-setup.service"],"description":"set the claude-mem database role password from sops","exec":"/nix/store/2j5xwfbgx4zjyxz6p006jjrcw9m2arvz-unit-script-claude-mem-db-password-start/bin/claude-mem-db-password-start ","type":"oneshot","user":"postgres","wantedBy":["multi-user.target"]},"claude-mem-load":{"after":["postgresql.service","claude-mem-schema.service","claude-mem-db-password.service"],"description":"reconcile, verify, and report one claude-mem replica load cycle","exec":"/nix/store/2dhj083hisjf6x8n46cl42lk2m800cyz-claude-mem-load/bin/claude-mem-load","type":"oneshot","user":"claude-mem-load","wantedBy":[]},"claude-mem-schema":{"after":["postgresql-setup.service"],"description":"apply the claude-mem replica schema and grants (idempotent)","exec":"/nix/store/bd8kkaairmi0b44hapqxc6dp7k2wfib4-unit-script-claude-mem-schema-start/bin/claude-mem-schema-start ","type":"oneshot","user":"postgres","wantedBy":["multi-user.target"]},"cloudflared-tunnel-97be24ad-1441-4d87-8b88-ee6ce7fdc9d1":{"after":["network.target","network-online.target","tailscaled.service"],"description":"","exec":"/nix/store/vsbcyiwpwrrzd4hdjl2v2zxvlbpm0yn6-cloudflared-2026.7.3/bin/cloudflared tunnel --config=/nix/store/36rrqfqmz30myp976v2z345qff3msnf4-cloudflared.yml --no-autoupdate run","type":null,"user":null,"wantedBy":["multi-user.target"]},"collab-db-password":{"after":["postgresql-setup.service"],"description":"set the agent-collab database role password from sops","exec":"/nix/store/r71jn42ir0qy6zhz034ipdxxdra63hg2-unit-script-collab-db-password-start/bin/collab-db-password-start ","type":"oneshot","user":"postgres","wantedBy":["multi-user.target"]},"comfyui-model-fetch":{"after":["network-online.target"],"description":"fetch the Qwen model set for ComfyUI (best effort)","exec":"/nix/store/f1g6mzrn4jnrymavmd2pn5q3ac3505lw-unit-script-comfyui-model-fetch-start/bin/comfyui-model-fetch-start ","type":"simple","user":null,"wantedBy":["multi-user.target"]},"console-getty":{"after":[],"description":"","exec":["","/nix/store/156fzvaz2nsq2hk0fkzn9jwk90bnzyn9-util-linux-2.42.2-bin/bin/agetty --login-program /nix/store/mi6lawlrw5m3s8g3wkf9spwpqbx604fc-shadow-4.20.0/bin/login --issue-file /etc/issue:/etc/issue.d:/run/issue:/run/issue.d --noclear --keep-baud console 115200,38400,9600 $TERM"],"type":null,"user":null,"wantedBy":[]},"container-getty@":{"after":[],"description":"","exec":["","/nix/store/156fzvaz2nsq2hk0fkzn9jwk90bnzyn9-util-linux-2.42.2-bin/bin/agetty --login-program /nix/store/mi6lawlrw5m3s8g3wkf9spwpqbx604fc-shadow-4.20.0/bin/login --issue-file /etc/issue:/etc/issue.d:/run/issue:/run/issue.d --noclear --keep-baud pts/%I 115200,38400,9600 $TERM"],"type":null,"user":null,"wantedBy":[]},"dbus":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"dbus-broker":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"docker":{"after":["network.target","docker.socket"],"description":"","exec":["","/nix/store/6swknznj3gsja2xi38499949w592xyib-docker-29.7.2/bin/dockerd \\\n  --config-file=/nix/store/hvizvg1ynkf5dqf52m6nqzi4h2285757-daemon.json \\\n  \n"],"type":"notify","user":null,"wantedBy":["multi-user.target"]},"docker-agent-collab":{"after":["docker.service","docker.socket","network-online.target","postgresql.service","collab-db-password.service"],"description":"","exec":"/nix/store/55av9byfw29krls9pn70nlab57m4w7wz-unit-script-docker-agent-collab-start/bin/docker-agent-collab-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-alertmanager":{"after":["docker.service","docker.socket","network-online.target","docker-ntfy.service","init-madeit-obs-network.service"],"description":"","exec":"/nix/store/daqsxk4ji25i643rsdp3f1bk97a1k54c-unit-script-docker-alertmanager-start/bin/docker-alertmanager-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-cipher":{"after":["docker.service","docker.socket","network-online.target","init-ci-runner-network.service","network-online.target"],"description":"","exec":"/nix/store/f5a1f7a933n964xrrrzjq28hym5ja379-unit-script-docker-cipher-start/bin/docker-cipher-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-comfyui":{"after":["docker.service","docker.socket","network-online.target"],"description":"","exec":"/nix/store/0y6wb4x5ys65fzlz2h4gfiq0rvwz7wvh-unit-script-docker-comfyui-start/bin/docker-comfyui-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-echo":{"after":["docker.service","docker.socket","network-online.target","init-ci-runner-network.service","network-online.target"],"description":"","exec":"/nix/store/8jk83p2b4ibi72yckw1y3vvghgfzzb46-unit-script-docker-echo-start/bin/docker-echo-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-forge":{"after":["docker.service","docker.socket","network-online.target","init-ci-runner-network.service","network-online.target"],"description":"","exec":"/nix/store/wjnn9xfb9pcldbxc64nn9df595v27r64-unit-script-docker-forge-start/bin/docker-forge-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-grafana":{"after":["docker.service","docker.socket","network-online.target","docker-prometheus.service","init-madeit-obs-network.service"],"description":"","exec":"/nix/store/lscxhl2bwxbz8kwbs7z8qpf4ysqkm57a-unit-script-docker-grafana-start/bin/docker-grafana-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-loki":{"after":["docker.service","docker.socket","network-online.target","init-madeit-obs-network.service"],"description":"","exec":"/nix/store/ka006ay1mrqnanp7sfgs9b9bjndwiyc2-unit-script-docker-loki-start/bin/docker-loki-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-ntfy":{"after":["docker.service","docker.socket","network-online.target","init-madeit-obs-network.service"],"description":"","exec":"/nix/store/inm9ypkjp69b150knnq5smbr5ccr62dl-unit-script-docker-ntfy-start/bin/docker-ntfy-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-otelcol":{"after":["docker.service","docker.socket","network-online.target","docker-prometheus.service","init-madeit-obs-network.service"],"description":"","exec":"/nix/store/8y16i3wd8vqrcza4xi4rcy9r9fr8pp0m-unit-script-docker-otelcol-start/bin/docker-otelcol-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-prometheus":{"after":["docker.service","docker.socket","network-online.target","init-madeit-obs-network.service"],"description":"","exec":"/nix/store/h36j3dpd6p4hzc8761lgvr7amjla25hg-unit-script-docker-prometheus-start/bin/docker-prometheus-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docker-prune":{"after":["docker.service"],"description":"Prune docker resources","exec":["\"/nix/store/6swknznj3gsja2xi38499949w592xyib-docker-29.7.2/bin/docker\" \"system\" \"prune\" \"-f\""],"type":"oneshot","user":null,"wantedBy":[]},"docker-searxng":{"after":["docker.service","docker.socket","network-online.target"],"description":"","exec":"/nix/store/3l8d9jk0lz896558p9ns813wsnwxf55i-unit-script-docker-searxng-start/bin/docker-searxng-start ","type":null,"user":null,"wantedBy":["multi-user.target"]},"docsis-triage":{"after":["network-online.target"],"description":"notice DOCSIS faults the known plant fault does not explain","exec":"/nix/store/2cy033qfa0lkzl1ddhbq19a3w2nhbmi4-docsis-triage/bin/docsis-triage","type":"oneshot","user":null,"wantedBy":[]},"fleet-schema":{"after":["postgresql-setup.service","claude-mem-schema.service","hippocampus-schema.service","bus-schema.service"],"description":"apply the fleet schema (idempotent)","exec":"/nix/store/j1l4zf573r26xisq992hf6c33i2a4sj8-unit-script-fleet-schema-start/bin/fleet-schema-start ","type":"oneshot","user":"postgres","wantedBy":["multi-user.target"]},"fleet-subscribe":{"after":["nats.service","postgresql.service","fleet-schema.service"],"description":"record what the fleet's machines report about themselves","exec":"/nix/store/pn35d1c18a5ns2anpng3cfirg0kbkw4n-fleet-subscribe/bin/fleet-subscribe","type":null,"user":"fleetsub","wantedBy":["multi-user.target"]},"generate-shutdown-ramfs":{"after":[],"description":"Generate shutdown ramfs","exec":"/nix/store/jk6bxsx23w2ffm8glngzmy1n2132w3j2-make-initrd-ng-0.1.0/bin/make-initrd-ng /nix/store/rvik63bra4iw8j9pj6391kvrfwciysmb-shutdown-ramfs-contents.json /run/initramfs","type":"oneshot","user":null,"wantedBy":["shutdown.target"]},"getty@":{"after":[],"description":"","exec":["","/nix/store/5g6x53ngvp4q05zccpp4hlpkqyhv6ab0-getty"],"type":null,"user":null,"wantedBy":[]},"gtt-governor":{"after":["docker-otelcol.service"],"description":"unload idle or pressuring ComfyUI models before the OOM killer chooses victims","exec":"/nix/store/029k22n6y7fkgak2j7xd1awlvn3bkivn-box-gtt-governor/bin/box-gtt-governor","type":"oneshot","user":null,"wantedBy":[]},"hippocampus-exchange@":{"after":["postgresql.service","hippocampus-schema.service"],"description":"","exec":"/nix/store/r4c65xdwifwp8aydavkwha6mryg7p38a-hippocampus-exchange-serve/bin/hippocampus-exchange-serve","type":null,"user":"hippocampus","wantedBy":[]},"hippocampus-schema":{"after":["postgresql-setup.service","claude-mem-schema.service"],"description":"apply the hippocampus schema, role, and grants (idempotent)","exec":"/nix/store/n45kkcz23n8imds3anjr3g9xy82gx73n-unit-script-hippocampus-schema-start/bin/hippocampus-schema-start ","type":"oneshot","user":"postgres","wantedBy":["multi-user.target"]},"home-manager-agent":{"after":["nix-daemon.socket"],"description":"Home Manager environment for agent","exec":"/nix/store/9c1cmravm0i70qpdi82wfjhfkvwv418c-hm-setup-env /nix/store/fhzm15jnwzxhkf70985rn736avk71p3m-home-manager-generation","type":"oneshot","user":"agent","wantedBy":["multi-user.target"]},"home-manager-matt":{"after":["nix-daemon.socket"],"description":"Home Manager environment for matt","exec":"/nix/store/9c1cmravm0i70qpdi82wfjhfkvwv418c-hm-setup-env /nix/store/p17a8jlhzkviavj9pbdpcq2y9wjhfnff-home-manager-generation","type":"oneshot","user":"matt","wantedBy":["multi-user.target"]},"init-ci-runner-network":{"after":["docker.service"],"description":"create the ci-runner container network (172.31.100.0/24)","exec":"/nix/store/w0zfhxr2rh7gkp2pgal4dshl068gfrsi-unit-script-init-ci-runner-network-start/bin/init-ci-runner-network-start ","type":"oneshot","user":null,"wantedBy":[]},"init-madeit-obs-network":{"after":["docker.service"],"description":"create the madeit-obs container network","exec":"/nix/store/ayswjfmdl8gh8rm305blsficn0y63n64-unit-script-init-madeit-obs-network-start/bin/init-madeit-obs-network-start ","type":"oneshot","user":null,"wantedBy":[]},"kmod-static-nodes":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"lastlog2-import":{"after":["local-fs.target","systemd-tmpfiles-setup.service"],"description":"","exec":null,"type":null,"user":null,"wantedBy":["default.target"]},"linger-users":{"after":["systemd-logind.service"],"description":"","exec":"/nix/store/273zf4xjiv1694hzx5zmvgbxzvl21r9r-unit-script-linger-users-start/bin/linger-users-start ","type":"oneshot","user":null,"wantedBy":["multi-user.target"]},"logrotate":{"after":[],"description":"Logrotate Service","exec":"/nix/store/b3qmfa90ffjzwiycqz1hlwq9yhwrzqs1-logrotate-3.22.0/bin/logrotate   /nix/store/0zz9zaka91d8ybiaim9avzh36zvs6w46-logrotate.conf","type":"oneshot","user":null,"wantedBy":[]},"logrotate-checkconf":{"after":[],"description":"Logrotate configuration check","exec":"/nix/store/b3qmfa90ffjzwiycqz1hlwq9yhwrzqs1-logrotate-3.22.0/sbin/logrotate  --debug /nix/store/0zz9zaka91d8ybiaim9avzh36zvs6w46-logrotate.conf","type":"oneshot","user":null,"wantedBy":["multi-user.target"]},"memory-explorer":{"after":["postgresql.service","hippocampus-schema.service"],"description":"read-only web window over the memory record","exec":"/nix/store/q89kjapqlqwlvlvwaicq6djbqp2dadgm-bun-1.3.13/bin/bun /nix/store/fxfa9w1f5i2mi9lcj141zl30jqj1z8cv-memory-explorer-app/explorer.ts","type":null,"user":"explorer","wantedBy":["multi-user.target"]},"modprobe@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"nats":{"after":["network.target"],"description":"NATS messaging system","exec":"/nix/store/fq8zdshs81qq6lmcc91mbzf7n5qlljn8-nats-server-2.14.5/bin/nats-server -c /run/secrets/rendered/nats.conf","type":"simple","user":"nats","wantedBy":["multi-user.target"]},"network-addresses-eno1":{"after":["network-pre.target","sys-subsystem-net-devices-eno1.device"],"description":"Address configuration of eno1","exec":"/nix/store/06d62cwd620cj0iwn2x2xlakbls5amwx-unit-script-network-addresses-eno1-start/bin/network-addresses-eno1-start ","type":"oneshot","user":null,"wantedBy":["sys-subsystem-net-devices-eno1.device"]},"network-local-commands":{"after":["network-pre.target","network-pre.target"],"description":"Extra networking commands.","exec":"/nix/store/0c9ngibxbrwdn9x4jglnga7dp387mqbq-unit-script-network-local-commands-start/bin/network-local-commands-start ","type":"oneshot","user":null,"wantedBy":["network.target","network.target"]},"nftables":{"after":["sysinit.target"],"description":"nftables firewall","exec":["/nix/store/3yakl086k78j5zj4cqb7lz8h67p9byp1-nftables-ensure-deletions","/nix/store/snx1q5hsgyj61jsq3wna5mmyw4s9gls4-nftables-rules"],"type":"oneshot","user":null,"wantedBy":["multi-user.target"]},"nix-daemon":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"nix-gc":{"after":[],"description":"Nix Garbage Collector","exec":"/nix/store/i2iqjw55dm8gz6138gi3b59r738v0yh2-unit-script-nix-gc-start/bin/nix-gc-start ","type":"oneshot","user":null,"wantedBy":[]},"nix-optimise":{"after":[],"description":"Nix Store Optimiser","exec":"/nix/store/r4yd7hpfwpx5s8ily1ipwjc17cl087mn-nix-2.34.8/bin/nix-store --optimise","type":null,"user":null,"wantedBy":[]},"nscd":{"after":[],"description":"Name Service Cache Daemon (nsncd)","exec":"/nix/store/jm4vx2qpmsy10kgi4h05vmv0sg9a76gs-nsncd-1.5.2/bin/nsncd","type":"notify","user":"nscd","wantedBy":["multi-user.target"]},"ollama":{"after":["network.target"],"description":"Server for local large language models","exec":"/nix/store/a0m5yan81iw6fiplm064rr005wq2k0va-ollama-0.32.13/bin/ollama serve","type":"exec","user":null,"wantedBy":["multi-user.target"]},"ollama-model-loader":{"after":["ollama.service","network-online.target"],"description":"Download ollama models in the background","exec":"/nix/store/kzyymig5br51i119qrpjp254y7sd8hqk-unit-script-ollama-model-loader-start/bin/ollama-model-loader-start ","type":"exec","user":null,"wantedBy":["multi-user.target","ollama.service"]},"open-webui":{"after":["network.target"],"description":"User-friendly WebUI for LLMs","exec":"/nix/store/xn5wiziyshaqqq1layk3hign33n1blv8-open-webui-0.11.0/bin/open-webui serve --host \"127.0.0.1\" --port 31080","type":null,"user":null,"wantedBy":["multi-user.target"]},"polkit":{"after":[],"description":"","exec":["","/nix/store/g2idqgjmv239g4g7bzs9p8ir6np5yr7m-polkit-127/lib/polkit-1/polkitd --no-debug --log-level=notice"],"type":null,"user":null,"wantedBy":[]},"polkit-agent-helper@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"post-boot":{"after":[],"description":"Post-Boot Actions","exec":"/nix/store/ir8mnq2xq8pn9csbka6yhrb3vvm6pckw-unit-script-post-boot-start/bin/post-boot-start ","type":"oneshot","user":null,"wantedBy":["multi-user.target"]},"postgresql":{"after":["network.target"],"description":"PostgreSQL Server","exec":"/nix/store/irq7d6gp5c09pd5j1k9avc4k49vjydv0-postgresql-and-plugins-17.11/bin/postgres","type":"notify","user":"postgres","wantedBy":[]},"postgresql-setup":{"after":["postgresql.service"],"description":"PostgreSQL Setup Scripts","exec":"/nix/store/72rz2q55lqsflsc778iwfgm6bhadz5qz-unit-script-postgresql-setup-start/bin/postgresql-setup-start ","type":"oneshot","user":"postgres","wantedBy":[]},"postgresqlBackup-agent-collab":{"after":[],"description":"Backup of agent-collab database(s)","exec":"/nix/store/w8nwgh4z5r2gz9hw0sfvr1ihmrwdpv1p-unit-script-postgresqlBackup-agent-collab-start/bin/postgresqlBackup-agent-collab-start ","type":"oneshot","user":"postgres","wantedBy":[]},"postgresqlBackup-claude-mem":{"after":[],"description":"Backup of claude-mem database(s)","exec":"/nix/store/khcaswmqr0n0vbkrdfc45g61mgllirz9-unit-script-postgresqlBackup-claude-mem-start/bin/postgresqlBackup-claude-mem-start ","type":"oneshot","user":"postgres","wantedBy":[]},"prepare-kexec":{"after":[],"description":"Preparation for kexec","exec":"/nix/store/vk3i898956m1v29bj6f6abb3d8d0ffkl-unit-script-prepare-kexec-start/bin/prepare-kexec-start ","type":"oneshot","user":null,"wantedBy":["kexec.target"]},"rederivation-judge":{"after":["postgresql.service","hippocampus-schema.service","ollama.service"],"description":"judge whether recorded rediscoveries record the same knowledge","exec":"/nix/store/fwprbypyvcng8fa51sqdfmh1zrc59084-rederivation-judge/bin/rederivation-judge","type":"oneshot","user":"rederive","wantedBy":[]},"rederivation-judge-subscriber":{"after":["nats.service","postgresql.service","hippocampus-schema.service","ollama.service","bus-schema.service"],"description":"run the judge when the corpus is re-examined","exec":"/nix/store/iyh21pjr1jwlhmalc3z3kzzg3fyywk9v-rederivation-judge-subscriber/bin/rederivation-judge-subscriber","type":null,"user":"rederive","wantedBy":["multi-user.target"]},"rederivation-rescan":{"after":["postgresql.service","hippocampus-schema.service","bus-schema.service"],"description":"re-examine the whole corpus against the current constants","exec":"/nix/store/19f94gnc9yk4b3k6cii9bsrp015ygqc2-rederivation-scan/bin/rederivation-scan","type":"oneshot","user":"rederive","wantedBy":[]},"rederivation-scan":{"after":["postgresql.service","hippocampus-schema.service","bus-schema.service"],"description":"count observations that repeat what the record already held","exec":"/nix/store/19f94gnc9yk4b3k6cii9bsrp015ygqc2-rederivation-scan/bin/rederivation-scan","type":"oneshot","user":"rederive","wantedBy":[]},"reload-systemd-vconsole-setup":{"after":[],"description":"Reset console on configuration changes","exec":"/nix/store/97d5ygrvqj55f4nx1x34wfdcc7qn11c0-coreutils-9.11/bin/true","type":null,"user":null,"wantedBy":["multi-user.target"]},"resolvconf":{"after":[],"description":"resolvconf update","exec":"/nix/store/wghr245xlgqrfm3w0z7q9w8izi1pb9c8-unit-script-resolvconf-start/bin/resolvconf-start ","type":"oneshot","user":null,"wantedBy":["multi-user.target"]},"reverie":{"after":["network-online.target","ollama.service"],"description":"the box dreams: narrate recent logs via the local model","exec":"/nix/store/dm8kv5nyppwy41apkqagki4bkjjr3kr6-reverie-run/bin/reverie-run","type":"oneshot","user":"reverie","wantedBy":[]},"serial-getty@":{"after":[],"description":"","exec":["","/nix/store/156fzvaz2nsq2hk0fkzn9jwk90bnzyn9-util-linux-2.42.2-bin/bin/agetty --login-program /nix/store/mi6lawlrw5m3s8g3wkf9spwpqbx604fc-shadow-4.20.0/bin/login --issue-file /etc/issue:/etc/issue.d:/run/issue:/run/issue.d %I --keep-baud $TERM"],"type":null,"user":null,"wantedBy":[]},"sleep-actions":{"after":[],"description":"Sleep Actions","exec":"/nix/store/i3bn3k30zzbp432wpzvcm4y3hdpbvk52-unit-script-sleep-actions-start/bin/sleep-actions-start ","type":"oneshot","user":null,"wantedBy":["sleep.target"]},"sshd":{"after":["network.target","sshd-keygen.service"],"description":"SSH Daemon","exec":"/nix/store/2gpyjkhxkzhrih3vzzv1vyddx8ac1fan-openssh-10.4p1/bin/sshd -D -f /etc/ssh/sshd_config","type":"notify-reload","user":null,"wantedBy":["multi-user.target"]},"sshd-keygen":{"after":[],"description":"SSH Host Keys Generation","exec":"/nix/store/d6prskamkjjkg4nmlv6ra7nlqbwf2d8x-unit-script-sshd-keygen-start/bin/sshd-keygen-start ","type":"oneshot","user":null,"wantedBy":["multi-user.target"]},"sshd-vsock@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"sshd@":{"after":["network.target","sshd-keygen.service"],"description":"SSH per-connection Daemon","exec":"-/nix/store/2gpyjkhxkzhrih3vzzv1vyddx8ac1fan-openssh-10.4p1/bin/sshd -i -D -f /etc/ssh/sshd_config","type":null,"user":null,"wantedBy":[]},"suid-sgid-wrappers":{"after":["systemd-sysusers.service"],"description":"Create SUID/SGID Wrappers","exec":"/nix/store/x1d1hqjm1yqa3fndpgnjh2n09niwdqfd-unit-script-suid-sgid-wrappers-start/bin/suid-sgid-wrappers-start ","type":"oneshot","user":null,"wantedBy":["sysinit.target"]},"systemd-backlight@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-binfmt":{"after":["systemd-tmpfiles-setup.service"],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-boot-random-seed":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-fsck@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-hostnamed":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-importd":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-journal-flush":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-journald":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-journald@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-localed":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-logind":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-makefs@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-mkswap@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-modules-load":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":["multi-user.target"]},"systemd-nspawn@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-oomd":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":["multi-user.target"]},"systemd-pstore":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":["sysinit.target"]},"systemd-random-seed":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-remount-fs":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-sysctl":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":["multi-user.target"]},"systemd-timedated":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-timesyncd":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":["sysinit.target"]},"systemd-tmpfiles-resetup":{"after":["local-fs.target","systemd-sysusers.service","systemd-journald.service"],"description":"Re-setup tmpfiles on a system that is already running.","exec":"systemd-tmpfiles --create --remove --exclude-prefix=/dev","type":"oneshot","user":null,"wantedBy":[]},"systemd-udevd":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-update-utmp":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"systemd-user-sessions":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"tailscaled":{"after":["NetworkManager-wait-online.service"],"description":"","exec":null,"type":null,"user":null,"wantedBy":["multi-user.target"]},"user-runtime-dir@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"user@":{"after":[],"description":"","exec":null,"type":null,"user":null,"wantedBy":[]},"wpa_supplicant":{"after":[],"description":"WPA Supplicant instance","exec":"/nix/store/g9vyfyqc93dgr0vwz7lmnkyz0ni4yzpg-unit-script-wpa_supplicant-start/bin/wpa_supplicant-start ","type":null,"user":"wpa_supplicant","wantedBy":["multi-user.target"]}}
+{
+  "ModemManager": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "NetworkManager": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "NetworkManager-dispatcher": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "NetworkManager-wait-online": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["network-online.target"]
+  },
+  "box-dns-publish": {
+    "after": ["tailscaled.service", "network-online.target"],
+    "description": "Publish *.keep.madeit.build A -> current tailscale IP (Cloudflare DNS)",
+    "exec": "/nix/store/f9g42bxpf2n8333l1dcr183nkvpy0d2d-box-dns-publish/bin/box-dns-publish",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "box-doctor-export": {
+    "after": ["network-online.target", "docker-otelcol.service"],
+    "description": "run the box health checks and ship them as OTLP",
+    "exec": "/nix/store/7a5sylnxkznd3carikysn25jk0zkss6j-box-doctor/bin/box-doctor --otlp",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "box-image-freshness": {
+    "after": ["docker-otelcol.service", "network-online.target"],
+    "description": "report whether pinned container images have a newer build (OTLP metric)",
+    "exec": "/nix/store/igklyzqk6pr0g6phi2zwvi3rdd13287f-box-image-freshness/bin/box-image-freshness",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "box-image-scan": {
+    "after": ["docker-otelcol.service", "network-online.target"],
+    "description": "scan declared container images for CVEs and ship counts as OTLP",
+    "exec": "/nix/store/nq3hvnkc58scjgjzfglckvjsk8w13z4k-box-image-scan/bin/box-image-scan",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "box-llm-bench-light": {
+    "after": [
+      "ollama.service",
+      "docker-otelcol.service",
+      "network-online.target"
+    ],
+    "description": "measure throughput for the cheap models and ship it as OTLP",
+    "exec": "/nix/store/dddx4530101bb51c47nh1sk4bf20whhm-box-llm-bench/bin/box-llm-bench qwen2.5-coder:1.5b-base qwen3.6:35b qwen3.8:27b",
+    "type": "oneshot",
+    "user": "llmbench",
+    "wantedBy": []
+  },
+  "box-vulnix-scan": {
+    "after": ["docker-otelcol.service", "network-online.target"],
+    "description": "scan the store closure for CVEs and ship counts as OTLP",
+    "exec": "/nix/store/x4hbspi5a2pd81h2h7xlc5zdbdpgcwq3-box-vulnix-scan/bin/box-vulnix-scan",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "box-wan-exporter": {
+    "after": ["docker-otelcol.service", "network-online.target"],
+    "description": "DOCSIS modem scraper -> OTLP (box-native, replaces the Mac's launchd agent)",
+    "exec": "/nix/store/p280s1kafb4r2wq1z1l4vqf4niq07nw5-box-wan-exporter/bin/box-wan-exporter",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "bus-drain": {
+    "after": ["postgresql.service", "nats.service", "bus-schema.service"],
+    "description": "publish queued domain events onto the bus",
+    "exec": "/nix/store/n870jf296xc1qj2vilhyh5cnma5mxpbv-bus-drain/bin/bus-drain",
+    "type": "oneshot",
+    "user": "busdrain",
+    "wantedBy": []
+  },
+  "bus-schema": {
+    "after": [
+      "postgresql-setup.service",
+      "claude-mem-schema.service",
+      "hippocampus-schema.service"
+    ],
+    "description": "apply the bus schema (idempotent)",
+    "exec": "/nix/store/r4pc2xr56b1z9g3fl24f8sbrk39ryb8g-unit-script-bus-schema-start/bin/bus-schema-start ",
+    "type": "oneshot",
+    "user": "postgres",
+    "wantedBy": ["multi-user.target"]
+  },
+  "caddy": {
+    "after": [],
+    "description": "",
+    "exec": [
+      "",
+      "/nix/store/7ziy347kvdglr6gjlmq9wn30zwgkhiwb-caddy-2.11.4/bin/caddy run --config /etc/caddy/caddy_config --adapter caddyfile "
+    ],
+    "type": null,
+    "user": "caddy",
+    "wantedBy": ["multi-user.target"]
+  },
+  "cerberus-vault": {
+    "after": ["network-online.target"],
+    "description": "nightly restic push of the box's irreplaceable state to the vault head",
+    "exec": "/nix/store/a8lazs1k2xx5fffg1qx0nmnw02mz32q1-cerberus-vault-run/bin/cerberus-vault-run",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "claude-mem-db-password": {
+    "after": ["postgresql-setup.service"],
+    "description": "set the claude-mem database role password from sops",
+    "exec": "/nix/store/2j5xwfbgx4zjyxz6p006jjrcw9m2arvz-unit-script-claude-mem-db-password-start/bin/claude-mem-db-password-start ",
+    "type": "oneshot",
+    "user": "postgres",
+    "wantedBy": ["multi-user.target"]
+  },
+  "claude-mem-load": {
+    "after": [
+      "postgresql.service",
+      "claude-mem-schema.service",
+      "claude-mem-db-password.service"
+    ],
+    "description": "reconcile, verify, and report one claude-mem replica load cycle",
+    "exec": "/nix/store/2dhj083hisjf6x8n46cl42lk2m800cyz-claude-mem-load/bin/claude-mem-load",
+    "type": "oneshot",
+    "user": "claude-mem-load",
+    "wantedBy": []
+  },
+  "claude-mem-schema": {
+    "after": ["postgresql-setup.service"],
+    "description": "apply the claude-mem replica schema and grants (idempotent)",
+    "exec": "/nix/store/bd8kkaairmi0b44hapqxc6dp7k2wfib4-unit-script-claude-mem-schema-start/bin/claude-mem-schema-start ",
+    "type": "oneshot",
+    "user": "postgres",
+    "wantedBy": ["multi-user.target"]
+  },
+  "cloudflared-tunnel-97be24ad-1441-4d87-8b88-ee6ce7fdc9d1": {
+    "after": ["network.target", "network-online.target", "tailscaled.service"],
+    "description": "",
+    "exec": "/nix/store/vsbcyiwpwrrzd4hdjl2v2zxvlbpm0yn6-cloudflared-2026.7.3/bin/cloudflared tunnel --config=/nix/store/36rrqfqmz30myp976v2z345qff3msnf4-cloudflared.yml --no-autoupdate run",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "collab-db-password": {
+    "after": ["postgresql-setup.service"],
+    "description": "set the agent-collab database role password from sops",
+    "exec": "/nix/store/r71jn42ir0qy6zhz034ipdxxdra63hg2-unit-script-collab-db-password-start/bin/collab-db-password-start ",
+    "type": "oneshot",
+    "user": "postgres",
+    "wantedBy": ["multi-user.target"]
+  },
+  "comfyui-model-fetch": {
+    "after": ["network-online.target"],
+    "description": "fetch the Qwen model set for ComfyUI (best effort)",
+    "exec": "/nix/store/f1g6mzrn4jnrymavmd2pn5q3ac3505lw-unit-script-comfyui-model-fetch-start/bin/comfyui-model-fetch-start ",
+    "type": "simple",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "console-getty": {
+    "after": [],
+    "description": "",
+    "exec": [
+      "",
+      "/nix/store/156fzvaz2nsq2hk0fkzn9jwk90bnzyn9-util-linux-2.42.2-bin/bin/agetty --login-program /nix/store/mi6lawlrw5m3s8g3wkf9spwpqbx604fc-shadow-4.20.0/bin/login --issue-file /etc/issue:/etc/issue.d:/run/issue:/run/issue.d --noclear --keep-baud console 115200,38400,9600 $TERM"
+    ],
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "container-getty@": {
+    "after": [],
+    "description": "",
+    "exec": [
+      "",
+      "/nix/store/156fzvaz2nsq2hk0fkzn9jwk90bnzyn9-util-linux-2.42.2-bin/bin/agetty --login-program /nix/store/mi6lawlrw5m3s8g3wkf9spwpqbx604fc-shadow-4.20.0/bin/login --issue-file /etc/issue:/etc/issue.d:/run/issue:/run/issue.d --noclear --keep-baud pts/%I 115200,38400,9600 $TERM"
+    ],
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "dbus": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "dbus-broker": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "docker": {
+    "after": ["network.target", "docker.socket"],
+    "description": "",
+    "exec": [
+      "",
+      "/nix/store/6swknznj3gsja2xi38499949w592xyib-docker-29.7.2/bin/dockerd \\\n  --config-file=/nix/store/hvizvg1ynkf5dqf52m6nqzi4h2285757-daemon.json \\\n  \n"
+    ],
+    "type": "notify",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-agent-collab": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "postgresql.service",
+      "collab-db-password.service"
+    ],
+    "description": "",
+    "exec": "/nix/store/55av9byfw29krls9pn70nlab57m4w7wz-unit-script-docker-agent-collab-start/bin/docker-agent-collab-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-alertmanager": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "docker-ntfy.service",
+      "init-madeit-obs-network.service"
+    ],
+    "description": "",
+    "exec": "/nix/store/daqsxk4ji25i643rsdp3f1bk97a1k54c-unit-script-docker-alertmanager-start/bin/docker-alertmanager-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-cipher": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "init-ci-runner-network.service",
+      "network-online.target"
+    ],
+    "description": "",
+    "exec": "/nix/store/f5a1f7a933n964xrrrzjq28hym5ja379-unit-script-docker-cipher-start/bin/docker-cipher-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-comfyui": {
+    "after": ["docker.service", "docker.socket", "network-online.target"],
+    "description": "",
+    "exec": "/nix/store/0y6wb4x5ys65fzlz2h4gfiq0rvwz7wvh-unit-script-docker-comfyui-start/bin/docker-comfyui-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-echo": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "init-ci-runner-network.service",
+      "network-online.target"
+    ],
+    "description": "",
+    "exec": "/nix/store/8jk83p2b4ibi72yckw1y3vvghgfzzb46-unit-script-docker-echo-start/bin/docker-echo-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-forge": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "init-ci-runner-network.service",
+      "network-online.target"
+    ],
+    "description": "",
+    "exec": "/nix/store/wjnn9xfb9pcldbxc64nn9df595v27r64-unit-script-docker-forge-start/bin/docker-forge-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-grafana": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "docker-prometheus.service",
+      "init-madeit-obs-network.service"
+    ],
+    "description": "",
+    "exec": "/nix/store/lscxhl2bwxbz8kwbs7z8qpf4ysqkm57a-unit-script-docker-grafana-start/bin/docker-grafana-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-loki": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "init-madeit-obs-network.service"
+    ],
+    "description": "",
+    "exec": "/nix/store/ka006ay1mrqnanp7sfgs9b9bjndwiyc2-unit-script-docker-loki-start/bin/docker-loki-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-ntfy": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "init-madeit-obs-network.service"
+    ],
+    "description": "",
+    "exec": "/nix/store/inm9ypkjp69b150knnq5smbr5ccr62dl-unit-script-docker-ntfy-start/bin/docker-ntfy-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-otelcol": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "docker-prometheus.service",
+      "init-madeit-obs-network.service"
+    ],
+    "description": "",
+    "exec": "/nix/store/8y16i3wd8vqrcza4xi4rcy9r9fr8pp0m-unit-script-docker-otelcol-start/bin/docker-otelcol-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-prometheus": {
+    "after": [
+      "docker.service",
+      "docker.socket",
+      "network-online.target",
+      "init-madeit-obs-network.service"
+    ],
+    "description": "",
+    "exec": "/nix/store/h36j3dpd6p4hzc8761lgvr7amjla25hg-unit-script-docker-prometheus-start/bin/docker-prometheus-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docker-prune": {
+    "after": ["docker.service"],
+    "description": "Prune docker resources",
+    "exec": [
+      "\"/nix/store/6swknznj3gsja2xi38499949w592xyib-docker-29.7.2/bin/docker\" \"system\" \"prune\" \"-f\""
+    ],
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "docker-searxng": {
+    "after": ["docker.service", "docker.socket", "network-online.target"],
+    "description": "",
+    "exec": "/nix/store/3l8d9jk0lz896558p9ns813wsnwxf55i-unit-script-docker-searxng-start/bin/docker-searxng-start ",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "docsis-triage": {
+    "after": ["network-online.target"],
+    "description": "notice DOCSIS faults the known plant fault does not explain",
+    "exec": "/nix/store/2cy033qfa0lkzl1ddhbq19a3w2nhbmi4-docsis-triage/bin/docsis-triage",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "fleet-schema": {
+    "after": [
+      "postgresql-setup.service",
+      "claude-mem-schema.service",
+      "hippocampus-schema.service",
+      "bus-schema.service"
+    ],
+    "description": "apply the fleet schema (idempotent)",
+    "exec": "/nix/store/j1l4zf573r26xisq992hf6c33i2a4sj8-unit-script-fleet-schema-start/bin/fleet-schema-start ",
+    "type": "oneshot",
+    "user": "postgres",
+    "wantedBy": ["multi-user.target"]
+  },
+  "fleet-subscribe": {
+    "after": ["nats.service", "postgresql.service", "fleet-schema.service"],
+    "description": "record what the fleet's machines report about themselves",
+    "exec": "/nix/store/pn35d1c18a5ns2anpng3cfirg0kbkw4n-fleet-subscribe/bin/fleet-subscribe",
+    "type": null,
+    "user": "fleetsub",
+    "wantedBy": ["multi-user.target"]
+  },
+  "generate-shutdown-ramfs": {
+    "after": [],
+    "description": "Generate shutdown ramfs",
+    "exec": "/nix/store/jk6bxsx23w2ffm8glngzmy1n2132w3j2-make-initrd-ng-0.1.0/bin/make-initrd-ng /nix/store/rvik63bra4iw8j9pj6391kvrfwciysmb-shutdown-ramfs-contents.json /run/initramfs",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["shutdown.target"]
+  },
+  "getty@": {
+    "after": [],
+    "description": "",
+    "exec": ["", "/nix/store/5g6x53ngvp4q05zccpp4hlpkqyhv6ab0-getty"],
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "gtt-governor": {
+    "after": ["docker-otelcol.service"],
+    "description": "unload idle or pressuring ComfyUI models before the OOM killer chooses victims",
+    "exec": "/nix/store/029k22n6y7fkgak2j7xd1awlvn3bkivn-box-gtt-governor/bin/box-gtt-governor",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "hippocampus-exchange@": {
+    "after": ["postgresql.service", "hippocampus-schema.service"],
+    "description": "",
+    "exec": "/nix/store/r4c65xdwifwp8aydavkwha6mryg7p38a-hippocampus-exchange-serve/bin/hippocampus-exchange-serve",
+    "type": null,
+    "user": "hippocampus",
+    "wantedBy": []
+  },
+  "hippocampus-schema": {
+    "after": ["postgresql-setup.service", "claude-mem-schema.service"],
+    "description": "apply the hippocampus schema, role, and grants (idempotent)",
+    "exec": "/nix/store/n45kkcz23n8imds3anjr3g9xy82gx73n-unit-script-hippocampus-schema-start/bin/hippocampus-schema-start ",
+    "type": "oneshot",
+    "user": "postgres",
+    "wantedBy": ["multi-user.target"]
+  },
+  "home-manager-agent": {
+    "after": ["nix-daemon.socket"],
+    "description": "Home Manager environment for agent",
+    "exec": "/nix/store/9c1cmravm0i70qpdi82wfjhfkvwv418c-hm-setup-env /nix/store/fhzm15jnwzxhkf70985rn736avk71p3m-home-manager-generation",
+    "type": "oneshot",
+    "user": "agent",
+    "wantedBy": ["multi-user.target"]
+  },
+  "home-manager-matt": {
+    "after": ["nix-daemon.socket"],
+    "description": "Home Manager environment for matt",
+    "exec": "/nix/store/9c1cmravm0i70qpdi82wfjhfkvwv418c-hm-setup-env /nix/store/p17a8jlhzkviavj9pbdpcq2y9wjhfnff-home-manager-generation",
+    "type": "oneshot",
+    "user": "matt",
+    "wantedBy": ["multi-user.target"]
+  },
+  "init-ci-runner-network": {
+    "after": ["docker.service"],
+    "description": "create the ci-runner container network (172.31.100.0/24)",
+    "exec": "/nix/store/w0zfhxr2rh7gkp2pgal4dshl068gfrsi-unit-script-init-ci-runner-network-start/bin/init-ci-runner-network-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "init-madeit-obs-network": {
+    "after": ["docker.service"],
+    "description": "create the madeit-obs container network",
+    "exec": "/nix/store/ayswjfmdl8gh8rm305blsficn0y63n64-unit-script-init-madeit-obs-network-start/bin/init-madeit-obs-network-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "kmod-static-nodes": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "lastlog2-import": {
+    "after": ["local-fs.target", "systemd-tmpfiles-setup.service"],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["default.target"]
+  },
+  "linger-users": {
+    "after": ["systemd-logind.service"],
+    "description": "",
+    "exec": "/nix/store/273zf4xjiv1694hzx5zmvgbxzvl21r9r-unit-script-linger-users-start/bin/linger-users-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "logrotate": {
+    "after": [],
+    "description": "Logrotate Service",
+    "exec": "/nix/store/b3qmfa90ffjzwiycqz1hlwq9yhwrzqs1-logrotate-3.22.0/bin/logrotate   /nix/store/0zz9zaka91d8ybiaim9avzh36zvs6w46-logrotate.conf",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "logrotate-checkconf": {
+    "after": [],
+    "description": "Logrotate configuration check",
+    "exec": "/nix/store/b3qmfa90ffjzwiycqz1hlwq9yhwrzqs1-logrotate-3.22.0/sbin/logrotate  --debug /nix/store/0zz9zaka91d8ybiaim9avzh36zvs6w46-logrotate.conf",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "memory-explorer": {
+    "after": ["postgresql.service", "hippocampus-schema.service"],
+    "description": "read-only web window over the memory record",
+    "exec": "/nix/store/q89kjapqlqwlvlvwaicq6djbqp2dadgm-bun-1.3.13/bin/bun /nix/store/fxfa9w1f5i2mi9lcj141zl30jqj1z8cv-memory-explorer-app/explorer.ts",
+    "type": null,
+    "user": "explorer",
+    "wantedBy": ["multi-user.target"]
+  },
+  "modprobe@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "nats": {
+    "after": ["network.target"],
+    "description": "NATS messaging system",
+    "exec": "/nix/store/fq8zdshs81qq6lmcc91mbzf7n5qlljn8-nats-server-2.14.5/bin/nats-server -c /run/secrets/rendered/nats.conf",
+    "type": "simple",
+    "user": "nats",
+    "wantedBy": ["multi-user.target"]
+  },
+  "network-addresses-eno1": {
+    "after": ["network-pre.target", "sys-subsystem-net-devices-eno1.device"],
+    "description": "Address configuration of eno1",
+    "exec": "/nix/store/06d62cwd620cj0iwn2x2xlakbls5amwx-unit-script-network-addresses-eno1-start/bin/network-addresses-eno1-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["sys-subsystem-net-devices-eno1.device"]
+  },
+  "network-local-commands": {
+    "after": ["network-pre.target", "network-pre.target"],
+    "description": "Extra networking commands.",
+    "exec": "/nix/store/0c9ngibxbrwdn9x4jglnga7dp387mqbq-unit-script-network-local-commands-start/bin/network-local-commands-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["network.target", "network.target"]
+  },
+  "nftables": {
+    "after": ["sysinit.target"],
+    "description": "nftables firewall",
+    "exec": [
+      "/nix/store/3yakl086k78j5zj4cqb7lz8h67p9byp1-nftables-ensure-deletions",
+      "/nix/store/snx1q5hsgyj61jsq3wna5mmyw4s9gls4-nftables-rules"
+    ],
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "nix-daemon": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "nix-gc": {
+    "after": [],
+    "description": "Nix Garbage Collector",
+    "exec": "/nix/store/i2iqjw55dm8gz6138gi3b59r738v0yh2-unit-script-nix-gc-start/bin/nix-gc-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "nix-optimise": {
+    "after": [],
+    "description": "Nix Store Optimiser",
+    "exec": "/nix/store/r4yd7hpfwpx5s8ily1ipwjc17cl087mn-nix-2.34.8/bin/nix-store --optimise",
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "nscd": {
+    "after": [],
+    "description": "Name Service Cache Daemon (nsncd)",
+    "exec": "/nix/store/jm4vx2qpmsy10kgi4h05vmv0sg9a76gs-nsncd-1.5.2/bin/nsncd",
+    "type": "notify",
+    "user": "nscd",
+    "wantedBy": ["multi-user.target"]
+  },
+  "ollama": {
+    "after": ["network.target"],
+    "description": "Server for local large language models",
+    "exec": "/nix/store/a0m5yan81iw6fiplm064rr005wq2k0va-ollama-0.32.13/bin/ollama serve",
+    "type": "exec",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "ollama-model-loader": {
+    "after": ["ollama.service", "network-online.target"],
+    "description": "Download ollama models in the background",
+    "exec": "/nix/store/kzyymig5br51i119qrpjp254y7sd8hqk-unit-script-ollama-model-loader-start/bin/ollama-model-loader-start ",
+    "type": "exec",
+    "user": null,
+    "wantedBy": ["multi-user.target", "ollama.service"]
+  },
+  "open-webui": {
+    "after": ["network.target"],
+    "description": "User-friendly WebUI for LLMs",
+    "exec": "/nix/store/xn5wiziyshaqqq1layk3hign33n1blv8-open-webui-0.11.0/bin/open-webui serve --host \"127.0.0.1\" --port 31080",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "polkit": {
+    "after": [],
+    "description": "",
+    "exec": [
+      "",
+      "/nix/store/g2idqgjmv239g4g7bzs9p8ir6np5yr7m-polkit-127/lib/polkit-1/polkitd --no-debug --log-level=notice"
+    ],
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "polkit-agent-helper@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "post-boot": {
+    "after": [],
+    "description": "Post-Boot Actions",
+    "exec": "/nix/store/ir8mnq2xq8pn9csbka6yhrb3vvm6pckw-unit-script-post-boot-start/bin/post-boot-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "postgresql": {
+    "after": ["network.target"],
+    "description": "PostgreSQL Server",
+    "exec": "/nix/store/irq7d6gp5c09pd5j1k9avc4k49vjydv0-postgresql-and-plugins-17.11/bin/postgres",
+    "type": "notify",
+    "user": "postgres",
+    "wantedBy": []
+  },
+  "postgresql-setup": {
+    "after": ["postgresql.service"],
+    "description": "PostgreSQL Setup Scripts",
+    "exec": "/nix/store/72rz2q55lqsflsc778iwfgm6bhadz5qz-unit-script-postgresql-setup-start/bin/postgresql-setup-start ",
+    "type": "oneshot",
+    "user": "postgres",
+    "wantedBy": []
+  },
+  "postgresqlBackup-agent-collab": {
+    "after": [],
+    "description": "Backup of agent-collab database(s)",
+    "exec": "/nix/store/w8nwgh4z5r2gz9hw0sfvr1ihmrwdpv1p-unit-script-postgresqlBackup-agent-collab-start/bin/postgresqlBackup-agent-collab-start ",
+    "type": "oneshot",
+    "user": "postgres",
+    "wantedBy": []
+  },
+  "postgresqlBackup-claude-mem": {
+    "after": [],
+    "description": "Backup of claude-mem database(s)",
+    "exec": "/nix/store/khcaswmqr0n0vbkrdfc45g61mgllirz9-unit-script-postgresqlBackup-claude-mem-start/bin/postgresqlBackup-claude-mem-start ",
+    "type": "oneshot",
+    "user": "postgres",
+    "wantedBy": []
+  },
+  "prepare-kexec": {
+    "after": [],
+    "description": "Preparation for kexec",
+    "exec": "/nix/store/vk3i898956m1v29bj6f6abb3d8d0ffkl-unit-script-prepare-kexec-start/bin/prepare-kexec-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["kexec.target"]
+  },
+  "rederivation-judge": {
+    "after": [
+      "postgresql.service",
+      "hippocampus-schema.service",
+      "ollama.service"
+    ],
+    "description": "judge whether recorded rediscoveries record the same knowledge",
+    "exec": "/nix/store/fwprbypyvcng8fa51sqdfmh1zrc59084-rederivation-judge/bin/rederivation-judge",
+    "type": "oneshot",
+    "user": "rederive",
+    "wantedBy": []
+  },
+  "rederivation-judge-subscriber": {
+    "after": [
+      "nats.service",
+      "postgresql.service",
+      "hippocampus-schema.service",
+      "ollama.service",
+      "bus-schema.service"
+    ],
+    "description": "run the judge when the corpus is re-examined",
+    "exec": "/nix/store/iyh21pjr1jwlhmalc3z3kzzg3fyywk9v-rederivation-judge-subscriber/bin/rederivation-judge-subscriber",
+    "type": null,
+    "user": "rederive",
+    "wantedBy": ["multi-user.target"]
+  },
+  "rederivation-rescan": {
+    "after": [
+      "postgresql.service",
+      "hippocampus-schema.service",
+      "bus-schema.service"
+    ],
+    "description": "re-examine the whole corpus against the current constants",
+    "exec": "/nix/store/19f94gnc9yk4b3k6cii9bsrp015ygqc2-rederivation-scan/bin/rederivation-scan",
+    "type": "oneshot",
+    "user": "rederive",
+    "wantedBy": []
+  },
+  "rederivation-scan": {
+    "after": [
+      "postgresql.service",
+      "hippocampus-schema.service",
+      "bus-schema.service"
+    ],
+    "description": "count observations that repeat what the record already held",
+    "exec": "/nix/store/19f94gnc9yk4b3k6cii9bsrp015ygqc2-rederivation-scan/bin/rederivation-scan",
+    "type": "oneshot",
+    "user": "rederive",
+    "wantedBy": []
+  },
+  "reload-systemd-vconsole-setup": {
+    "after": [],
+    "description": "Reset console on configuration changes",
+    "exec": "/nix/store/97d5ygrvqj55f4nx1x34wfdcc7qn11c0-coreutils-9.11/bin/true",
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "resolvconf": {
+    "after": [],
+    "description": "resolvconf update",
+    "exec": "/nix/store/wghr245xlgqrfm3w0z7q9w8izi1pb9c8-unit-script-resolvconf-start/bin/resolvconf-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "reverie": {
+    "after": ["network-online.target", "ollama.service"],
+    "description": "the box dreams: narrate recent logs via the local model",
+    "exec": "/nix/store/dm8kv5nyppwy41apkqagki4bkjjr3kr6-reverie-run/bin/reverie-run",
+    "type": "oneshot",
+    "user": "reverie",
+    "wantedBy": []
+  },
+  "serial-getty@": {
+    "after": [],
+    "description": "",
+    "exec": [
+      "",
+      "/nix/store/156fzvaz2nsq2hk0fkzn9jwk90bnzyn9-util-linux-2.42.2-bin/bin/agetty --login-program /nix/store/mi6lawlrw5m3s8g3wkf9spwpqbx604fc-shadow-4.20.0/bin/login --issue-file /etc/issue:/etc/issue.d:/run/issue:/run/issue.d %I --keep-baud $TERM"
+    ],
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "sleep-actions": {
+    "after": [],
+    "description": "Sleep Actions",
+    "exec": "/nix/store/i3bn3k30zzbp432wpzvcm4y3hdpbvk52-unit-script-sleep-actions-start/bin/sleep-actions-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["sleep.target"]
+  },
+  "sshd": {
+    "after": ["network.target", "sshd-keygen.service"],
+    "description": "SSH Daemon",
+    "exec": "/nix/store/2gpyjkhxkzhrih3vzzv1vyddx8ac1fan-openssh-10.4p1/bin/sshd -D -f /etc/ssh/sshd_config",
+    "type": "notify-reload",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "sshd-keygen": {
+    "after": [],
+    "description": "SSH Host Keys Generation",
+    "exec": "/nix/store/d6prskamkjjkg4nmlv6ra7nlqbwf2d8x-unit-script-sshd-keygen-start/bin/sshd-keygen-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "sshd-vsock@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "sshd@": {
+    "after": ["network.target", "sshd-keygen.service"],
+    "description": "SSH per-connection Daemon",
+    "exec": "-/nix/store/2gpyjkhxkzhrih3vzzv1vyddx8ac1fan-openssh-10.4p1/bin/sshd -i -D -f /etc/ssh/sshd_config",
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "suid-sgid-wrappers": {
+    "after": ["systemd-sysusers.service"],
+    "description": "Create SUID/SGID Wrappers",
+    "exec": "/nix/store/x1d1hqjm1yqa3fndpgnjh2n09niwdqfd-unit-script-suid-sgid-wrappers-start/bin/suid-sgid-wrappers-start ",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": ["sysinit.target"]
+  },
+  "systemd-backlight@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-binfmt": {
+    "after": ["systemd-tmpfiles-setup.service"],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-boot-random-seed": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-fsck@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-hostnamed": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-importd": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-journal-flush": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-journald": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-journald@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-localed": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-logind": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-makefs@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-mkswap@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-modules-load": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "systemd-nspawn@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-oomd": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "systemd-pstore": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["sysinit.target"]
+  },
+  "systemd-random-seed": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-remount-fs": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-sysctl": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "systemd-timedated": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-timesyncd": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["sysinit.target"]
+  },
+  "systemd-tmpfiles-resetup": {
+    "after": [
+      "local-fs.target",
+      "systemd-sysusers.service",
+      "systemd-journald.service"
+    ],
+    "description": "Re-setup tmpfiles on a system that is already running.",
+    "exec": "systemd-tmpfiles --create --remove --exclude-prefix=/dev",
+    "type": "oneshot",
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-udevd": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-update-utmp": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "systemd-user-sessions": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "tailscaled": {
+    "after": ["NetworkManager-wait-online.service"],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": ["multi-user.target"]
+  },
+  "user-runtime-dir@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "user@": {
+    "after": [],
+    "description": "",
+    "exec": null,
+    "type": null,
+    "user": null,
+    "wantedBy": []
+  },
+  "wpa_supplicant": {
+    "after": [],
+    "description": "WPA Supplicant instance",
+    "exec": "/nix/store/g9vyfyqc93dgr0vwz7lmnkyz0ni4yzpg-unit-script-wpa_supplicant-start/bin/wpa_supplicant-start ",
+    "type": null,
+    "user": "wpa_supplicant",
+    "wantedBy": ["multi-user.target"]
+  }
+}

@@ -31,7 +31,8 @@ export interface CheckTourDriftResult {
   statuses: StepDriftStatus[];
 }
 
-export type ReanchorOutcome = "reanchored" | "not-found" | "ambiguous" | "file-missing";
+export type ReanchorOutcome =
+  "reanchored" | "not-found" | "ambiguous" | "file-missing";
 
 export interface ReanchorStepParams {
   workspaceRoot: string;

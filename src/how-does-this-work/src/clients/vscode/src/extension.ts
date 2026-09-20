@@ -40,7 +40,10 @@ async function refreshTourTitles(root: string): Promise<void> {
   }
   try {
     const { tours } = await client.listTours(root);
-    tourTitles = new Map(tours.filter((tour) => tour.error === undefined).map((tour) => [tour.id, tour.title]));
+    tourTitles = new Map(
+      tours.filter((tour) => tour.error === undefined)
+           .map((tour) => [tour.id, tour.title]),
+    );
   } catch {
     // Leave the previous snapshot in place.
   }
@@ -54,14 +57,18 @@ function refreshSaveAffordance(): void {
   }
 }
 
-export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const logLevel = vscode.workspace.getConfiguration("hdtw").get<string>("logLevel", "info");
+export async function activate(
+  context: vscode.ExtensionContext,
+): Promise<void> {
+  const logLevel = vscode.workspace.getConfiguration("hdtw")
+                                   .get<string>("logLevel", "info");
   if (!channel) {
     channel = vscode.window.createOutputChannel("HDTW", { log: true });
     context.subscriptions.push(channel);
   }
   sink = sink ?? new OutputChannelSink(channel);
-  observer = observer ?? createObserver({ sink, minLevel: parseLogLevel(logLevel, "info") });
+  observer = observer
+             ?? createObserver({ sink, minLevel: parseLogLevel(logLevel, "info") });
 
   if (client) {
     return;
@@ -83,19 +90,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       version: result.engineVersion,
     });
     void vscode.window.showInformationMessage(
-      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`
+      `HDTW engine connected (${result.engineName} v${result.engineVersion}, protocol v${result.protocolVersion})`,
     );
   } catch (error) {
     client.dispose();
     client = undefined;
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`HDTW engine failed to start: ${message}`);
+    void vscode.window.showErrorMessage(
+      `HDTW engine failed to start: ${message}`,
+    );
     return;
   }
 
-  tree = new TourTreeProvider(client, workspaceRoot, (id) => driftCounts.get(id));
+  tree = new TourTreeProvider(client, workspaceRoot, (id) =>
+    driftCounts.get(id),
+  );
 
-  saveStatusItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+  saveStatusItem = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    99,
+  );
   saveStatusItem.command = "hdtw.saveWalk";
   saveStatusItem.text = "$(save) Save tour";
   saveStatusItem.tooltip = "Save this walk to .hdtw/tours/";
@@ -104,45 +118,66 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("hdtwTours", tree),
     vscode.commands.registerCommand("hdtw.refreshTours", () => tree?.refresh()),
-    vscode.commands.registerCommand("hdtw.startTour", (tourId: string) => startTour(tourId)),
+    vscode.commands.registerCommand("hdtw.startTour", (tourId: string) =>
+      startTour(tourId),
+    ),
     vscode.commands.registerCommand("hdtw.tourNext", () => walk?.next()),
-    vscode.commands.registerCommand("hdtw.tourPrevious", () => walk?.previous()),
+    vscode.commands.registerCommand("hdtw.tourPrevious", () =>
+      walk?.previous(),
+    ),
     vscode.commands.registerCommand("hdtw.tourExit", () => {
       walk?.exit();
       saveState.setSaved();
       refreshSaveAffordance();
     }),
-    vscode.commands.registerCommand("hdtw.followRelated", (tourId: string) => followRelated(tourId)),
-    vscode.commands.registerCommand("hdtw.reanchorStep", (tourId: string, stepIndex: number) =>
-      reanchorStep(tourId, stepIndex)
+    vscode.commands.registerCommand("hdtw.followRelated", (tourId: string) =>
+      followRelated(tourId),
+    ),
+    vscode.commands.registerCommand(
+      "hdtw.reanchorStep",
+      (tourId: string, stepIndex: number) => reanchorStep(tourId, stepIndex),
     ),
     vscode.commands.registerCommand("hdtw.generateTour", () => generateTour()),
     vscode.commands.registerCommand("hdtw.setApiKey", () => setApiKey(context)),
     vscode.commands.registerCommand("hdtw.ask", () => askWalk()),
     vscode.commands.registerCommand("hdtw.saveWalk", () => saveWalk()),
-    vscode.commands.registerCommand("hdtw.askWhy", (reply: vscode.CommentReply) => askWhy(reply)),
-    vscode.commands.registerCommand("hdtw.checkTourDrift", async (item?: { id?: string }) => {
-      const root = workspaceRoot();
-      const tourId = typeof item?.id === "string" ? item.id : undefined;
-      if (!root || !client || !tourId) {
-        return;
-      }
-      try {
-        const { statuses } = await client.checkTourDrift(root, tourId);
-        driftCounts.set(tourId, statuses.filter((s) => s.status !== "fresh").length);
-        tree?.refresh();
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        void vscode.window.showErrorMessage(`HDTW: drift check failed: ${message}`);
-      }
-    })
+    vscode.commands.registerCommand(
+      "hdtw.askWhy",
+      (reply: vscode.CommentReply) => askWhy(reply),
+    ),
+    vscode.commands.registerCommand(
+      "hdtw.checkTourDrift",
+      async (item?: { id?: string }) => {
+        const root = workspaceRoot();
+        const tourId = typeof item?.id === "string" ? item.id : undefined;
+        if (!root || !client || !tourId) {
+          return;
+        }
+        try {
+          const { statuses } = await client.checkTourDrift(root, tourId);
+          driftCounts.set(
+            tourId,
+            statuses.filter((s) => s.status !== "fresh").length,
+          );
+          tree?.refresh();
+        } catch (error) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          void vscode.window.showErrorMessage(
+            `HDTW: drift check failed: ${message}`,
+          );
+        }
+      },
+    ),
   );
 }
 
 async function startTour(tourId: string): Promise<void> {
   const root = workspaceRoot();
   if (!root || !client) {
-    void vscode.window.showErrorMessage("HDTW: open a folder to walk its tours.");
+    void vscode.window.showErrorMessage(
+      "HDTW: open a folder to walk its tours.",
+    );
     return;
   }
   try {
@@ -158,7 +193,9 @@ async function startTour(tourId: string): Promise<void> {
     await applyDrift(root, tourId);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`HDTW: could not start tour: ${message}`);
+    void vscode.window.showErrorMessage(
+      `HDTW: could not start tour: ${message}`,
+    );
   }
 }
 
@@ -171,7 +208,11 @@ async function applyDrift(root: string, tourId: string): Promise<void> {
     walk.setDrift(statuses);
     await walk.refresh();
     const drifted = statuses.filter((s) => s.status !== "fresh").length;
-    observer?.logger.info("drift.checked", { tourId, drifted, total: statuses.length });
+    observer?.logger.info("drift.checked", {
+      tourId,
+      drifted,
+      total: statuses.length,
+    });
     driftCounts.set(tourId, drifted);
     tree?.refresh();
   } catch {
@@ -186,10 +227,14 @@ async function reanchorStep(tourId: string, stepIndex: number): Promise<void> {
   }
   try {
     const result = await client.reanchorStep(root, tourId, stepIndex);
-    observer?.logger.info("reanchor.result", { tourId, stepIndex, outcome: result.outcome });
+    observer?.logger.info("reanchor.result", {
+      tourId,
+      stepIndex,
+      outcome: result.outcome,
+    });
     if (result.outcome === "reanchored") {
       void vscode.window.showInformationMessage(
-        `HDTW: re-anchored step ${stepIndex + 1} — review the change in your tour file.`
+        `HDTW: re-anchored step ${stepIndex + 1} — review the change in your tour file.`,
       );
       await applyDrift(root, tourId);
       return;
@@ -201,7 +246,7 @@ async function reanchorStep(tourId: string, stepIndex: number): Promise<void> {
           ? "the file is missing"
           : "the original code could not be found";
     void vscode.window.showWarningMessage(
-      `HDTW: couldn't re-anchor step ${stepIndex + 1} — ${reason}. Edit the tour by hand.`
+      `HDTW: couldn't re-anchor step ${stepIndex + 1} — ${reason}. Edit the tour by hand.`,
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
@@ -226,7 +271,11 @@ async function askWhy(reply: vscode.CommentReply): Promise<void> {
   await walk.askWhy(question, (ctx) =>
     Promise.resolve(
       vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: "HDTW: answering", cancellable: true },
+        {
+          location: vscode.ProgressLocation.Notification,
+          title: "HDTW: answering",
+          cancellable: true,
+        },
         async (progress, token) => {
           const { answer } = await client!.askAboutStep(
             {
@@ -238,18 +287,19 @@ async function askWhy(reply: vscode.CommentReply): Promise<void> {
               provider: provider === "openai" ? "openai" : undefined,
               baseUrl: provider === "openai" && baseUrl ? baseUrl : undefined,
               usdPer1kInput: provider === "openai" ? usdPer1kInput : undefined,
-              usdPer1kOutput: provider === "openai" ? usdPer1kOutput : undefined,
+              usdPer1kOutput:
+                provider === "openai" ? usdPer1kOutput : undefined,
             },
             (update) =>
               progress.report({
                 message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
               }),
-            token
+            token,
           );
           return answer;
-        }
-      )
-    )
+        },
+      ),
+    ),
   );
 }
 
@@ -266,18 +316,24 @@ async function followRelated(tourId: string): Promise<void> {
     refreshSaveAffordance();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`HDTW: could not open related tour "${tourId}": ${message}`);
+    void vscode.window.showErrorMessage(
+      `HDTW: could not open related tour "${tourId}": ${message}`,
+    );
   }
 }
 
 async function generateTour(): Promise<void> {
   const root = workspaceRoot();
   if (!root || !client) {
-    void vscode.window.showErrorMessage("HDTW: open a folder to generate a tour.");
+    void vscode.window.showErrorMessage(
+      "HDTW: open a folder to generate a tour.",
+    );
     return;
   }
   if (generating) {
-    void vscode.window.showWarningMessage("HDTW: a tour is already being generated.");
+    void vscode.window.showWarningMessage(
+      "HDTW: a tour is already being generated.",
+    );
     return;
   }
   const topic = await vscode.window.showInputBox({
@@ -322,11 +378,13 @@ async function generateTour(): Promise<void> {
             progress.report({
               message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
             }),
-          token
-        )
+          token,
+        ),
     );
     tree?.refresh();
-    void vscode.window.showInformationMessage(`HDTW: tour saved to ${result.savedPath}`);
+    void vscode.window.showInformationMessage(
+      `HDTW: tour saved to ${result.savedPath}`,
+    );
     await refreshTourTitles(root);
     walk?.dispose();
     walk = new WalkController(root, (id) => tourTitles.get(id));
@@ -345,11 +403,15 @@ async function generateTour(): Promise<void> {
 async function askWalk(): Promise<void> {
   const root = workspaceRoot();
   if (!root || !client) {
-    void vscode.window.showErrorMessage("HDTW: open a folder to ask about its code.");
+    void vscode.window.showErrorMessage(
+      "HDTW: open a folder to ask about its code.",
+    );
     return;
   }
   if (generating) {
-    void vscode.window.showWarningMessage("HDTW: a tour is already being generated.");
+    void vscode.window.showWarningMessage(
+      "HDTW: a tour is already being generated.",
+    );
     return;
   }
   const question = await vscode.window.showInputBox({
@@ -371,7 +433,11 @@ async function askWalk(): Promise<void> {
   generating = true;
   try {
     const result = await vscode.window.withProgress(
-      { location: vscode.ProgressLocation.Notification, title: "HDTW: exploring", cancellable: true },
+      {
+        location: vscode.ProgressLocation.Notification,
+        title: "HDTW: exploring",
+        cancellable: true,
+      },
       (progress, token) =>
         client!.generateTour(
           {
@@ -389,8 +455,8 @@ async function askWalk(): Promise<void> {
             progress.report({
               message: `${update.message} (${Math.round((update.tokensIn + update.tokensOut) / 1000)}k tokens · ~$${update.estimatedCostUsd.toFixed(2)})`,
             }),
-          token
-        )
+          token,
+        ),
     );
     observer?.logger.info("ask.generated", { id: result.tour.id });
     await refreshTourTitles(root);
@@ -424,7 +490,9 @@ async function saveWalk(): Promise<void> {
     void vscode.window.showInformationMessage(`HDTW: saved to ${savedPath}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`HDTW: could not save tour: ${message}`);
+    void vscode.window.showErrorMessage(
+      `HDTW: could not save tour: ${message}`,
+    );
   }
 }
 
@@ -447,22 +515,26 @@ function handleGenerationError(error: unknown): void {
   }
   if (code === GENERATION_BUDGET_EXCEEDED_ERROR_CODE) {
     void vscode.window.showErrorMessage(
-      `HDTW: ${message} Raise hdtw.generation.maxBudgetUsd to allow more.`
+      `HDTW: ${message} Raise hdtw.generation.maxBudgetUsd to allow more.`,
     );
     return;
   }
-  void vscode.window.showErrorMessage(`HDTW: tour generation failed: ${message}`);
+  void vscode.window.showErrorMessage(
+    `HDTW: tour generation failed: ${message}`,
+  );
 }
 
 async function setApiKey(context: vscode.ExtensionContext): Promise<void> {
-  const providerConfig = vscode.workspace.getConfiguration("hdtw.generation").get<string>("provider", "anthropic");
+  const providerConfig = vscode.workspace.getConfiguration("hdtw.generation")
+                                         .get<string>("provider", "anthropic");
   const isOpenAi = providerConfig === "openai";
   const secretKey = isOpenAi ? OPENAI_API_KEY_SECRET : ANTHROPIC_API_KEY_SECRET;
   const providerLabel = isOpenAi ? "OpenAI-compatible" : "Anthropic";
 
   const key = await vscode.window.showInputBox({
     title: `Set ${providerLabel} API Key`,
-    prompt: "Stored in VS Code SecretStorage; passed to the engine on next start.",
+    prompt:
+      "Stored in VS Code SecretStorage; passed to the engine on next start.",
     password: true,
     ignoreFocusOut: true,
   });
@@ -471,14 +543,18 @@ async function setApiKey(context: vscode.ExtensionContext): Promise<void> {
   }
   if (key === "") {
     await context.secrets.delete(secretKey);
-    void vscode.window.showInformationMessage("HDTW: API key cleared. Reload to apply.");
+    void vscode.window.showInformationMessage(
+      "HDTW: API key cleared. Reload to apply.",
+    );
   } else {
     await context.secrets.store(secretKey, key);
-    void vscode.window.showInformationMessage("HDTW: API key saved. Reload to apply.");
+    void vscode.window.showInformationMessage(
+      "HDTW: API key saved. Reload to apply.",
+    );
   }
   const action = await vscode.window.showInformationMessage(
     "Reload window to restart the engine with the new credentials?",
-    "Reload"
+    "Reload",
   );
   if (action === "Reload") {
     void vscode.commands.executeCommand("workbench.action.reloadWindow");

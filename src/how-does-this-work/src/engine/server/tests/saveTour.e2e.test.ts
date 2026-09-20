@@ -41,15 +41,18 @@ test("generate save:false writes nothing; saveTour then persists it", async () =
   });
   connection = createMessageConnection(
     new StreamMessageReader(serverProcess.stdout!),
-    new StreamMessageWriter(serverProcess.stdin!)
+    new StreamMessageWriter(serverProcess.stdin!),
   );
   connection.listen();
 
-  const generated = await connection.sendRequest<GenerateTourResult>(GENERATE_TOUR_METHOD, {
-    workspaceRoot,
-    topic: "how does the readme work",
-    save: false,
-  });
+  const generated = await connection.sendRequest<GenerateTourResult>(
+    GENERATE_TOUR_METHOD,
+    {
+      workspaceRoot,
+      topic: "how does the readme work",
+      save: false,
+    },
+  );
   expect(generated.savedPath).toBeUndefined();
 
   const saved = await connection.sendRequest<SaveTourResult>(SAVE_TOUR_METHOD, {
@@ -57,12 +60,17 @@ test("generate save:false writes nothing; saveTour then persists it", async () =
     tour: generated.tour,
   });
   expect(saved.savedPath).toBe(".hdtw/tours/fake-tour.tour.json");
-  const onDisk = JSON.parse(await readFile(path.join(workspaceRoot, saved.savedPath), "utf8"));
+  const onDisk = JSON.parse(
+    await readFile(path.join(workspaceRoot, saved.savedPath), "utf8"),
+  );
   expect(onDisk.id).toBe("fake-tour");
 
-  const saved2 = await connection.sendRequest<SaveTourResult>(SAVE_TOUR_METHOD, {
-    workspaceRoot,
-    tour: generated.tour,
-  });
+  const saved2 = await connection.sendRequest<SaveTourResult>(
+    SAVE_TOUR_METHOD,
+    {
+      workspaceRoot,
+      tour: generated.tour,
+    },
+  );
   expect(saved2.savedPath).toBe(".hdtw/tours/fake-tour-2.tour.json");
 });

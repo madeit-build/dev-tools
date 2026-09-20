@@ -13,8 +13,19 @@ test("tour protocol constants are stable", () => {
 });
 
 test("TourAnchor accepts an optional symbol (symbol-anchor) without breaking line-anchors", () => {
-  const lineAnchor: TourAnchor = { file: "a.ts", startLine: 1, endLine: 2, snippetHash: "sha256:x" };
-  const symbolAnchor: TourAnchor = { file: "a.ts", startLine: 1, endLine: 2, snippetHash: "sha256:x", symbol: "alpha" };
+  const lineAnchor: TourAnchor = {
+    file: "a.ts",
+    startLine: 1,
+    endLine: 2,
+    snippetHash: "sha256:x",
+  };
+  const symbolAnchor: TourAnchor = {
+    file: "a.ts",
+    startLine: 1,
+    endLine: 2,
+    snippetHash: "sha256:x",
+    symbol: "alpha",
+  };
   expect(symbolAnchor.symbol).toBe("alpha");
   expect(lineAnchor.symbol).toBeUndefined();
 });

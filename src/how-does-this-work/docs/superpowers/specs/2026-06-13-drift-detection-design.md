@@ -12,7 +12,7 @@ On loading a tour, detect when a step's anchor has drifted (the code it points a
 
 ## The key insight
 
-Anchors store `snippetHash` (a SHA-256) but **not** the snippet text. This is a feature, not a gap: re-anchoring searches **by hash**. Slide a window of the anchor's original length across the file, hash each window; the window whose hash equals the stored `snippetHash` *is* the original code, verbatim, at its new location. No schema change, fully deterministic, and it cleanly separates "same code, just moved" (a window matches → re-anchor) from "the code genuinely changed" (no match → stays badged, manual fix).
+Anchors store `snippetHash` (a SHA-256) but **not** the snippet text. This is a feature, not a gap: re-anchoring searches **by hash**. Slide a window of the anchor's original length across the file, hash each window; the window whose hash equals the stored `snippetHash` _is_ the original code, verbatim, at its new location. No schema change, fully deterministic, and it cleanly separates "same code, just moved" (a window matches → re-anchor) from "the code genuinely changed" (no match → stays badged, manual fix).
 
 ## engine-core (pure — no fs/transport; TDD)
 

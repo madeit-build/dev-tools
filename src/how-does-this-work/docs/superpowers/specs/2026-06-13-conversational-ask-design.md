@@ -35,6 +35,7 @@ Extract the catalog-write logic that currently lives inside the generation pipel
 ### Generation honors `save`
 
 `runGeneration` assembles + gates the `Tour` (provisional `id = slugify(title)`) as today, then:
+
 - `save === false` → log `generate.done` (unsaved), end the span, return `{ tour, savedPath: undefined }` — **no write, no "saving" progress phase**.
 - otherwise → emit the "saving" phase, call `writeTourToCatalog`, return `{ tour: <written>, savedPath }`. A `TourSaveError` here maps to `GENERATION_FAILED`.
 
@@ -44,7 +45,7 @@ Extract the catalog-write logic that currently lives inside the generation pipel
 
 ## VS Code client
 
-- **`HDTW: Ask…`** command + a `$(comment-discussion)` button on the Tours view title → `showInputBox` ("What do you want to understand? e.g. *how does drift detection work?*") → `generateTour({ …, save: false })` (same `withProgress`/cost UI as Chunk 2) → auto-walk the returned (unsaved) tour.
+- **`HDTW: Ask…`** command + a `$(comment-discussion)` button on the Tours view title → `showInputBox` ("What do you want to understand? e.g. _how does drift detection work?_") → `generateTour({ …, save: false })` (same `withProgress`/cost UI as Chunk 2) → auto-walk the returned (unsaved) tour.
 - **Unsaved-walk affordance:** the extension tracks the current walk's tour + an `unsaved` flag. While a walk is unsaved, a status-bar **`$(save) Save tour`** item shows, and `HDTW: Save Current Walk to Catalog` is enabled. Saving → `saveTour(tour)` → success message + sidebar refresh; the walk becomes saved (the affordance hides). Closing/exiting an unsaved walk persists nothing.
 - Walks started from the catalog (`startTour`/`followRelated`) or from "Generate Tour…" (which still commits immediately) are `saved` from the start and never show the affordance.
 

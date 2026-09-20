@@ -1,9 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import {
-  parseTour,
-  verifyAnchor,
-} from "@made-i-t/hdtw-engine-core";
+import { parseTour, verifyAnchor } from "@made-i-t/hdtw-engine-core";
 import type {
   GenerateTourParams,
   GenerateTourResult,
@@ -33,10 +30,12 @@ export async function runGeneration(
   generator: TourGenerator,
   observer: Observer,
   onProgress: (progress: GenerationProgressParams) => void,
-  cancelSignal: AbortSignal
+  cancelSignal: AbortSignal,
 ): Promise<GenerateTourResult> {
   const maxBudgetUsd = params.maxBudgetUsd ?? DEFAULT_MAX_BUDGET_USD;
-  const span = observer.metrics.startSpan("generate.duration_ms", { topic: params.topic });
+  const span = observer.metrics.startSpan("generate.duration_ms", {
+    topic: params.topic,
+  });
   observer.logger.info("generate.start", {
     topic: params.topic,
     model: params.model ?? "(default)",
@@ -58,22 +57,29 @@ export async function runGeneration(
       observer,
       onProgress: (progress: GenerationProgressParams) => {
         onProgress(progress);
-        if (progress.estimatedCostUsd > maxBudgetUsd && budgetBreachedAtUsd === undefined) {
+        if (
+          progress.estimatedCostUsd > maxBudgetUsd
+          && budgetBreachedAtUsd === undefined
+        ) {
           budgetBreachedAtUsd = progress.estimatedCostUsd;
           abort.abort();
         }
       },
     };
 
-    const catalogResult = await listTours({ workspaceRoot: params.workspaceRoot });
-    const catalog: TourSummary[] = catalogResult.tours.filter((tour) => tour.error === undefined);
+    const catalogResult = await listTours({
+      workspaceRoot: params.workspaceRoot,
+    });
+    const catalog: TourSummary[] = catalogResult.tours.filter(
+      (tour) => tour.error === undefined,
+    );
     const catalogIds = new Set(catalog.map((tour) => tour.id));
 
     const translateAbort = (error: unknown): never => {
       if (budgetBreachedAtUsd !== undefined) {
         throw new BudgetExceededError(
           `generation aborted: estimated cost $${budgetBreachedAtUsd.toFixed(2)} exceeded budget $${maxBudgetUsd.toFixed(2)}`,
-          budgetBreachedAtUsd
+          budgetBreachedAtUsd,
         );
       }
       if (cancelSignal.aborted || abort.signal.aborted) {
@@ -84,13 +90,25 @@ export async function runGeneration(
 
     let draft: DraftTour;
     try {
-      draft = await generator.generate(params.workspaceRoot, params.topic, normalizeModel(params.model), catalog, hooks);
+      draft = await generator.generate(
+        params.workspaceRoot,
+        params.topic,
+        normalizeModel(params.model),
+        catalog,
+        hooks,
+      );
     } catch (error) {
       translateAbort(error);
       throw error; // unreachable; satisfies control flow
     }
 
-    let verified = await verifyDraft(params.workspaceRoot, draft, catalogIds, observer, onProgress);
+    let verified = await verifyDraft(
+      params.workspaceRoot,
+      draft,
+      catalogIds,
+      observer,
+      onProgress,
+    );
     if (!verified.ok) {
       observer.logger.info("repair.round", { errors: verified.errors });
       observer.metrics.count("generate.repair_rounds");
@@ -102,16 +120,22 @@ export async function runGeneration(
           catalog,
           draft,
           verified.errors,
-          hooks
+          hooks,
         );
       } catch (error) {
         translateAbort(error);
         throw error;
       }
-      verified = await verifyDraft(params.workspaceRoot, draft, catalogIds, observer, onProgress);
+      verified = await verifyDraft(
+        params.workspaceRoot,
+        draft,
+        catalogIds,
+        observer,
+        onProgress,
+      );
       if (!verified.ok) {
         throw new GenerationFailedError(
-          `agent could not produce verifiable anchors after one repair round: ${verified.errors.join("; ")}`
+          `agent could not produce verifiable anchors after one repair round: ${verified.errors.join("; ")}`,
         );
       }
     }
@@ -119,17 +143,29 @@ export async function runGeneration(
     const tour = assembleTour(draft, verified.steps);
 
     if (params.save === false) {
-      observer.logger.info("generate.done", { id: tour.id, steps: tour.steps.length, saved: false });
+      observer.logger.info("generate.done", {
+        id: tour.id,
+        steps: tour.steps.length,
+        saved: false,
+      });
       span.end({ steps: tour.steps.length });
       return { tour, savedPath: undefined };
     }
 
-    onProgress({ phase: "saving", message: "Saving tour", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
+    onProgress({
+      phase: "saving",
+      message: "Saving tour",
+      tokensIn: 0,
+      tokensOut: 0,
+      estimatedCostUsd: 0,
+    });
     let saved;
     try {
       saved = await writeTourToCatalog(params.workspaceRoot, tour);
     } catch (error) {
-      throw new GenerationFailedError(error instanceof Error ? error.message : String(error));
+      throw new GenerationFailedError(
+        error instanceof Error ? error.message : String(error),
+      );
     }
     observer.logger.info("generate.done", {
       id: saved.tour.id,
@@ -148,29 +184,50 @@ function normalizeModel(model: string | undefined): string | undefined {
 }
 
 type VerifiedDraft =
-  | { ok: true; steps: TourStep[] }
-  | { ok: false; errors: string[] };
+  { ok: true; steps: TourStep[] } | { ok: false; errors: string[] };
 
 async function verifyDraft(
   workspaceRoot: string,
   draft: DraftTour,
   catalogIds: Set<string>,
   observer: Observer,
-  onProgress: (progress: GenerationProgressParams) => void
+  onProgress: (progress: GenerationProgressParams) => void,
 ): Promise<VerifiedDraft> {
-  onProgress({ phase: "verifying", message: "Verifying anchors", tokensIn: 0, tokensOut: 0, estimatedCostUsd: 0 });
+  onProgress({
+    phase: "verifying",
+    message: "Verifying anchors",
+    tokensIn: 0,
+    tokensOut: 0,
+    estimatedCostUsd: 0,
+  });
   const errors: string[] = [];
   const steps: TourStep[] = [];
   for (const draftStep of draft.steps) {
     const verifiedStep = await verifyStep(workspaceRoot, draftStep);
     if (typeof verifiedStep === "string") {
-      observer.logger.warn("verify.step", { ok: false, file: draftStep.anchor.file, error: verifiedStep });
+      observer.logger.warn("verify.step", {
+        ok: false,
+        file: draftStep.anchor.file,
+        error: verifiedStep,
+      });
       observer.metrics.count("verify.drift");
       errors.push(verifiedStep);
     } else {
-      observer.logger.info("verify.step", { ok: true, title: draftStep.title, file: draftStep.anchor.file });
-      const related = resolveRelatedTours(draftStep.relatedTours, catalogIds, observer);
-      steps.push(related.length > 0 ? { ...verifiedStep, relatedTours: related } : verifiedStep);
+      observer.logger.info("verify.step", {
+        ok: true,
+        title: draftStep.title,
+        file: draftStep.anchor.file,
+      });
+      const related = resolveRelatedTours(
+        draftStep.relatedTours,
+        catalogIds,
+        observer,
+      );
+      steps.push(
+        related.length > 0
+          ? { ...verifiedStep, relatedTours: related }
+          : verifiedStep,
+      );
     }
   }
   return errors.length > 0 ? { ok: false, errors } : { ok: true, steps };
@@ -179,7 +236,7 @@ async function verifyDraft(
 function resolveRelatedTours(
   related: RelatedTour[] | undefined,
   catalogIds: Set<string>,
-  observer: Observer
+  observer: Observer,
 ): RelatedTour[] {
   if (!related) {
     return [];
@@ -195,10 +252,16 @@ function resolveRelatedTours(
   return kept;
 }
 
-export async function verifyStep(workspaceRoot: string, step: DraftStep): Promise<TourStep | string> {
+export async function verifyStep(
+  workspaceRoot: string,
+  step: DraftStep,
+): Promise<TourStep | string> {
   const resolvedRoot = path.resolve(workspaceRoot);
   const resolved = path.resolve(resolvedRoot, ...step.anchor.file.split("/"));
-  if (resolved !== resolvedRoot && !resolved.startsWith(resolvedRoot + path.sep)) {
+  if (
+    resolved !== resolvedRoot
+    && !resolved.startsWith(resolvedRoot + path.sep)
+  ) {
     return `${step.anchor.file}: anchor path escapes the workspace`;
   }
   let fileContent: string;
@@ -209,7 +272,12 @@ export async function verifyStep(workspaceRoot: string, step: DraftStep): Promis
   }
 
   if (step.anchor.symbol) {
-    const resolveResult = await resolveSymbol(workspaceRoot, step.anchor.file, step.anchor.symbol, undefined);
+    const resolveResult = await resolveSymbol(
+      workspaceRoot,
+      step.anchor.file,
+      step.anchor.symbol,
+      undefined,
+    );
     if (resolveResult.kind === "missing") {
       return `${step.anchor.file}: symbol "${step.anchor.symbol}" not found`;
     }
@@ -217,12 +285,17 @@ export async function verifyStep(workspaceRoot: string, step: DraftStep): Promis
       return `${step.anchor.file}: file does not exist in the workspace`;
     }
     if (resolveResult.kind === "ambiguous") {
-      const names = resolveResult.candidates.map((c) => c.qualifiedName).join(", ");
+      const names = resolveResult.candidates.map((c) => c.qualifiedName)
+                                            .join(", ");
       return `${step.anchor.file}: symbol "${step.anchor.symbol}" is ambiguous (use one of: ${names})`;
     }
     const symbolVerification = verifyAnchor(
-      { file: step.anchor.file, startLine: resolveResult.startLine, endLine: resolveResult.endLine },
-      fileContent
+      {
+        file: step.anchor.file,
+        startLine: resolveResult.startLine,
+        endLine: resolveResult.endLine,
+      },
+      fileContent,
     );
     if (!symbolVerification.ok) {
       return symbolVerification.errors.join("; ");
@@ -240,12 +313,19 @@ export async function verifyStep(workspaceRoot: string, step: DraftStep): Promis
     };
   }
 
-  if (step.anchor.startLine === undefined || step.anchor.endLine === undefined) {
+  if (
+    step.anchor.startLine === undefined
+    || step.anchor.endLine === undefined
+  ) {
     return `${step.anchor.file}: line-anchor missing startLine/endLine`;
   }
   const verification = verifyAnchor(
-    { file: step.anchor.file, startLine: step.anchor.startLine, endLine: step.anchor.endLine },
-    fileContent
+    {
+      file: step.anchor.file,
+      startLine: step.anchor.startLine,
+      endLine: step.anchor.endLine,
+    },
+    fileContent,
   );
   if (!verification.ok) {
     return verification.errors.join("; ");
@@ -273,8 +353,9 @@ function assembleTour(draft: DraftTour, steps: TourStep[]): Tour {
   const serialized = JSON.stringify(tour, null, 2) + "\n";
   const gate = parseTour(serialized, tour.id);
   if (!gate.ok) {
-    throw new GenerationFailedError(`generated tour failed validation: ${gate.errors.join("; ")}`);
+    throw new GenerationFailedError(
+      `generated tour failed validation: ${gate.errors.join("; ")}`,
+    );
   }
   return tour;
 }
-

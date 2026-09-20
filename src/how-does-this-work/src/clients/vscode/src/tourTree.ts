@@ -35,7 +35,7 @@ export class TourTreeProvider implements vscode.TreeDataProvider<TourTreeItem> {
   constructor(
     private readonly client: EngineClient,
     private readonly getWorkspaceRoot: () => string | undefined,
-    private readonly driftCount: (tourId: string) => number | undefined
+    private readonly driftCount: (tourId: string) => number | undefined,
   ) {}
 
   refresh(): void {
@@ -52,6 +52,8 @@ export class TourTreeProvider implements vscode.TreeDataProvider<TourTreeItem> {
       return [];
     }
     const result = await this.client.listTours(workspaceRoot);
-    return result.tours.map((tour) => new TourTreeItem(tour, this.driftCount(tour.id)));
+    return result.tours.map(
+      (tour) => new TourTreeItem(tour, this.driftCount(tour.id)),
+    );
   }
 }

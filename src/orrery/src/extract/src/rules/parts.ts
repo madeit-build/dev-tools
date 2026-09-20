@@ -1,6 +1,10 @@
 import {
-  datastoreId, portId, serviceId,
-  type EdgeType, type OrreryEdge, type OrreryNode,
+  datastoreId,
+  portId,
+  serviceId,
+  type EdgeType,
+  type OrreryEdge,
+  type OrreryNode,
 } from "@made-i-t/orrery-model";
 import type { RuleResult } from "./services";
 import type { PortIndex } from "./ports";
@@ -48,12 +52,20 @@ export function partsRule(
       nodes.push(node);
       edges.push({
         id: `contains:${from}->${node.id}`,
-        from, to: node.id, type: "contains", source: "declared", evidence: null,
+        from,
+        to: node.id,
+        type: "contains",
+        source: "declared",
+        evidence: null,
       });
     }
     edges.push({
       id: `${type}:${from}->${node.id}`,
-      from, to: node.id, type, source: "declared", evidence: null,
+      from,
+      to: node.id,
+      type,
+      source: "declared",
+      evidence: null,
     });
   };
 
@@ -63,32 +75,55 @@ export function partsRule(
     const p = raw[unit];
 
     for (const dir of toList(p.state)) {
-      add({
-        id: datastoreId(host, `${unit}/${dir}`), type: "datastore", label: dir, host,
-        attrs: { path: `/var/lib/${dir}`, kind: "state" }, provenance: { files: [] },
-      }, svc, "writes");
+      add(
+        {
+          id: datastoreId(host, `${unit}/${dir}`),
+          type: "datastore",
+          label: dir,
+          host,
+          attrs: { path: `/var/lib/${dir}`, kind: "state" },
+          provenance: { files: [] },
+        },
+        svc,
+        "writes",
+      );
     }
 
     for (const file of toList(p.envFile)) {
       const secret = SECRET_PATH.test(file);
-      add({
-        id: datastoreId(host, `${unit}/env`), type: "datastore",
-        // The label carries the fact. The path goes in attrs, where the
-        // sanitizer redacts it. Drawing "reads a secret" is the point;
-        // drawing which secret is not.
-        label: secret ? "secret env" : "env file", host,
-        attrs: { path: file, kind: secret ? "secret" : "env" }, provenance: { files: [] },
-      }, svc, "reads");
+      add(
+        {
+          id: datastoreId(host, `${unit}/env`),
+          type: "datastore",
+          // The label carries the fact. The path goes in attrs, where the
+          // sanitizer redacts it. Drawing "reads a secret" is the point;
+          // drawing which secret is not.
+          label: secret ? "secret env" : "env file",
+          host,
+          attrs: { path: file, kind: secret ? "secret" : "env" },
+          provenance: { files: [] },
+        },
+        svc,
+        "reads",
+      );
     }
 
     for (const [port, owner] of [...index].sort((a, b) => a[0] - b[0])) {
       if (owner.unit !== unit) continue;
-      add({
-        id: portId(host, port), type: "port", label: `:${port}`, host,
-        // The port's own confidence travels with it: a port read out of an
-        // env var should not look as solid as a published docker mapping.
-        attrs: { port, confidence: owner.source }, provenance: { files: [] },
-      }, svc, "listens-on");
+      add(
+        {
+          id: portId(host, port),
+          type: "port",
+          label: `:${port}`,
+          host,
+          // The port's own confidence travels with it: a port read out of an
+          // env var should not look as solid as a published docker mapping.
+          attrs: { port, confidence: owner.source },
+          provenance: { files: [] },
+        },
+        svc,
+        "listens-on",
+      );
     }
   }
 

@@ -11,10 +11,9 @@ export function extractAnchoredText(
   startLine: number,
   endLine: number,
 ): string {
-  return fileContent
-    .split(/\r?\n/)
-    .slice(startLine - 1, endLine)
-    .join("\n");
+  return fileContent.split(/\r?\n/)
+                    .slice(startLine - 1, endLine)
+                    .join("\n");
 }
 
 export interface AnchorRange {
@@ -44,8 +43,8 @@ export function verifyAnchor(
       `${anchor.file}: endLine must be an integer >= 1 (got ${anchor.endLine})`,
     );
   } else if (
-    Number.isInteger(anchor.startLine) &&
-    anchor.endLine < anchor.startLine
+    Number.isInteger(anchor.startLine)
+    && anchor.endLine < anchor.startLine
   ) {
     errors.push(
       `${anchor.file}: endLine ${anchor.endLine} is before startLine ${anchor.startLine}`,
@@ -93,7 +92,12 @@ export interface ResolvedRange {
 
 export type SymbolFreshness =
   | { state: "fresh"; startLine: number; endLine: number; snippetHash: string }
-  | { state: "relocated"; startLine: number; endLine: number; snippetHash: string }
+  | {
+      state: "relocated";
+      startLine: number;
+      endLine: number;
+      snippetHash: string;
+    }
   | { state: "symbol-missing" };
 
 /**
@@ -106,18 +110,24 @@ export type SymbolFreshness =
 export function checkSymbolAnchorFreshness(
   anchor: { startLine: number; endLine: number; snippetHash: string },
   resolved: ResolvedRange | undefined,
-  fileContent: string
+  fileContent: string,
 ): SymbolFreshness {
   if (!resolved) {
     return { state: "symbol-missing" };
   }
   const snippetHash = computeSnippetHash(
-    extractAnchoredText(fileContent, resolved.startLine, resolved.endLine)
+    extractAnchoredText(fileContent, resolved.startLine, resolved.endLine),
   );
-  const moved = resolved.startLine !== anchor.startLine || resolved.endLine !== anchor.endLine;
+  const moved = resolved.startLine !== anchor.startLine
+                || resolved.endLine !== anchor.endLine;
   const contentChanged = snippetHash !== anchor.snippetHash;
   const state = moved || contentChanged ? "relocated" : "fresh";
-  return { state, startLine: resolved.startLine, endLine: resolved.endLine, snippetHash };
+  return {
+    state,
+    startLine: resolved.startLine,
+    endLine: resolved.endLine,
+    snippetHash,
+  };
 }
 
 export type ReanchorResult =
@@ -144,8 +154,8 @@ export function findReanchor(
   for (let start = 1; start + windowLength - 1 <= lines.length; start += 1) {
     const end = start + windowLength - 1;
     if (
-      computeSnippetHash(lines.slice(start - 1, end).join("\n")) ===
-      anchor.snippetHash
+      computeSnippetHash(lines.slice(start - 1, end).join("\n"))
+      === anchor.snippetHash
     ) {
       matches.push({ startLine: start, endLine: end });
     }
