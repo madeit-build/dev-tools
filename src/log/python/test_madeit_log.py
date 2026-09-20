@@ -137,15 +137,30 @@ class RecordTest(unittest.TestCase):
         self.assertNotIn("madeit.span_id", record["Attributes"])
         jsonschema.validate(record, SCHEMA)
 
-    def test_refuses_an_event_slug_the_schema_would_reject_naming_it(self):
-        with self.assertRaisesRegex(TypeError, r"'Route'.*\^\[a-z\]\[a-z0-9\.-\]\*\$"):
-            self.log.info("Route", "body")
-        self.assertEqual(self.seen, [])
+    def test_coerces_and_marks_an_event_slug_the_schema_would_reject(self):
+        self.log.info("Route", "body")  # must not raise
+        self.assertEqual(len(self.seen), 1)
+        jsonschema.validate(self.seen[0], SCHEMA)
+        self.assertEqual(self.seen[0]["Attributes"]["madeit.event"], "invalid")
+        self.assertEqual(self.seen[0]["Attributes"]["madeit.invalid_event"], "Route")
+        self.assertEqual(self.seen[0]["Body"], "body")
 
-    def test_refuses_an_empty_body_which_the_schema_would_reject(self):
-        with self.assertRaisesRegex(TypeError, "body"):
-            self.log.info("a.b", "")
-        self.assertEqual(self.seen, [])
+    def test_coerces_and_marks_an_empty_body_which_the_schema_would_reject(self):
+        self.log.info("a.b", "")  # must not raise
+        self.assertEqual(len(self.seen), 1)
+        jsonschema.validate(self.seen[0], SCHEMA)
+        self.assertEqual(self.seen[0]["Attributes"]["madeit.event"], "a.b")
+        self.assertEqual(self.seen[0]["Attributes"]["madeit.invalid_body"], True)
+        self.assertEqual(self.seen[0]["Body"], "a.b")
+
+    def test_marks_both_defects_at_once_and_body_falls_back_to_the_invalid_event_marker(self):
+        self.log.info("Route", "")  # must not raise
+        self.assertEqual(len(self.seen), 1)
+        jsonschema.validate(self.seen[0], SCHEMA)
+        self.assertEqual(self.seen[0]["Attributes"]["madeit.event"], "invalid")
+        self.assertEqual(self.seen[0]["Attributes"]["madeit.invalid_event"], "Route")
+        self.assertEqual(self.seen[0]["Attributes"]["madeit.invalid_body"], True)
+        self.assertEqual(self.seen[0]["Body"], "invalid")
 
     def test_a_trailing_newline_is_not_a_traceparent(self):
         good = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"

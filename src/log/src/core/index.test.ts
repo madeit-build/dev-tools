@@ -75,18 +75,35 @@ describe("getLogger", () => {
     expect(validate(seen[0]), JSON.stringify(validate.errors)).toBe(true);
   });
 
-  it("refuses an event slug the schema would reject, naming it", () => {
+  it("coerces and marks an event slug the schema would reject, rather than throwing", () => {
     const { logger, seen } = capture();
-    expect(() => logger.info("Route", "body")).toThrow(TypeError);
-    expect(() => logger.info("Route", "body")).toThrow(/"Route".*\^\[a-z\]\[a-z0-9\.-\]\*\$/);
-    expect(seen).toHaveLength(0);
+    expect(() => logger.info("Route", "body")).not.toThrow();
+    expect(seen).toHaveLength(1);
+    expect(validate(seen[0]), JSON.stringify(validate.errors)).toBe(true);
+    expect(seen[0]?.Attributes["madeit.event"]).toBe("invalid");
+    expect(seen[0]?.Attributes["madeit.invalid_event"]).toBe("Route");
+    expect(seen[0]?.Body).toBe("body");
   });
 
-  it("refuses an empty body, which the schema would reject", () => {
+  it("coerces and marks an empty body the schema would reject, rather than throwing", () => {
     const { logger, seen } = capture();
-    expect(() => logger.info("a.b", "")).toThrow(TypeError);
-    expect(() => logger.info("a.b", "")).toThrow(/body/);
-    expect(seen).toHaveLength(0);
+    expect(() => logger.info("a.b", "")).not.toThrow();
+    expect(seen).toHaveLength(1);
+    expect(validate(seen[0]), JSON.stringify(validate.errors)).toBe(true);
+    expect(seen[0]?.Attributes["madeit.event"]).toBe("a.b");
+    expect(seen[0]?.Attributes["madeit.invalid_body"]).toBe(true);
+    expect(seen[0]?.Body).toBe("a.b");
+  });
+
+  it("marks both defects at once, and the body falls back to the invalid event marker", () => {
+    const { logger, seen } = capture();
+    expect(() => logger.info("Route", "")).not.toThrow();
+    expect(seen).toHaveLength(1);
+    expect(validate(seen[0]), JSON.stringify(validate.errors)).toBe(true);
+    expect(seen[0]?.Attributes["madeit.event"]).toBe("invalid");
+    expect(seen[0]?.Attributes["madeit.invalid_event"]).toBe("Route");
+    expect(seen[0]?.Attributes["madeit.invalid_body"]).toBe(true);
+    expect(seen[0]?.Body).toBe("invalid");
   });
 
   it("a caller attribute cannot override the trace withTrace set", () => {

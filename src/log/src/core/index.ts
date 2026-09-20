@@ -69,7 +69,7 @@ const LEVEL_BY_SEVERITY: Record<Severity, "debug" | "info" | "warn" | "error"> =
 const LIFTED_PROPERTY_KEYS = ["madeit.event", "madeit.trace_id", "madeit.span_id"];
 const TRACE_ID_PATTERN = /^[0-9a-f]{32}$/;
 const SPAN_ID_PATTERN = /^[0-9a-f]{16}$/;
-/** The schema's rule for `madeit.event`, checked here so a bad slug fails at the call site. */
+/** The schema's rule for `madeit.event`, checked here so a bad slug is coerced before it reaches a sink. */
 const EVENT_PATTERN = /^[a-z][a-z0-9.-]*$/;
 
 // One leaf category per getLogger() call, so two loggers minted for the same
@@ -212,21 +212,34 @@ function direct(resource: Resource, write: Sink): Transport {
   };
 }
 
-function assertEmittable(event: string, body: string): void {
-  if (!EVENT_PATTERN.test(event)) {
-    throw new TypeError(`event ${JSON.stringify(event)} must match ${EVENT_PATTERN.source}`);
-  }
-  if (body.length === 0) {
-    throw new TypeError(`body must not be empty (event ${JSON.stringify(event)})`);
-  }
+interface Coerced {
+  readonly event: string;
+  readonly body: string;
+  readonly marks: Record<string, unknown>;
+}
+
+/**
+ * A logger that throws breaks its caller. A marked record keeps the defect
+ * queryable instead.
+ */
+function coerceEmittable(event: string, body: string): Coerced {
+  const marks: Record<string, unknown> = {};
+  const validEvent = EVENT_PATTERN.test(event);
+  if (!validEvent) marks["madeit.invalid_event"] = event;
+  const coercedEvent = validEvent ? event : "invalid";
+  const validBody = body.length > 0;
+  if (!validBody) marks["madeit.invalid_body"] = true;
+  return { event: coercedEvent, body: validBody ? body : coercedEvent, marks };
 }
 
 function build(transport: Transport, trace?: Trace): Logger {
   const emit = (severity: Severity) =>
     (event: string, body: string, attributes: Record<string, unknown> = {}): void => {
-      assertEmittable(event, body);
+      const coerced = coerceEmittable(event, body);
       // A trace comes from withTrace or not at all; an attribute never supplies one.
-      transport({ severity, event, body, attributes: withoutLiftedKeys(redact(attributes)), trace });
+      // The marks are appended after redaction so a caller cannot shadow them.
+      const cleanAttributes = { ...withoutLiftedKeys(redact(attributes)), ...coerced.marks };
+      transport({ severity, event: coerced.event, body: coerced.body, attributes: cleanAttributes, trace });
     };
   return {
     debug: emit("DEBUG"),

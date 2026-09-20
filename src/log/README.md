@@ -85,9 +85,11 @@ suites validate that.
 | `log.meta` | `madeit.error` | logging itself failed, as reported by logtape or by the wrapper |
 | `log.unserializable` | `madeit.original_event`, `madeit.error` | a record JSON could not carry, standing in for the original |
 
-`event` must match `^[a-z][a-z0-9.-]*$` and `body` must be non-empty; the
-call site throws a `TypeError` otherwise, so a slug the schema would reject
-never reaches a sink.
+`event` must match `^[a-z][a-z0-9.-]*$` and `body` must be non-empty. The
+logger never throws on caller input: a bad slug is coerced to `invalid` and
+an empty body falls back to the (coerced) event slug, and each defect is
+recorded as an ordinary attribute, `madeit.invalid_event` or
+`madeit.invalid_body`, rather than silently swallowed.
 
 ## Redaction
 

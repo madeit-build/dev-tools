@@ -34,7 +34,7 @@ _CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
 _DIGIT_BOUNDARY = re.compile(r"([a-zA-Z])([0-9])")
 _WORD_SEPARATOR = re.compile(r"[^a-z0-9]+")
 _TRACEPARENT = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-[0-9a-f]{2}")
-# The schema's rule for madeit.event, checked here so a bad slug fails at the call site.
+# The schema's rule for madeit.event, checked here so a bad slug is coerced before it reaches a sink.
 _EVENT_PATTERN = re.compile(r"[a-z][a-z0-9.-]*")
 
 
@@ -191,11 +191,19 @@ def _without_lifted_keys(attributes):
             if key not in _LIFTED_ATTRIBUTE_KEYS}
 
 
-def _assert_emittable(event, body):
-    if not isinstance(event, str) or _EVENT_PATTERN.fullmatch(event) is None:
-        raise TypeError(f"event {event!r} must match ^{_EVENT_PATTERN.pattern}$")
-    if not isinstance(body, str) or body == "":
-        raise TypeError(f"body must be a non-empty string, got {body!r} (event {event!r})")
+def _coerce_emittable(event, body):
+    # A logger that throws breaks its caller. A marked record keeps the
+    # defect queryable instead.
+    marks = {}
+    valid_event = isinstance(event, str) and _EVENT_PATTERN.fullmatch(event) is not None
+    if not valid_event:
+        marks["madeit.invalid_event"] = event
+    coerced_event = event if valid_event else "invalid"
+    valid_body = isinstance(body, str) and body != ""
+    if not valid_body:
+        marks["madeit.invalid_body"] = True
+    coerced_body = body if valid_body else coerced_event
+    return coerced_event, coerced_body, marks
 
 
 class _Logger:
@@ -206,11 +214,12 @@ class _Logger:
         return _Logger(self._resource, self._fan_out, parse_traceparent(traceparent))
 
     def _emit(self, severity, event, body, attributes):
-        _assert_emittable(event, body)
+        coerced_event, coerced_body, marks = _coerce_emittable(event, body)
         # A trace comes from with_trace or not at all; an attribute never supplies one.
-        clean = _without_lifted_keys(redact(attributes or {}))
+        # The marks are appended after redaction so a caller cannot shadow them.
+        clean = {**_without_lifted_keys(redact(attributes or {})), **marks}
         record = _build_record(
-            self._resource, severity, body, event, attributes=clean, trace=self._trace,
+            self._resource, severity, coerced_body, coerced_event, attributes=clean, trace=self._trace,
         )
         self._fan_out.dispatch(record)
 
