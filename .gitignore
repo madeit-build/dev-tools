@@ -6,3 +6,6 @@ dist/
 coverage/
 .eslintcache
 .superpowers/
+.venv/
+uv.lock
+__pycache__/
