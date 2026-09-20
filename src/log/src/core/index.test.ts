@@ -106,6 +106,15 @@ describe("getLogger", () => {
     expect(seen[0]?.Body).toBe("invalid");
   });
 
+  it("coerces and marks a non-string body a loose caller passed through the type, rather than throwing", () => {
+    const { logger, seen } = capture();
+    expect(() => logger.info("a.b", undefined as unknown as string)).not.toThrow();
+    expect(seen).toHaveLength(1);
+    expect(validate(seen[0]), JSON.stringify(validate.errors)).toBe(true);
+    expect(seen[0]?.Attributes["madeit.invalid_body"]).toBe(true);
+    expect(seen[0]?.Body).toBe("a.b");
+  });
+
   it("a caller attribute cannot override the trace withTrace set", () => {
     const { logger, seen } = capture();
     const traced = logger.withTrace("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");

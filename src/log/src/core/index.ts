@@ -224,10 +224,12 @@ interface Coerced {
  */
 function coerceEmittable(event: string, body: string): Coerced {
   const marks: Record<string, unknown> = {};
-  const validEvent = EVENT_PATTERN.test(event);
+  // A loose caller can hand either field anything at runtime despite the
+  // string types, so both checks confirm the type before testing shape.
+  const validEvent = typeof event === "string" && EVENT_PATTERN.test(event);
   if (!validEvent) marks["madeit.invalid_event"] = event;
   const coercedEvent = validEvent ? event : "invalid";
-  const validBody = body.length > 0;
+  const validBody = typeof body === "string" && body.length > 0;
   if (!validBody) marks["madeit.invalid_body"] = true;
   return { event: coercedEvent, body: validBody ? body : coercedEvent, marks };
 }
