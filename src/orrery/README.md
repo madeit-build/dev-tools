@@ -8,6 +8,29 @@ orrery ~/path/to/flake            evaluate, write graph.json
 orrery doctor ~/path/to/flake     check the things most likely to be wrong
 ```
 
+## Running the app
+
+The app reads `src/app/public/graph.json`. The CLI writes to `./out` unless
+told otherwise, so point it at the app. The flake path is the directory that
+holds `flake.nix`, which is not always the repository root, and it goes before
+`--out`:
+
+```
+pnpm --filter @made-i-t/orrery-model build
+pnpm --filter @made-i-t/orrery-extract build
+node src/extract/dist/cli.js ~/path/to/flake --out src/app/public
+cd src/app && pnpm dev
+```
+
+The model builds first because the app imports its compiled `dist/`. If the
+dev server started before that build existed, restart it with
+`pnpm dev --force`: Vite caches its dependency list at startup, and a cache
+taken without the model's `dist/` serves the model as raw CommonJS, which
+fails with "does not provide an export named".
+
+A missing `graph.json` shows up in the app as a message saying so, with the
+command above.
+
 ## Why evaluate instead of parse
 
 Parsing `.nix` files tells you what the text says. Evaluating tells you what

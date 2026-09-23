@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { validateGraph, type Graph } from "@made-i-t/orrery-model";
+import { MissingJson, readJson } from "./readJson";
 
 export interface GraphState {
   graph: Graph | null;
@@ -12,10 +13,7 @@ export function useGraph(url: string): GraphState {
   useEffect(() => {
     let live = true;
     fetch(url)
-      .then((r) => {
-        if (!r.ok) throw new Error(`${r.status} fetching ${url}`);
-        return r.json();
-      })
+      .then((r) => readJson(r, url))
       // Validated on the way in, not trusted. A malformed artifact should say
       // so plainly rather than render as a mysteriously empty canvas.
       .then((raw) => validateGraph(raw))
@@ -26,7 +24,7 @@ export function useGraph(url: string): GraphState {
         if (live)
           setState({
             graph: null,
-            error: err instanceof Error ? err.message : String(err),
+            error: describe(err),
           });
       });
     return () => {
@@ -35,4 +33,14 @@ export function useGraph(url: string): GraphState {
   }, [url]);
 
   return state;
+}
+
+// graph.json is generated and gitignored, so every fresh checkout starts
+// without it; the message says how to make one rather than only that it failed.
+function describe(err: unknown): string {
+  if (err instanceof MissingJson) {
+    return `${err.url} is missing. Generate it from src/orrery: `
+      + "node src/extract/dist/cli.js <path to the flake> --out src/app/public";
+  }
+  return err instanceof Error ? err.message : String(err);
 }
