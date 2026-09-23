@@ -22,11 +22,9 @@ node src/extract/dist/cli.js ~/path/to/flake --out src/app/public
 cd src/app && pnpm dev
 ```
 
-The model builds first because the app imports its compiled `dist/`. If the
-dev server started before that build existed, restart it with
-`pnpm dev --force`: Vite caches its dependency list at startup, and a cache
-taken without the model's `dist/` serves the model as raw CommonJS, which
-fails with "does not provide an export named".
+The two builds are for the CLI, which runs from compiled `dist/`. The app
+imports the model from its source, so its dev server and build never wait on
+the model being built.
 
 A missing `graph.json` shows up in the app as a message saying so, with the
 command above.
