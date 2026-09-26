@@ -3,7 +3,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { Readable } from "node:stream";
+import { Readable, Writable } from "node:stream";
 import { main, type CliIo } from "./cli.ts";
 import type { LogRecord } from "./record.ts";
 
@@ -304,7 +304,7 @@ function fakePipeIo(chunks: readonly Buffer[]): { io: CliIo; stdoutBytes: () => 
     stdin: Readable.from(chunks),
     stdout: {
       write: (chunk: string | Uint8Array) => {
-        written.push(Buffer.isBuffer(chunk) ? Buffer.from(chunk) : Buffer.from(chunk));
+        written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
         return true;
       },
     },
@@ -397,11 +397,192 @@ describe("cli main, pipe mode", () => {
     expect(String(record?.Attributes["madeit.line"])).toHaveLength(16384);
   });
 
+  it("cuts an incomplete trailing multi-byte character back to a whole-character boundary", async () => {
+    const prefix = Buffer.alloc(16383, "x");
+    const full = Buffer.concat([prefix, Buffer.from("é", "utf8"), Buffer.from("\n")]);
+    const { records } = await runPipeToFile(["pipe", "build.output"], [full]);
+    expect(records).toHaveLength(1);
+    const [record] = records;
+    const line = String(record?.Attributes["madeit.line"]);
+    expect(line).toBe(prefix.toString("utf8"));
+    expect(line).not.toContain("�");
+    expect(Buffer.byteLength(line, "utf8")).toBeLessThanOrEqual(16384);
+    expect(record?.Attributes["madeit.line_bytes"]).toBe(16385);
+  });
+
   it("produces 10,000 records from one main call", async () => {
     const lines = `${Array.from({ length: 10_000 }, (_, i) => `line-${i}`).join("\n")}\n`;
     const { records } = await runPipeToFile(["pipe", "build.output"], [Buffer.from(lines)]);
     expect(records).toHaveLength(10_000);
   });
+
+  it("bounds a very long newline-free line delivered in many small chunks to one truncated record", async () => {
+    const totalBytes = 200_000;
+    const chunkSize = 37;
+    const chunks: Buffer[] = [];
+    for (let sent = 0; sent < totalBytes; sent += chunkSize) {
+      chunks.push(Buffer.alloc(Math.min(chunkSize, totalBytes - sent), "y"));
+    }
+    const { records } = await runPipeToFile(["pipe", "build.output"], chunks);
+    expect(records).toHaveLength(1);
+    const [record] = records;
+    expect(record?.Attributes["madeit.truncated"]).toBe(true);
+    expect(record?.Attributes["madeit.line_bytes"]).toBe(totalBytes);
+    expect(Buffer.byteLength(String(record?.Attributes["madeit.line"]), "utf8")).toBeLessThanOrEqual(16384);
+  });
+
+  it("gives every pipe record the same fixed Body, whatever the line's content", async () => {
+    const { records } = await runPipeToFile(["pipe", "build.output"], [Buffer.from("a\n\nbb\n")]);
+    expect(records).toHaveLength(3);
+    expect(records.map((record) => record?.Attributes["madeit.line"])).toEqual(["a", "", "bb"]);
+    const bodies = new Set(records.map((record) => record?.Body));
+    expect(bodies.size).toBe(1);
+    expect(records[0]?.Body).toBeTruthy();
+  });
+
+  it("keeps records for complete lines, flushes the pending line, and adds one log.meta when stdin errors", async () => {
+    async function* erroringSource(): AsyncGenerator<Buffer> {
+      yield Buffer.from("a\nb\npart");
+      throw new Error("boom");
+    }
+    const file = tmpFile();
+    const exitCode = await main(
+      ["pipe", "build.output"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      { stdin: Readable.from(erroringSource()), stdout: { write: () => true } },
+    );
+    expect(exitCode).toBe(0);
+    const records = readLines(file);
+    const lineRecords = records.filter((record) => record?.Attributes["madeit.event"] !== "log.meta");
+    expect(lineRecords.map((record) => record?.Attributes["madeit.line"])).toEqual(["a", "b", "part"]);
+    const metaRecords = records.filter((record) => record?.Attributes["madeit.event"] === "log.meta");
+    expect(metaRecords).toHaveLength(1);
+    expect(String(metaRecords[0]?.Attributes["madeit.error"])).toContain("boom");
+  });
+
+  it("stops teeing after a write failure, keeps logging remaining lines, and adds one log.meta", async () => {
+    let calls = 0;
+    const stdout = {
+      write: () => {
+        calls++;
+        throw new Error("epipe");
+      },
+    };
+    const file = tmpFile();
+    const exitCode = await main(
+      ["pipe", "build.output", "--tee"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      { stdin: Readable.from([Buffer.from("a\n"), Buffer.from("b\n")]), stdout },
+    );
+    expect(exitCode).toBe(0);
+    const records = readLines(file);
+    const lineRecords = records.filter((record) => record?.Attributes["madeit.event"] !== "log.meta");
+    expect(lineRecords.map((record) => record?.Attributes["madeit.line"])).toEqual(["a", "b"]);
+    const metaRecords = records.filter((record) => record?.Attributes["madeit.event"] === "log.meta");
+    expect(metaRecords).toHaveLength(1);
+    expect(calls).toBe(1);
+  });
+
+  it("resolves promptly, logs every line, and emits one log.meta when a small-buffer tee target errors instead of draining", async () => {
+    const stdout = new Writable({
+      highWaterMark: 4,
+      write(_chunk, _encoding, callback) {
+        process.nextTick(() => callback(new Error("epipe")));
+      },
+    });
+    const file = tmpFile();
+    const exitCode = await main(
+      ["pipe", "build.output", "--tee"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      { stdin: Readable.from([Buffer.from("a\n"), Buffer.from("b\n")]), stdout },
+    );
+    expect(exitCode).toBe(0);
+    const records = readLines(file);
+    const lineRecords = records.filter((record) => record?.Attributes["madeit.event"] !== "log.meta");
+    expect(lineRecords.map((record) => record?.Attributes["madeit.line"])).toEqual(["a", "b"]);
+    const metaRecords = records.filter((record) => record?.Attributes["madeit.event"] === "log.meta");
+    expect(metaRecords).toHaveLength(1);
+  });
+
+  it("does not crash on an unhandled error when a tee target fails asynchronously", async () => {
+    const stdout = new Writable({
+      write(_chunk, _encoding, callback) {
+        process.nextTick(() => callback(new Error("epipe")));
+      },
+    });
+    const file = tmpFile();
+    const exitCode = await main(
+      ["pipe", "build.output", "--tee"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      { stdin: Readable.from([Buffer.from("a\n"), Buffer.from("b\n")]), stdout },
+    );
+    expect(exitCode).toBe(0);
+    const records = readLines(file);
+    const lineRecords = records.filter((record) => record?.Attributes["madeit.event"] !== "log.meta");
+    expect(lineRecords.map((record) => record?.Attributes["madeit.line"])).toEqual(["a", "b"]);
+    const metaRecords = records.filter((record) => record?.Attributes["madeit.event"] === "log.meta");
+    expect(metaRecords).toHaveLength(1);
+  });
+
+  it("caps a line whose decoded text inflates past the byte limit on invalid UTF-8", async () => {
+    const line = Buffer.alloc(16384, 0xff);
+    const { records } = await runPipeToFile(
+      ["pipe", "build.output"],
+      [Buffer.concat([line, Buffer.from("\n")])],
+    );
+    expect(records).toHaveLength(1);
+    const [record] = records;
+    expect(record?.Attributes["madeit.truncated"]).toBe(true);
+    expect(Buffer.byteLength(String(record?.Attributes["madeit.line"]), "utf8")).toBeLessThanOrEqual(16384);
+    expect(record?.Attributes["madeit.line_bytes"]).toBe(16384);
+  });
+
+  it("awaits drain when tee's write reports backpressure", async () => {
+    const written: Buffer[] = [];
+    let writeCalls = 0;
+    let drainCallback: (() => void) | undefined;
+    const stdout = {
+      write: (chunk: string | Uint8Array) => {
+        written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        writeCalls++;
+        return writeCalls > 1;
+      },
+      once: (event: string, listener: () => void) => {
+        if (event === "drain") drainCallback = listener;
+      },
+    };
+    const file = tmpFile();
+    const runPromise = main(
+      ["pipe", "build.output", "--tee"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      { stdin: Readable.from([Buffer.from("a\n"), Buffer.from("b\n")]), stdout },
+    );
+    for (let attempt = 0; attempt < 50 && drainCallback === undefined; attempt++) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    expect(drainCallback).toBeDefined();
+    drainCallback?.();
+    const exitCode = await runPromise;
+    expect(exitCode).toBe(0);
+    expect(Buffer.concat(written).equals(Buffer.from("a\nb\n"))).toBe(true);
+    expect(readLines(file)).toHaveLength(2);
+  });
+
+  async function assertPipeMisuseWithoutReadingStdin(argv: string[], reasonPattern: RegExp): Promise<void> {
+    const stdin = Readable.from([Buffer.from("should not be read\n")]);
+    const readSpy = vi.spyOn(stdin, "read");
+    const file = tmpFile();
+    const exitCode = await main(
+      argv,
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      { stdin, stdout: { write: () => true } },
+    );
+    expect(exitCode).toBe(0);
+    const [record] = readLines(file);
+    expect(record?.Attributes["madeit.event"]).toBe("log.meta");
+    expect(String(record?.Attributes["madeit.error"])).toMatch(reasonPattern);
+    expect(readSpy).not.toHaveBeenCalled();
+  }
 
   it("misuse (no event) resolves 0, emits log.meta, and never reads stdin", async () => {
     const stdin = Readable.from([Buffer.from("should not be read\n")]);
@@ -431,6 +612,34 @@ describe("cli main, pipe mode", () => {
     const [record] = readLines(file);
     expect(record?.Attributes["madeit.event"]).toBe("log.meta");
     expect(readSpy).not.toHaveBeenCalled();
+  });
+
+  it("misuse (bad --level value) resolves 0, emits log.meta, and never reads stdin", async () => {
+    await assertPipeMisuseWithoutReadingStdin(
+      ["pipe", "build.output", "--level", "bogus"],
+      /unknown --level "bogus"/,
+    );
+  });
+
+  it("misuse (bad --stream value) resolves 0, emits log.meta, and never reads stdin", async () => {
+    await assertPipeMisuseWithoutReadingStdin(
+      ["pipe", "build.output", "--stream", "bogus"],
+      /unknown --stream "bogus"/,
+    );
+  });
+
+  it("misuse (missing --level value) resolves 0, emits log.meta, and never reads stdin", async () => {
+    await assertPipeMisuseWithoutReadingStdin(
+      ["pipe", "build.output", "--level"],
+      /missing value for --level/,
+    );
+  });
+
+  it("misuse (missing --stream value) resolves 0, emits log.meta, and never reads stdin", async () => {
+    await assertPipeMisuseWithoutReadingStdin(
+      ["pipe", "build.output", "--stream"],
+      /missing value for --stream/,
+    );
   });
 });
 

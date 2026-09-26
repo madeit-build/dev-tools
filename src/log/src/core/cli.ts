@@ -2,7 +2,11 @@ import { fileSink, getLogger, stderrSink, stdoutSink, type Logger, type Sink } f
 
 export interface CliIo {
   readonly stdin: NodeJS.ReadableStream;
-  readonly stdout: { write(chunk: string | Uint8Array): unknown };
+  readonly stdout: {
+    write(chunk: string | Uint8Array): unknown;
+    once?(event: string, listener: (...args: unknown[]) => void): unknown;
+    off?(event: string, listener: (...args: unknown[]) => void): unknown;
+  };
 }
 
 const LEVELS = ["debug", "info", "warn", "error"] as const;
@@ -88,8 +92,7 @@ function withStderrFallback(sink: Sink): Sink {
     try {
       sink(record);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      process.stderr.write(`madeit-log: ${message}\n`);
+      process.stderr.write(`madeit-log: ${errorMessage(error)}\n`);
       fallback(record);
     }
   };
@@ -188,10 +191,12 @@ function parsePipeArgs(args: readonly string[]): PipeParseResult {
     const flag = rest[index];
     if (flag === "--level") {
       const value = rest[++index];
+      if (value === undefined) return { ok: false, reason: `missing value for --level. Usage: ${PIPE_USAGE}` };
       if (!isLevel(value)) return { ok: false, reason: `unknown --level "${value}". Usage: ${PIPE_USAGE}` };
       level = value;
     } else if (flag === "--stream") {
       const value = rest[++index];
+      if (value === undefined) return { ok: false, reason: `missing value for --stream. Usage: ${PIPE_USAGE}` };
       if (!isStream(value)) return { ok: false, reason: `unknown --stream "${value}". Usage: ${PIPE_USAGE}` };
       stream = value;
     } else if (flag === "--tee") {
@@ -204,11 +209,51 @@ function parsePipeArgs(args: readonly string[]): PipeParseResult {
 }
 
 const MAX_LINE_BYTES = 16384;
+// One byte beyond the cap is enough to tell, without retaining a whole huge
+// line, whether its true length (after any trailing \r) is at or under
+// MAX_LINE_BYTES.
+const PENDING_CAP = MAX_LINE_BYTES + 1;
+// The record's message, fixed per the core's contract: Body carries no
+// interpolated data, so a piped line's content lives only in madeit.line.
+const PIPE_LINE_BODY = "output line";
 
 interface ProcessedLine {
   readonly text: string;
   readonly truncated: boolean;
   readonly lineBytes: number;
+}
+
+// Backs off up to three trailing UTF-8 continuation bytes (10xxxxxx), then
+// drops the lead byte too if its full sequence would not fit before the cut,
+// so a multi-byte character is never split into a trailing replacement char.
+function utf8SafeBoundary(buffer: Buffer, cut: number): number {
+  let index = cut;
+  let continuationBytes = 0;
+  while (index > 0 && continuationBytes < 3 && (buffer[index - 1]! & 0b11000000) === 0b10000000) {
+    index--;
+    continuationBytes++;
+  }
+  if (index === 0) return cut;
+  const leadByte = buffer[index - 1]!;
+  const sequenceLength =
+    leadByte >= 0b11110000 ? 4 : leadByte >= 0b11100000 ? 3 : leadByte >= 0b11000000 ? 2 : 1;
+  return index - 1 + sequenceLength <= cut ? cut : index - 1;
+}
+
+// Invalid UTF-8 decodes to U+FFFD, three bytes apiece, so a byte-for-byte
+// truncation of the input can still produce a re-encoded string longer than
+// MAX_LINE_BYTES. This trims whole characters off the end until it fits.
+function capDecodedText(text: string): { readonly text: string; readonly wasCapped: boolean } {
+  if (Buffer.byteLength(text, "utf8") <= MAX_LINE_BYTES) return { text, wasCapped: false };
+  let kept = "";
+  let bytes = 0;
+  for (const character of text) {
+    const characterBytes = Buffer.byteLength(character, "utf8");
+    if (bytes + characterBytes > MAX_LINE_BYTES) break;
+    kept += character;
+    bytes += characterBytes;
+  }
+  return { text: kept, wasCapped: true };
 }
 
 // madeit.line_bytes counts the raw segment between newlines, including a
@@ -218,53 +263,191 @@ function processLine(rawLine: Buffer): ProcessedLine {
   const lineBytes = rawLine.length;
   const hasTrailingCr = lineBytes > 0 && rawLine[lineBytes - 1] === 0x0d;
   const content = hasTrailingCr ? rawLine.subarray(0, lineBytes - 1) : rawLine;
-  const truncated = content.length > MAX_LINE_BYTES;
-  const text = (truncated ? content.subarray(0, MAX_LINE_BYTES) : content).toString("utf8");
-  return { text, truncated, lineBytes };
+  const byteTruncated = content.length > MAX_LINE_BYTES;
+  const decoded = byteTruncated
+    ? content.subarray(0, utf8SafeBoundary(content, MAX_LINE_BYTES)).toString("utf8")
+    : content.toString("utf8");
+  const capped = capDecodedText(decoded);
+  return { text: capped.text, truncated: byteTruncated || capped.wasCapped, lineBytes };
 }
 
-function emitPipeLine(
+// Once a line's raw bytes exceed PENDING_CAP, any trailing \r would land past
+// the truncation point regardless, so the retained prefix alone, without the
+// rest of the line, is enough to produce the correct truncated text.
+function finishOversizedLine(prefix: Buffer, lineBytes: number): ProcessedLine {
+  const boundary = utf8SafeBoundary(prefix, MAX_LINE_BYTES);
+  const decoded = prefix.subarray(0, boundary).toString("utf8");
+  return { text: capDecodedText(decoded).text, truncated: true, lineBytes };
+}
+
+function emitProcessedLine(
   logger: Logger,
   options: PipeOptions,
   markerAttributes: Record<string, unknown>,
-  rawLine: Buffer,
+  processed: ProcessedLine,
 ): void {
-  const { text, truncated, lineBytes } = processLine(rawLine);
   const attributes: Record<string, unknown> = {
-    "madeit.line": text,
+    "madeit.line": processed.text,
     "madeit.stream": options.stream,
-    ...(truncated ? { "madeit.truncated": true, "madeit.line_bytes": lineBytes } : {}),
+    ...(processed.truncated ? { "madeit.truncated": true, "madeit.line_bytes": processed.lineBytes } : {}),
     ...markerAttributes,
   };
-  // An empty line is still a real record, not a malformed call, so it gets a
-  // placeholder Body rather than tripping the core's invalid-body mark.
-  const body = text.length > 0 ? text : "(empty line)";
-  logger[options.level](options.event, body, attributes);
+  logger[options.level](options.event, PIPE_LINE_BODY, attributes);
 }
 
-// Reads stdin as raw bytes so a multi-byte UTF-8 character split across two
-// chunks only gets decoded once both halves have arrived, and --tee can
-// forward every chunk unchanged before it is ever touched for line-splitting.
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function emitLogMeta(
+  logger: Logger,
+  extraAttributes: Record<string, unknown>,
+  body: string,
+  reason: string,
+): void {
+  logger.error("log.meta", body, { ...extraAttributes, "madeit.error": reason });
+}
+
+interface TeeGuard {
+  readonly forward: (buffer: Buffer) => Promise<void>;
+  readonly dispose: () => void;
+}
+
+// A dead tee target only ever announces itself through 'error' or 'close',
+// never through another 'drain', so a pending write must be released by
+// either one, not only by a synchronous throw from write() itself.
+function attachTeeGuard(
+  logger: Logger,
+  markerAttributes: Record<string, unknown>,
+  stdout: CliIo["stdout"],
+  tee: boolean,
+): TeeGuard {
+  let broken = false;
+  let resolveBroken: (() => void) | undefined;
+  const brokenSignal = new Promise<void>((resolve) => {
+    resolveBroken = resolve;
+  });
+
+  function breakTee(error: unknown): void {
+    if (broken) return;
+    broken = true;
+    emitLogMeta(logger, markerAttributes, "madeit-log pipe tee failed", errorMessage(error));
+    resolveBroken?.();
+  }
+
+  const onError = (error: unknown): void => breakTee(error);
+  const onClose = (): void => breakTee(new Error("tee target closed before all output was written"));
+
+  if (tee) {
+    stdout.once?.("error", onError);
+    stdout.once?.("close", onClose);
+  }
+
+  async function awaitDrain(): Promise<void> {
+    if (typeof stdout.once !== "function") return;
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const onDrain = (): void => {
+        if (settled) return;
+        settled = true;
+        resolve();
+      };
+      stdout.once?.("drain", onDrain);
+      void brokenSignal.then(() => {
+        if (settled) return;
+        settled = true;
+        stdout.off?.("drain", onDrain);
+        resolve();
+      });
+    });
+  }
+
+  async function forward(buffer: Buffer): Promise<void> {
+    if (!tee || broken) return;
+    try {
+      const wroteImmediately = stdout.write(buffer);
+      if (wroteImmediately === false) await awaitDrain();
+    } catch (error) {
+      breakTee(error);
+    }
+  }
+
+  function dispose(): void {
+    stdout.off?.("error", onError);
+    stdout.off?.("close", onClose);
+  }
+
+  return { forward, dispose };
+}
+
+// A tee failure or a broken stdin must not discard lines that already
+// arrived, so both paths flush whatever is pending and keep the call
+// resolving 0 rather than losing the rest of the captured output.
 async function runPipe(
   logger: Logger,
   options: PipeOptions,
   markerAttributes: Record<string, unknown>,
   io: CliIo,
 ): Promise<void> {
-  let remainder = Buffer.alloc(0);
-  for await (const chunk of io.stdin) {
-    const buffer = typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk);
-    if (options.tee) io.stdout.write(buffer);
-    remainder = Buffer.concat([remainder, buffer]);
-    let newlineIndex = remainder.indexOf(0x0a);
-    while (newlineIndex !== -1) {
-      emitPipeLine(logger, options, markerAttributes, remainder.subarray(0, newlineIndex));
-      remainder = remainder.subarray(newlineIndex + 1);
-      newlineIndex = remainder.indexOf(0x0a);
-    }
+  // The pending line is a fixed-size buffer, not a growing one: once it fills
+  // to PENDING_CAP, further bytes only advance lineBytes, so an unbounded
+  // newline-free stream costs one capped buffer, not the whole stream.
+  const pendingBuffer = Buffer.alloc(PENDING_CAP);
+  let pendingLength = 0;
+  let lineBytes = 0;
+  let hasPendingLine = false;
+
+  function appendToPending(slice: Buffer): void {
+    hasPendingLine = true;
+    lineBytes += slice.length;
+    if (pendingLength >= PENDING_CAP) return;
+    const copyLength = Math.min(PENDING_CAP - pendingLength, slice.length);
+    slice.copy(pendingBuffer, pendingLength, 0, copyLength);
+    pendingLength += copyLength;
   }
-  // A final line with no trailing newline is still a record, not a dropped tail.
-  if (remainder.length > 0) emitPipeLine(logger, options, markerAttributes, remainder);
+
+  function flushPendingLine(): void {
+    if (!hasPendingLine) return;
+    const prefix = pendingBuffer.subarray(0, pendingLength);
+    const processed =
+      lineBytes <= PENDING_CAP ? processLine(prefix) : finishOversizedLine(prefix, lineBytes);
+    emitProcessedLine(logger, options, markerAttributes, processed);
+    pendingLength = 0;
+    lineBytes = 0;
+    hasPendingLine = false;
+  }
+
+  const teeGuard = attachTeeGuard(logger, markerAttributes, io.stdout, options.tee);
+  try {
+    try {
+      for await (const chunk of io.stdin) {
+        const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        await teeGuard.forward(buffer);
+        let offset = 0;
+        while (offset < buffer.length) {
+          const newlineIndex = buffer.indexOf(0x0a, offset);
+          if (newlineIndex === -1) {
+            appendToPending(buffer.subarray(offset));
+            offset = buffer.length;
+          } else {
+            appendToPending(buffer.subarray(offset, newlineIndex));
+            flushPendingLine();
+            offset = newlineIndex + 1;
+          }
+        }
+      }
+    } catch (error) {
+      // Whatever stdin already delivered is still worth keeping, so the
+      // pending line is flushed before the failure itself is recorded.
+      flushPendingLine();
+      emitLogMeta(logger, markerAttributes, "madeit-log pipe failed", errorMessage(error));
+      return;
+    }
+    // A final line with no trailing newline is still a record, not a dropped tail.
+    flushPendingLine();
+  } finally {
+    teeGuard.dispose();
+  }
 }
 
 function describeMisuse(level: string | undefined, event: string | undefined, body: string | undefined): string {
@@ -276,10 +459,7 @@ function describeMisuse(level: string | undefined, event: string | undefined, bo
 }
 
 function emitMisuse(logger: Logger, extraAttributes: Record<string, unknown>, reason: string): void {
-  logger.error("log.meta", "madeit-log was called incorrectly", {
-    ...extraAttributes,
-    "madeit.error": reason,
-  });
+  emitLogMeta(logger, extraAttributes, "madeit-log was called incorrectly", reason);
 }
 
 export async function main(
@@ -332,8 +512,7 @@ export async function main(
     // Whatever survives everything above lands here: a sink whose directory
     // cannot be created, or any other unexpected failure. Either way the
     // caller still sees exit 0, not a crashed shell.
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`madeit-log: ${message}\n`);
+    process.stderr.write(`madeit-log: ${errorMessage(error)}\n`);
     return 0;
   }
 }
