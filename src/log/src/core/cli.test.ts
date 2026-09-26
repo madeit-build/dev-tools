@@ -88,6 +88,21 @@ describe("cli main, event mode", () => {
     expect(record?.Attributes["madeit.invalid_attribute"]).toBe("bare");
   });
 
+  // Mirrors the CLI's key=value JSON-typing rule, so the "keep" branch below can
+  // assert on the exact typed value rather than only its presence.
+  function expectedAttributeValue(raw: string): unknown {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return raw;
+    }
+    if (typeof parsed === "boolean" || parsed === null) return parsed;
+    if (typeof parsed !== "number" || !Number.isFinite(parsed)) return raw;
+    if (/^-?\d+$/.test(raw) && !Number.isSafeInteger(parsed)) return raw;
+    return parsed;
+  }
+
   for (const testCase of redactionCases) {
     it(`redaction case "${testCase.key}" is ${testCase.expect}`, async () => {
       const [record] = await runToFile(["info", "probe.redact", "hi", `${testCase.key}=${testCase.value}`]);
@@ -98,10 +113,42 @@ describe("cli main, event mode", () => {
       } else if (testCase.expect === "truncate") {
         expect(String(value)).toHaveLength(12);
       } else {
-        expect(value).not.toBeUndefined();
+        expect(value).toBe(expectedAttributeValue(testCase.value));
       }
     });
   }
+
+  it("keeps a normal integer's numeric type", async () => {
+    const [record] = await runToFile(["info", "probe.hello", "hi", "n=42"]);
+    expect(record?.Attributes.n).toBe(42);
+  });
+
+  it("keeps an integer-looking value outside Number.isSafeInteger as the raw string", async () => {
+    const [record] = await runToFile(["info", "probe.hello", "hi", "n=12345678901234567890"]);
+    expect(record?.Attributes.n).toBe("12345678901234567890");
+  });
+
+  it("keeps a value that parses to a non-finite number as the raw string", async () => {
+    const [record] = await runToFile(["info", "probe.hello", "hi", "n=1e999"]);
+    expect(record?.Attributes.n).toBe("1e999");
+  });
+
+  it("treats an empty key ('=v') as invalid, not as an attribute named \"\"", async () => {
+    const [record] = await runToFile(["info", "probe.hello", "hi", "=v"]);
+    expect(record?.Attributes["madeit.invalid_attribute"]).toBe("=v");
+  });
+
+  it("does not let a caller forge madeit.invalid_sink, madeit.missing_resource or madeit.invalid_attribute", async () => {
+    const [record] = await runToFile([
+      "info", "probe.hello", "hi",
+      "madeit.invalid_sink=forged", "madeit.missing_resource=forged", "madeit.invalid_attribute=forged",
+    ]);
+    expect(record?.Attributes["madeit.invalid_sink"]).toBeUndefined();
+    expect(record?.Attributes["madeit.missing_resource"]).toBeUndefined();
+    expect(record?.Attributes["madeit.invalid_attribute"]).toBe(
+      "madeit.invalid_sink=forged madeit.missing_resource=forged madeit.invalid_attribute=forged",
+    );
+  });
 
   it("reads unknown for every resource field and names all five in madeit.missing_resource", async () => {
     const file = tmpFile();
@@ -118,6 +165,19 @@ describe("cli main, event mode", () => {
     expect(record?.Attributes["madeit.missing_resource"]).toBe(
       "MADEIT_SERVICE,MADEIT_VERSION,MADEIT_ENVIRONMENT,MADEIT_REPO,MADEIT_COMPONENT",
     );
+  });
+
+  it("treats an empty MADEIT_SERVICE as missing, not as an empty resource field", async () => {
+    const [record] = await runToFile(["info", "probe.hello", "hi"], { MADEIT_SERVICE: "" });
+    expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
+    expect(record?.Resource["service.name"]).toBe("unknown");
+    expect(record?.Attributes["madeit.missing_resource"]).toContain("MADEIT_SERVICE");
+  });
+
+  it("treats a whitespace-only MADEIT_COMPONENT as missing too", async () => {
+    const [record] = await runToFile(["info", "probe.hello", "hi"], { MADEIT_COMPONENT: "   " });
+    expect(record?.Resource["madeit.component"]).toBe("unknown");
+    expect(record?.Attributes["madeit.missing_resource"]).toContain("MADEIT_COMPONENT");
   });
 
   it("TRACEPARENT sets TraceId and SpanId", async () => {
@@ -169,20 +229,72 @@ describe("cli main, event mode", () => {
     }
   });
 
-  // Review Focus 1: a sink that throws inside main (here, fileSink's directory
-  // creation failing because a path segment is an ordinary file) must not stop main
-  // from resolving 0.
-  it("resolves 0 when the chosen file sink's directory cannot be created", async () => {
+  // A path segment that is an ordinary file makes fileSink's directory creation
+  // throw; main must still resolve 0 and say so on stderr rather than crash the shell.
+  it("resolves 0 and reports on stderr when the chosen file sink's directory cannot be created", async () => {
     const parent = fs.mkdtempSync(path.join(os.tmpdir(), "cli-"));
     const blocker = path.join(parent, "blocker");
     fs.writeFileSync(blocker, "not a directory");
     const target = path.join(blocker, "nested", "out.jsonl");
-    const exitCode = await main(
-      ["info", "probe.hello", "hi"],
-      { ...baseEnv, MADEIT_LOG_SINK: `file:${target}` },
-      fakeIo(),
-    );
-    expect(exitCode).toBe(0);
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const exitCode = await main(
+        ["info", "probe.hello", "hi"],
+        { ...baseEnv, MADEIT_LOG_SINK: `file:${target}` },
+        fakeIo(),
+      );
+      expect(exitCode).toBe(0);
+      expect(spy).toHaveBeenCalledOnce();
+      const written = spy.mock.calls[0]?.[0];
+      const str = typeof written === "string" ? written : String(written);
+      expect(str).toMatch(/^madeit-log: /);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  // A sink that fails only when it writes (a directory in the file's place, here)
+  // must not lose the record: fanOut has nowhere left to route its own death notice.
+  it("falls back to stderr, without losing the record, when the file sink fails at write time", async () => {
+    const targetDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "cli-"));
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const exitCode = await main(
+        ["info", "probe.hello", "hi"],
+        { ...baseEnv, MADEIT_LOG_SINK: `file:${targetDirectory}` },
+        fakeIo(),
+      );
+      expect(exitCode).toBe(0);
+      const calls = spy.mock.calls.map(([chunk]) => (typeof chunk === "string" ? chunk : String(chunk)));
+      expect(calls.some((line) => line.startsWith("madeit-log: "))).toBe(true);
+      const recordLine = calls.find((line) => line.trimStart().startsWith("{"));
+      expect(recordLine).toBeDefined();
+      const record = JSON.parse((recordLine ?? "").trim()) as LogRecord;
+      expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
+      expect(record.Body).toBe("hi");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("treats an empty file: path as an invalid sink and falls back to stderr", async () => {
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const exitCode = await main(
+        ["info", "probe.hello", "hi"],
+        { ...baseEnv, MADEIT_LOG_SINK: "file:" },
+        fakeIo(),
+      );
+      expect(exitCode).toBe(0);
+      expect(spy).toHaveBeenCalledOnce();
+      const written = spy.mock.calls[0]?.[0];
+      const str = typeof written === "string" ? written : String(written);
+      const record = JSON.parse(str.trim()) as LogRecord;
+      expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
+      expect(record.Attributes["madeit.invalid_sink"]).toBe("file:");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

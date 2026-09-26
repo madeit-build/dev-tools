@@ -44,8 +44,8 @@ interface ResourceResult {
   readonly missing: readonly string[];
 }
 
-// The env var and resource key are paired here so the Global Constraints'
-// five-variable list has exactly one source of truth in the code.
+// The env var and resource key are paired here so the five-variable list has
+// exactly one source of truth in the code.
 const RESOURCE_KEYS = [
   ["MADEIT_SERVICE", "service.name"],
   ["MADEIT_VERSION", "service.version"],
@@ -54,13 +54,19 @@ const RESOURCE_KEYS = [
   ["MADEIT_COMPONENT", "madeit.component"],
 ] as const satisfies ReadonlyArray<readonly [string, keyof ResourceFields]>;
 
+// The schema requires a non-empty string, so a variable set to nothing or to
+// only whitespace is exactly as missing as one that was never set.
+function isBlank(value: string | undefined): boolean {
+  return value === undefined || value.trim() === "";
+}
+
 function buildResource(env: Record<string, string | undefined>): ResourceResult {
   const missing: string[] = [];
   const fields = {} as Record<keyof ResourceFields, string>;
   for (const [envVar, resourceKey] of RESOURCE_KEYS) {
     const value = env[envVar];
-    if (value === undefined) missing.push(envVar);
-    fields[resourceKey] = value ?? "unknown";
+    if (isBlank(value)) missing.push(envVar);
+    fields[resourceKey] = isBlank(value) ? "unknown" : (value as string);
   }
   return { fields, missing };
 }
@@ -70,13 +76,34 @@ interface SinkChoice {
   readonly extraAttributes: Record<string, unknown>;
 }
 
+// A file or stdout sink can fail only when it actually writes, and fanOut has
+// nowhere left to route that death's own notice once it is the only sink.
+// Rerouting the record itself to stderr, plus one diagnostic line, is what
+// keeps it from vanishing.
+function withStderrFallback(sink: Sink): Sink {
+  const fallback = stderrSink();
+  return (record) => {
+    try {
+      sink(record);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`madeit-log: ${message}\n`);
+      fallback(record);
+    }
+  };
+}
+
 function chooseSink(env: Record<string, string | undefined>): SinkChoice {
   const raw = env.MADEIT_LOG_SINK;
   if (raw === undefined || raw === "stderr") return { sink: stderrSink(), extraAttributes: {} };
-  if (raw === "stdout") return { sink: stdoutSink(), extraAttributes: {} };
-  if (raw.startsWith("file:")) return { sink: fileSink(raw.slice("file:".length)), extraAttributes: {} };
-  // An unrecognized sink must not swallow the caller's record, so it still
-  // ships, to the safe default, with the bad value visible on the record itself.
+  if (raw === "stdout") return { sink: withStderrFallback(stdoutSink()), extraAttributes: {} };
+  if (raw.startsWith("file:")) {
+    const filePath = raw.slice("file:".length);
+    if (filePath !== "") return { sink: withStderrFallback(fileSink(filePath)), extraAttributes: {} };
+  }
+  // An unrecognized sink, including a file: value with no path, must not
+  // swallow the caller's record, so it still ships, to the safe default, with
+  // the bad value visible on the record itself.
   return { sink: stderrSink(), extraAttributes: { "madeit.invalid_sink": raw } };
 }
 
@@ -84,27 +111,45 @@ function isLevel(value: string | undefined): value is Level {
   return value !== undefined && (LEVELS as readonly string[]).includes(value);
 }
 
-// JSON typing for `key=value`: a number, boolean or null keeps that type, and
-// anything else, including a JSON parse failure, stays the raw string.
+const INTEGER_LITERAL = /^-?\d+$/;
+
+// JSON typing for `key=value`: a boolean or null keeps that type. A number
+// keeps its type only when finite and, if it is a bare integer literal, small
+// enough for Number.isSafeInteger; anything else, including a JSON parse
+// failure, stays the raw string.
 function coerceValue(raw: string): unknown {
+  let parsed: unknown;
   try {
-    const parsed: unknown = JSON.parse(raw);
-    return typeof parsed === "number" || typeof parsed === "boolean" || parsed === null ? parsed : raw;
+    parsed = JSON.parse(raw);
   } catch {
     return raw;
   }
+  if (typeof parsed === "boolean" || parsed === null) return parsed;
+  if (typeof parsed !== "number" || !Number.isFinite(parsed)) return raw;
+  if (INTEGER_LITERAL.test(raw) && !Number.isSafeInteger(parsed)) return raw;
+  return parsed;
 }
+
+// A key the CLI reserves for its own marks can never become a caller
+// attribute, so a forged one is folded into madeit.invalid_attribute exactly
+// like an empty key or a bare argument, rather than overwriting the real mark.
+const RESERVED_ATTRIBUTE_KEYS = new Set([
+  "madeit.invalid_attribute",
+  "madeit.invalid_sink",
+  "madeit.missing_resource",
+]);
 
 function parseAttributes(args: readonly string[]): Record<string, unknown> {
   const attributes: Record<string, unknown> = {};
   const invalid: string[] = [];
   for (const arg of args) {
     const separator = arg.indexOf("=");
-    if (separator === -1) {
+    const key = separator > 0 ? arg.slice(0, separator) : "";
+    if (separator <= 0 || RESERVED_ATTRIBUTE_KEYS.has(key)) {
       invalid.push(arg);
       continue;
     }
-    attributes[arg.slice(0, separator)] = coerceValue(arg.slice(separator + 1));
+    attributes[key] = coerceValue(arg.slice(separator + 1));
   }
   if (invalid.length > 0) attributes["madeit.invalid_attribute"] = invalid.join(" ");
   return attributes;
@@ -137,30 +182,34 @@ export async function main(
     }
 
     const { fields, missing } = buildResource(env);
-    const { sink, extraAttributes } = chooseSink(env);
+    const sinkChoice = chooseSink(env);
     const logger = getLogger({
       service: fields["service.name"],
       version: fields["service.version"],
       environment: fields["deployment.environment"],
       repo: fields["madeit.repo"],
       component: fields["madeit.component"],
-      sinks: [sink],
+      sinks: [sinkChoice.sink],
     }).withTrace(env.TRACEPARENT);
 
-    if (missing.length > 0) extraAttributes["madeit.missing_resource"] = missing.join(",");
+    // A fresh object here, not a mutation of chooseSink's return value, keeps
+    // chooseSink's result a pure description of the sink it picked.
+    const markerAttributes: Record<string, unknown> = { ...sinkChoice.extraAttributes };
+    if (missing.length > 0) markerAttributes["madeit.missing_resource"] = missing.join(",");
 
     const [level, event, body, ...rest] = argv;
     if (!isLevel(level) || event === undefined || body === undefined) {
-      emitMisuse(logger, extraAttributes, describeMisuse(level, event, body));
+      emitMisuse(logger, markerAttributes, describeMisuse(level, event, body));
       return 0;
     }
 
-    const attributes = { ...parseAttributes(rest), ...extraAttributes };
+    const attributes = { ...parseAttributes(rest), ...markerAttributes };
     logger[level](event, body, attributes);
     return 0;
   } catch (error) {
-    // The one failure mode that survives this far is the runtime itself, not
-    // caller input, so it is reported and swallowed rather than left to crash the shell.
+    // Whatever survives everything above lands here: a sink whose directory
+    // cannot be created, or any other unexpected failure. Either way the
+    // caller still sees exit 0, not a crashed shell.
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`madeit-log: ${message}\n`);
     return 0;
