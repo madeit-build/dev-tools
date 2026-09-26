@@ -1,3 +1,6 @@
+#!/usr/bin/env node
+import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import { fileSink, getLogger, stderrSink, stdoutSink, type Logger, type Sink } from "./index.ts";
 
 export interface CliIo {
@@ -515,4 +518,28 @@ export async function main(
     process.stderr.write(`madeit-log: ${errorMessage(error)}\n`);
     return 0;
   }
+}
+
+// Node reports EPIPE or EBADF on process.stdout/process.stderr as
+// asynchronous 'error' events. With no listener, that crashes the process
+// after main has already resolved, so a permanent, silent listener has to be
+// in place before main ever runs. It must not itself write to the broken
+// stream.
+function ignoreStreamErrors(stream: NodeJS.WritableStream): void {
+  stream.on("error", () => {});
+}
+
+async function runAsEntrypoint(): Promise<void> {
+  ignoreStreamErrors(process.stdout);
+  ignoreStreamErrors(process.stderr);
+  const exitCode = await main(process.argv.slice(2), process.env, {
+    stdin: process.stdin,
+    stdout: process.stdout,
+  });
+  process.exitCode = exitCode;
+}
+
+const invokedPath = process.argv[1];
+if (invokedPath !== undefined && fs.realpathSync(invokedPath) === fileURLToPath(import.meta.url)) {
+  void runAsEntrypoint();
 }

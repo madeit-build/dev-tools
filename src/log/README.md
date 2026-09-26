@@ -118,6 +118,93 @@ logtape refuses the configuration anyway, `getLogger` does not throw: it
 emits one `log.meta` record and returns a logger that writes to its sinks
 directly. The OTel sink phase will revisit this ownership.
 
+## Bash
+
+`madeit-log` is the same contract, callable straight from a shell script. It
+ships as a `bin` of this package (`madeit-log`), so once it is installed
+there is nothing to build: it runs under Node from the published package, and
+under Bun on the fleet.
+
+There are two modes:
+
+```bash
+madeit-log <debug|info|warn|error> <event> <body> [key=value ...]
+madeit-log pipe <event> [--level debug|info|warn|error] [--stream stdout|stderr] [--tee]
+```
+
+The first is one call per event, for lifecycle lines a script already knows
+about:
+
+```bash
+madeit-log info deploy.started "starting deploy" madeit.target=box madeit.version="$VERSION"
+```
+
+The second turns a subprocess's stdout and stderr into records, one per line,
+without swallowing the output a person or the next stage of a pipeline still
+expects:
+
+```bash
+some-build-command \
+  2> >(madeit-log pipe build.output --stream stderr --tee >&2) \
+  | madeit-log pipe build.output --tee
+```
+
+`--tee` writes each line through unchanged. Without it, the subprocess's own
+output never reaches the terminal or the next pipe stage, only the records
+do. A line longer than 16 KiB is cut to that length, and the record says so
+with `madeit.truncated` and `madeit.line_bytes`.
+
+### Environment variables
+
+**Resource**, set once at the top of a script. A variable left unset becomes
+`"unknown"` in the record, and the missing names are joined into
+`madeit.missing_resource` so the gap is visible on every line rather than
+silent:
+
+- `MADEIT_SERVICE`, `MADEIT_VERSION`, `MADEIT_ENVIRONMENT`, `MADEIT_REPO`, `MADEIT_COMPONENT`
+
+**Trace:** `TRACEPARENT`, if set, becomes the record's `TraceId` and
+`SpanId`. A malformed value degrades to an untraced record rather than
+failing the call.
+
+**Sink:** `MADEIT_LOG_SINK=stderr|stdout|file:<path>`, default `stderr`. A
+script's stdout is usually its actual output, and something like journald
+already captures stderr for services, so stderr is the safer default. An
+unrecognized value, or a `file:` target that cannot be created, still ships
+the record: it falls back to stderr and the sink value that failed is kept in
+`madeit.invalid_sink`, so nothing silently vanishes.
+
+### It never exits nonzero
+
+Whatever `madeit-log` is given, bad or not, it exits 0. A malformed call
+(an unknown level, a missing event, an unrecognized flag) becomes a
+`log.meta` record describing the misuse instead of a nonzero exit, because a
+log line must never be the reason a script running under `set -e` dies. The
+only thing that can make it exit nonzero is the Node or Bun runtime itself
+failing to start.
+
+### Measured costs
+
+The two modes exist because their costs differ by three orders of magnitude.
+Measured on martinez against the real core (hyperfine):
+
+| | cost |
+|---|---|
+| bare `bun` start | 5.5 ms |
+| one process per record | 14.1 ms per record (11.6 ms bundled) |
+| one process reading a stream | about 14 ms to start, then about 3 µs per line (10,000 lines in 45 ms) |
+
+The per-event form suits lifecycle events, not per-line output. For a
+subprocess's output, use `pipe`: it pays the startup cost once and reads the
+whole stream in one process.
+
+### Security
+
+`pipe` logs each line's content verbatim, as the value of `madeit.line`.
+Redaction is key-based and never inspects values, so it cannot catch a
+credential that shows up inside a line of output. **Never pipe a command
+whose output can carry credentials.**
+
 ## Python
 
 `src/log/python/madeit_log` is the mirror: `get_logger`, `file_sink`, and
