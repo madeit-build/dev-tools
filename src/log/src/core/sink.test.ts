@@ -1,8 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fanOut, fileSink } from "./sink.ts";
+import { fanOut, fileSink, stdoutSink, stderrSink } from "./sink.ts";
 import { buildRecord, type LogRecord } from "./record.ts";
 
 const resource = {
@@ -16,6 +16,36 @@ const lines = (p: string) => fs.readFileSync(p, "utf8").trim().split("\n").map((
 const settle = () => new Promise((resolve) => setImmediate(resolve));
 
 describe("sinks", () => {
+  it("stdoutSink writes one JSON line per record to stdout", () => {
+    const spy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
+    try {
+      stdoutSink()(record());
+      expect(spy).toHaveBeenCalledOnce();
+      const written = spy.mock.calls[0][0];
+      const str = typeof written === "string" ? written : written.toString();
+      expect(str).toMatch(/^\{.*\}\n$/);
+      const obj = JSON.parse(str.slice(0, -1));
+      expect(obj.Body).toBe("b");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("stderrSink writes one JSON line per record to stderr", () => {
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      stderrSink()(record());
+      expect(spy).toHaveBeenCalledOnce();
+      const written = spy.mock.calls[0][0];
+      const str = typeof written === "string" ? written : written.toString();
+      expect(str).toMatch(/^\{.*\}\n$/);
+      const obj = JSON.parse(str.slice(0, -1));
+      expect(obj.Body).toBe("b");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("writes one JSON line per record", () => {
     const p = tmp();
     fileSink(p)(record());

@@ -12,7 +12,7 @@ import { redact } from "./redact.ts";
 import { fanOut, type Sink } from "./sink.ts";
 import { parseTraceparent } from "./trace.ts";
 
-export { fileSink, stdoutSink, type Sink } from "./sink.ts";
+export { fileSink, stdoutSink, stderrSink, type Sink } from "./sink.ts";
 export { mintTraceparent, TRACEPARENT_ENV } from "./trace.ts";
 export type { LogRecord, Resource, Severity } from "./record.ts";
 
