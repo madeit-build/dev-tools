@@ -230,8 +230,10 @@ describe("cli main, event mode", () => {
   });
 
   // A path segment that is an ordinary file makes fileSink's directory creation
-  // throw; main must still resolve 0 and say so on stderr rather than crash the shell.
-  it("resolves 0 and reports on stderr when the chosen file sink's directory cannot be created", async () => {
+  // throw before any record is written. main must still resolve 0, and the
+  // record must still reach stderr, marked with the sink value that failed,
+  // rather than being lost behind a diagnostic-only line.
+  it("falls back to stderr with madeit.invalid_sink when the chosen file sink's directory cannot be created", async () => {
     const parent = fs.mkdtempSync(path.join(os.tmpdir(), "cli-"));
     const blocker = path.join(parent, "blocker");
     fs.writeFileSync(blocker, "not a directory");
@@ -247,7 +249,10 @@ describe("cli main, event mode", () => {
       expect(spy).toHaveBeenCalledOnce();
       const written = spy.mock.calls[0]?.[0];
       const str = typeof written === "string" ? written : String(written);
-      expect(str).toMatch(/^madeit-log: /);
+      const record = JSON.parse(str.trim()) as LogRecord;
+      expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
+      expect(record.Body).toBe("hi");
+      expect(record.Attributes["madeit.invalid_sink"]).toBe(`file:${target}`);
     } finally {
       spy.mockRestore();
     }

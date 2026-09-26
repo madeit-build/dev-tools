@@ -107,7 +107,16 @@ function chooseSink(env: Record<string, string | undefined>): SinkChoice {
   if (raw === "stdout") return { sink: withStderrFallback(stdoutSink()), extraAttributes: {} };
   if (raw.startsWith("file:")) {
     const filePath = raw.slice("file:".length);
-    if (filePath !== "") return { sink: withStderrFallback(fileSink(filePath)), extraAttributes: {} };
+    if (filePath !== "") {
+      try {
+        return { sink: withStderrFallback(fileSink(filePath)), extraAttributes: {} };
+      } catch {
+        // fileSink's mkdirSync can fail before any record is ever written (an
+        // ENOTDIR path segment, for example). The record must still reach
+        // stderr rather than vanish behind a diagnostic-only line.
+        return { sink: stderrSink(), extraAttributes: { "madeit.invalid_sink": raw } };
+      }
+    }
   }
   // An unrecognized sink, including a file: value with no path, must not
   // swallow the caller's record, so it still ships, to the safe default, with
