@@ -175,18 +175,21 @@ failing the call.
 **Sink:** `MADEIT_LOG_SINK=stderr|stdout|file:<path>`, default `stderr`. A
 script's stdout is usually its actual output, and something like journald
 already captures stderr for services, so stderr is the safer default. An
-unrecognized value, or a `file:` target that cannot be created, still ships
-the record: it falls back to stderr and the sink value that failed is kept in
-`madeit.invalid_sink`, so nothing silently vanishes.
+unrecognized value, a `file:` target that cannot be created, or one that
+fails the first time it writes, still ships the record: it falls back to
+stderr, with the sink value in `madeit.invalid_sink` and the failure reason
+in `madeit.cli_error`, so nothing silently vanishes.
 
 ### It never exits nonzero
 
 Whatever `madeit-log` is given, bad or not, it exits 0. A malformed call
 (an unknown level, a missing event, an unrecognized flag) becomes a
 `log.meta` record describing the misuse instead of a nonzero exit, because a
-log line must never be the reason a script running under `set -e` dies. The
-only thing that can make it exit nonzero is the Node or Bun runtime itself
-failing to start.
+log line must never be the reason a script running under `set -e` dies. A
+misused `pipe` call still drains piped stdin to EOF before exiting (through
+`--tee` if given, discarded otherwise), so a typo in the flags never SIGPIPEs
+the command upstream of it. The only thing that can make it exit nonzero is
+the Node or Bun runtime itself failing to start.
 
 ### Measured costs
 
@@ -197,11 +200,13 @@ Measured on martinez against the real core (hyperfine):
 |---|---|
 | bare `bun` start | 5.5 ms |
 | one process per record | 14.1 ms per record (11.6 ms bundled) |
-| one process reading a stream | about 14 ms to start, then about 3 µs per line (10,000 lines in 45 ms) |
+| one process reading a stream, to stdout | about 14 ms to start, then about 3 µs per line (10,000 lines in 45 ms) |
+| one process reading a stream, with a `file:` sink | about 20 µs per line, since each record is a synchronous append (426,000 lines in 8.4 s) |
 
 The per-event form suits lifecycle events, not per-line output. For a
 subprocess's output, use `pipe`: it pays the startup cost once and reads the
-whole stream in one process.
+whole stream in one process. The sink still matters at that volume: a `file:`
+sink's synchronous append costs about six times what writing to stdout does.
 
 ### Security
 
