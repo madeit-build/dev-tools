@@ -84,9 +84,12 @@ describe("cli main, event mode", () => {
     expect(record?.Attributes.d).toBe("x=y");
   });
 
-  it("collects an argument without '=' into madeit.invalid_attribute", async () => {
-    const [record] = await runToFile(["info", "probe.hello", "hi", "bare"]);
-    expect(record?.Attributes["madeit.invalid_attribute"]).toBe("bare");
+  // The count, not the text: a bare argument's text can be exactly the
+  // credential a caller meant to pass as an attribute's value.
+  it("collects an argument without '=' into madeit.invalid_attribute_count, not its text", async () => {
+    const [record] = await runToFile(["info", "probe.hello", "hi", "ghp_SECRETVALUE"]);
+    expect(record?.Attributes["madeit.invalid_attribute_count"]).toBe(1);
+    expect(JSON.stringify(record?.Attributes)).not.toContain("ghp_SECRETVALUE");
   });
 
   // Mirrors the CLI's key=value JSON-typing rule, so the "keep" branch below can
@@ -136,19 +139,19 @@ describe("cli main, event mode", () => {
 
   it("treats an empty key ('=v') as invalid, not as an attribute named \"\"", async () => {
     const [record] = await runToFile(["info", "probe.hello", "hi", "=v"]);
-    expect(record?.Attributes["madeit.invalid_attribute"]).toBe("=v");
+    expect(record?.Attributes["madeit.invalid_attribute_count"]).toBe(1);
   });
 
-  it("does not let a caller forge madeit.invalid_sink, madeit.missing_resource or madeit.invalid_attribute", async () => {
+  it("does not let a caller forge madeit.invalid_sink, madeit.missing_resource, madeit.invalid_attribute_count or madeit.cli_error", async () => {
     const [record] = await runToFile([
       "info", "probe.hello", "hi",
-      "madeit.invalid_sink=forged", "madeit.missing_resource=forged", "madeit.invalid_attribute=forged",
+      "madeit.invalid_sink=forged", "madeit.missing_resource=forged",
+      "madeit.invalid_attribute_count=forged", "madeit.cli_error=forged",
     ]);
     expect(record?.Attributes["madeit.invalid_sink"]).toBeUndefined();
     expect(record?.Attributes["madeit.missing_resource"]).toBeUndefined();
-    expect(record?.Attributes["madeit.invalid_attribute"]).toBe(
-      "madeit.invalid_sink=forged madeit.missing_resource=forged madeit.invalid_attribute=forged",
-    );
+    expect(record?.Attributes["madeit.cli_error"]).toBeUndefined();
+    expect(record?.Attributes["madeit.invalid_attribute_count"]).toBe(4);
   });
 
   it("reads unknown for every resource field and names all five in madeit.missing_resource", async () => {
@@ -254,15 +257,18 @@ describe("cli main, event mode", () => {
       expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
       expect(record.Body).toBe("hi");
       expect(record.Attributes["madeit.invalid_sink"]).toBe(`file:${target}`);
-      expect(String(record.Attributes["madeit.error"])).toContain("ENOTDIR");
+      expect(String(record.Attributes["madeit.cli_error"])).toContain("ENOTDIR");
     } finally {
       spy.mockRestore();
     }
   });
 
   // A sink that fails only when it writes (a directory in the file's place, here)
-  // must not lose the record: fanOut has nowhere left to route its own death notice.
-  it("falls back to stderr, without losing the record, when the file sink fails at write time", async () => {
+  // must not lose the record: fanOut has nowhere left to route its own death
+  // notice. Every line on stderr must be one JSON record, never a plain-text
+  // diagnostic mixed into the stream, so a reader piping stderr through `jq`
+  // never breaks on a non-JSON line.
+  it("falls back to stderr with structured marks, one JSON record per line, when the file sink fails at write time", async () => {
     const targetDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "cli-"));
     const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
@@ -273,14 +279,45 @@ describe("cli main, event mode", () => {
       );
       expect(exitCode).toBe(0);
       const calls = spy.mock.calls.map(([chunk]) => (typeof chunk === "string" ? chunk : String(chunk)));
-      expect(calls.some((line) => line.startsWith("madeit-log: "))).toBe(true);
-      const recordLine = calls.find((line) => line.trimStart().startsWith("{"));
-      expect(recordLine).toBeDefined();
-      const record = JSON.parse((recordLine ?? "").trim()) as LogRecord;
+      expect(calls).toHaveLength(1);
+      const record = JSON.parse(calls[0]!.trim()) as LogRecord;
       expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
       expect(record.Body).toBe("hi");
+      expect(record.Attributes["madeit.invalid_sink"]).toBe(`file:${targetDirectory}`);
+      expect(String(record.Attributes["madeit.cli_error"])).toContain("EISDIR");
     } finally {
       spy.mockRestore();
+    }
+  });
+
+  // Once a sink fails at write time, it must be disabled rather than
+  // retried on every record: a real fileSink call happens once, and every
+  // later record in the same process still reaches stderr, marked the same way.
+  it("keeps every later record marked after a write-time sink failure, without retrying the broken sink", async () => {
+    const targetDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "cli-"));
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    const appendSpy = vi.spyOn(fs, "appendFileSync").mockImplementation(() => {
+      throw new Error("EISDIR: illegal operation on a directory, open");
+    });
+    try {
+      const { io } = fakePipeIo([Buffer.from("a\nb\nc\n")]);
+      const exitCode = await main(
+        ["pipe", "build.output"],
+        { ...baseEnv, MADEIT_LOG_SINK: `file:${targetDirectory}` },
+        io,
+      );
+      expect(exitCode).toBe(0);
+      expect(appendSpy).toHaveBeenCalledOnce();
+      const stderrCalls = stderrSpy.mock.calls.map(([chunk]) => (typeof chunk === "string" ? chunk : String(chunk)));
+      expect(stderrCalls).toHaveLength(3);
+      for (const line of stderrCalls) {
+        const record = JSON.parse(line.trim()) as LogRecord;
+        expect(record.Attributes["madeit.invalid_sink"]).toBe(`file:${targetDirectory}`);
+        expect(String(record.Attributes["madeit.cli_error"])).toContain("EISDIR");
+      }
+    } finally {
+      stderrSpy.mockRestore();
+      appendSpy.mockRestore();
     }
   });
 
@@ -464,7 +501,7 @@ describe("cli main, pipe mode", () => {
     expect(lineRecords.map((record) => record?.Attributes["madeit.line"])).toEqual(["a", "b", "part"]);
     const metaRecords = records.filter((record) => record?.Attributes["madeit.event"] === "log.meta");
     expect(metaRecords).toHaveLength(1);
-    expect(String(metaRecords[0]?.Attributes["madeit.error"])).toContain("boom");
+    expect(String(metaRecords[0]?.Attributes["madeit.cli_error"])).toContain("boom");
   });
 
   it("stops teeing after a write failure, keeps logging remaining lines, and adds one log.meta", async () => {
@@ -608,6 +645,26 @@ describe("cli main, pipe mode", () => {
     expect(metaRecords).toHaveLength(1);
   });
 
+  // Node only emits 'drain' after a write() call that returned false, so
+  // waiting for one when nothing ever set that flag would hang forever, even
+  // though the tee is perfectly healthy and just slow to accept each write.
+  it("resolves promptly when the tee target is slow but never reports backpressure", async () => {
+    const stdout = new Writable({
+      highWaterMark: 1024,
+      write(_chunk, _encoding, callback) {
+        setTimeout(callback, 50);
+      },
+    });
+    const file = tmpFile();
+    const exitCode = await main(
+      ["pipe", "build.output", "--tee"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      { stdin: Readable.from([Buffer.from("a\n")]), stdout },
+    );
+    expect(exitCode).toBe(0);
+    expect(readLines(file)).toHaveLength(1);
+  }, 2000);
+
   it("caps a line whose decoded text inflates past the byte limit on invalid UTF-8", async () => {
     const line = Buffer.alloc(16384, 0xff);
     const { records } = await runPipeToFile(
@@ -636,98 +693,177 @@ describe("cli main, pipe mode", () => {
       },
     };
     const file = tmpFile();
+    let resolved = false;
     const runPromise = main(
       ["pipe", "build.output", "--tee"],
       { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
       { stdin: Readable.from([Buffer.from("a\n"), Buffer.from("b\n")]), stdout },
     );
+    void runPromise.then(() => {
+      resolved = true;
+    });
     for (let attempt = 0; attempt < 50 && drainCallback === undefined; attempt++) {
       await new Promise((resolve) => setImmediate(resolve));
     }
     expect(drainCallback).toBeDefined();
+    // An implementation that forgets to await the drain wait would let main
+    // race ahead: it would already have written the second chunk, or even
+    // resolved, before the drain callback ever fires.
+    expect(resolved).toBe(false);
+    expect(writeCalls).toBe(1);
     drainCallback?.();
     const exitCode = await runPromise;
     expect(exitCode).toBe(0);
+    expect(resolved).toBe(true);
     expect(Buffer.concat(written).equals(Buffer.from("a\nb\n"))).toBe(true);
     expect(readLines(file)).toHaveLength(2);
   });
 
-  async function assertPipeMisuseWithoutReadingStdin(argv: string[], reasonPattern: RegExp): Promise<void> {
-    const stdin = Readable.from([Buffer.from("should not be read\n")]);
-    const readSpy = vi.spyOn(stdin, "read");
+  // A misused pipe call must still drain stdin to EOF: leaving it unread is
+  // what SIGPIPEs an upstream producer under `set -o pipefail`. Without
+  // --tee in argv, the drained bytes are discarded rather than teed.
+  async function assertPipeMisuseDrainsStdin(argv: string[], reasonPattern: RegExp): Promise<void> {
+    const stdin = Readable.from([Buffer.from("should be drained, not logged\n")]);
+    const written: Buffer[] = [];
     const file = tmpFile();
     const exitCode = await main(
       argv,
       { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
-      { stdin, stdout: { write: () => true } },
+      {
+        stdin,
+        stdout: {
+          write: (chunk) => {
+            written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            return true;
+          },
+        },
+      },
     );
     expect(exitCode).toBe(0);
     const [record] = readLines(file);
     expect(record?.Attributes["madeit.event"]).toBe("log.meta");
-    expect(String(record?.Attributes["madeit.error"])).toMatch(reasonPattern);
-    expect(readSpy).not.toHaveBeenCalled();
+    expect(String(record?.Attributes["madeit.cli_error"])).toMatch(reasonPattern);
+    expect(stdin.readableEnded).toBe(true);
+    expect(Buffer.concat(written).length).toBe(0);
   }
 
-  it("misuse (no event) resolves 0, emits log.meta, and never reads stdin", async () => {
-    const stdin = Readable.from([Buffer.from("should not be read\n")]);
-    const readSpy = vi.spyOn(stdin, "read");
+  it("misuse (no event) resolves 0, emits log.meta, and drains stdin without logging it", async () => {
+    await assertPipeMisuseDrainsStdin(["pipe"], /missing event for pipe/);
+  });
+
+  it("misuse (unknown flag) resolves 0, emits log.meta, and drains stdin without logging it", async () => {
+    await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--bogus"], /unknown argument/);
+  });
+
+  // I1: a caller who meant event mode's key=value attributes can easily pass
+  // one to pipe by mistake, and the value half of it can be a credential.
+  it("misuse from a key=value argument never echoes the value, only the key", async () => {
+    const secret = "ghp_SECRETVALUE";
+    const { records } = await runPipeToFile(["pipe", "build.output", `github_token=${secret}`], [Buffer.from("")]);
+    const [record] = records;
+    expect(record?.Attributes["madeit.event"]).toBe("log.meta");
+    expect(String(record?.Attributes["madeit.cli_error"])).toContain("github_token");
+    expect(String(record?.Attributes["madeit.cli_error"])).not.toContain(secret);
+    expect(JSON.stringify(record)).not.toContain(secret);
+  });
+
+  it("misuse (bad --level value) resolves 0, emits log.meta, and drains stdin without logging it", async () => {
+    await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--level", "bogus"], /unknown --level "bogus"/);
+  });
+
+  it("misuse (bad --stream value) resolves 0, emits log.meta, and drains stdin without logging it", async () => {
+    await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--stream", "bogus"], /unknown --stream "bogus"/);
+  });
+
+  it("misuse (missing --level value) resolves 0, emits log.meta, and drains stdin without logging it", async () => {
+    await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--level"], /missing value for --level/);
+  });
+
+  it("misuse (missing --stream value) resolves 0, emits log.meta, and drains stdin without logging it", async () => {
+    await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--stream"], /missing value for --stream/);
+  });
+
+  it("misuse (event starting with '-') resolves 0 and emits log.meta instead of treating the flag as the event", async () => {
+    await assertPipeMisuseDrainsStdin(["pipe", "--steam", "stderr"], /event cannot start with "-"/);
+  });
+
+  // C1: draining must still respect --tee, so a caller who typed the flag in
+  // the wrong position (or made any other pipe mistake) does not silently
+  // lose their output on top of the misuse.
+  it("misuse drains stdin and tees it through unchanged when --tee is anywhere in argv", async () => {
+    const input = Buffer.from("visible line\n");
+    const stdin = Readable.from([input]);
+    const written: Buffer[] = [];
     const file = tmpFile();
     const exitCode = await main(
-      ["pipe"],
+      ["pipe", "--tee"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      {
+        stdin,
+        stdout: {
+          write: (chunk) => {
+            written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            return true;
+          },
+        },
+      },
+    );
+    expect(exitCode).toBe(0);
+    const [record] = readLines(file);
+    expect(record?.Attributes["madeit.event"]).toBe("log.meta");
+    expect(Buffer.concat(written).equals(input)).toBe(true);
+  });
+
+  it("a real terminal (isTTY) is never drained, so a misused pipe with no piped input cannot block", async () => {
+    const stdin = new Readable({ read() {} }) as Readable & { isTTY?: boolean };
+    stdin.isTTY = true;
+    const file = tmpFile();
+    const exitCode = await main(
+      ["pipe", "--tee"],
       { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
       { stdin, stdout: { write: () => true } },
     );
     expect(exitCode).toBe(0);
     const [record] = readLines(file);
     expect(record?.Attributes["madeit.event"]).toBe("log.meta");
-    expect(readSpy).not.toHaveBeenCalled();
-  });
-
-  it("misuse (unknown flag) resolves 0, emits log.meta, and never reads stdin", async () => {
-    const stdin = Readable.from([Buffer.from("should not be read\n")]);
-    const readSpy = vi.spyOn(stdin, "read");
-    const file = tmpFile();
-    const exitCode = await main(
-      ["pipe", "build.output", "--bogus"],
-      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
-      { stdin, stdout: { write: () => true } },
-    );
-    expect(exitCode).toBe(0);
-    const [record] = readLines(file);
-    expect(record?.Attributes["madeit.event"]).toBe("log.meta");
-    expect(readSpy).not.toHaveBeenCalled();
-  });
-
-  it("misuse (bad --level value) resolves 0, emits log.meta, and never reads stdin", async () => {
-    await assertPipeMisuseWithoutReadingStdin(
-      ["pipe", "build.output", "--level", "bogus"],
-      /unknown --level "bogus"/,
-    );
-  });
-
-  it("misuse (bad --stream value) resolves 0, emits log.meta, and never reads stdin", async () => {
-    await assertPipeMisuseWithoutReadingStdin(
-      ["pipe", "build.output", "--stream", "bogus"],
-      /unknown --stream "bogus"/,
-    );
-  });
-
-  it("misuse (missing --level value) resolves 0, emits log.meta, and never reads stdin", async () => {
-    await assertPipeMisuseWithoutReadingStdin(
-      ["pipe", "build.output", "--level"],
-      /missing value for --level/,
-    );
-  });
-
-  it("misuse (missing --stream value) resolves 0, emits log.meta, and never reads stdin", async () => {
-    await assertPipeMisuseWithoutReadingStdin(
-      ["pipe", "build.output", "--stream"],
-      /missing value for --stream/,
-    );
   });
 });
 
 describe("cli main, --help", () => {
+  it("prints help and drains piped stdin when pipe misuse is really --help in the event slot", async () => {
+    const input = Buffer.from("visible line\n");
+    const stdin = Readable.from([input]);
+    const written: Buffer[] = [];
+    const io = {
+      stdin,
+      stdout: {
+        write: (chunk: string | Uint8Array) => {
+          written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          return true;
+        },
+      },
+    };
+    const exitCode = await main(["pipe", "--help", "--tee"], baseEnv, io);
+    expect(exitCode).toBe(0);
+    const output = Buffer.concat(written).toString("utf8");
+    expect(output).toContain("madeit-log <debug|info|warn|error> <event> <body> [key=value ...]");
+    expect(output).toContain(input.toString("utf8"));
+  });
+
+  it("pipe -h prints help without hanging on an isTTY stdin", async () => {
+    const stdin = new Readable({ read() {} }) as Readable & { isTTY?: boolean };
+    stdin.isTTY = true;
+    const written: string[] = [];
+    const exitCode = await main(["pipe", "-h"], baseEnv, {
+      stdin,
+      stdout: { write: (chunk) => { written.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString()); return true; } },
+    });
+    expect(exitCode).toBe(0);
+    expect(written.join("")).toContain(
+      "madeit-log pipe <event> [--level debug|info|warn|error] [--stream stdout|stderr] [--tee]",
+    );
+  });
+
   it("writes usage, including the security sentence, to stdout and resolves 0", async () => {
     const io = fakeIo();
     const exitCode = await main(["--help"], baseEnv, io);

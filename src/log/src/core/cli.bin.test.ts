@@ -86,17 +86,22 @@ describe("cli bin entrypoint, run as a subprocess through a symlink", () => {
 });
 
 describe("process-level stream errors, at the entrypoint (subprocess repros)", () => {
-  // A slow downstream reader lets the tee target's pipe buffer fill, forcing
-  // a drain wait, then the reader exits after only a few bytes. Node reports
-  // the resulting EPIPE on process.stdout asynchronously, which must not
-  // crash the process, and must still be reported as this tee's own log.meta.
-  it("pipe --tee resolves 0, tees no crash, and reports exactly one tee failure when the downstream reader closes early (EPIPE)", () => {
+  // A downstream reader that never reads anything lets the tee target's pipe
+  // buffer fill, forcing a drain wait, then exits, closing the pipe. Node
+  // reports the resulting EPIPE on process.stdout asynchronously, which must
+  // not crash the process, and must still be reported as this tee's own
+  // log.meta. A reader that reads a few bytes first (e.g. `head -c 10`) can
+  // free enough pipe capacity, on some platforms, for the rest of the queued
+  // data to flush before the reader exits, making the outcome a race; a
+  // reader that reads nothing, with input safely larger than any pipe
+  // buffer, makes the EPIPE unconditional.
+  it("pipe --tee resolves 0, does not crash, and reports exactly one tee failure when the downstream reader exits without reading", () => {
     const inputDir = makeTempDir("madeit-log-epipe-in-");
     const inputPath = path.join(inputDir, "input.txt");
     const lineText = "x".repeat(48);
     const lines: string[] = [];
     let bytes = 0;
-    while (bytes < 70_000) {
+    while (bytes < 200_000) {
       lines.push(lineText);
       bytes += lineText.length + 1;
     }
@@ -107,7 +112,7 @@ describe("process-level stream errors, at the entrypoint (subprocess repros)", (
 
     const script = [
       "set -o pipefail",
-      `${JSON.stringify(process.execPath)} ${JSON.stringify(cliDistPath)} pipe build.output --tee < ${JSON.stringify(inputPath)} | (sleep 2; head -c 10) > /dev/null`,
+      `${JSON.stringify(process.execPath)} ${JSON.stringify(cliDistPath)} pipe build.output --tee < ${JSON.stringify(inputPath)} | (sleep 2) > /dev/null`,
       'echo "MADEIT_EXIT:${PIPESTATUS[0]}"',
     ].join("\n");
 
@@ -128,6 +133,55 @@ describe("process-level stream errors, at the entrypoint (subprocess repros)", (
     const metaRecords = records.filter((record) => record.Attributes["madeit.event"] === "log.meta");
     expect(lineRecords.length).toBe(lines.length);
     expect(metaRecords).toHaveLength(1);
-    expect(String(metaRecords[0]?.Attributes["madeit.error"])).toMatch(/EPIPE|closed/);
+  }, 20_000);
+});
+
+describe("pipe misuse drains stdin so an upstream producer never sees SIGPIPE (subprocess)", () => {
+  function writeLargeInput(): string {
+    const dir = makeTempDir("madeit-log-sigpipe-in-");
+    const inputPath = path.join(dir, "input.bin");
+    const lineText = "x".repeat(48);
+    const lines: string[] = [];
+    let bytes = 0;
+    while (bytes < 200_000) {
+      lines.push(lineText);
+      bytes += lineText.length + 1;
+    }
+    fs.writeFileSync(inputPath, `${lines.join("\n")}\n`);
+    return inputPath;
+  }
+
+  it("a large producer piped into a misused pipe call exits 0, and no bytes reach stdout without --tee", () => {
+    const inputPath = writeLargeInput();
+    const outDir = makeTempDir("madeit-log-sigpipe-out-");
+    const outPath = path.join(outDir, "out.bin");
+
+    const script = [
+      "set -o pipefail",
+      `cat ${JSON.stringify(inputPath)} | ${JSON.stringify(process.execPath)} ${JSON.stringify(cliDistPath)} pipe build.output --steam stderr > ${JSON.stringify(outPath)}`,
+      'echo "PRODUCER_EXIT:${PIPESTATUS[0]} MADEIT_EXIT:${PIPESTATUS[1]}"',
+    ].join("\n");
+
+    const result = spawnSync("bash", ["-c", script], { env: subprocessEnv(), encoding: "utf8" });
+
+    expect(result.stdout, result.stderr).toContain("PRODUCER_EXIT:0 MADEIT_EXIT:0");
+    expect(fs.statSync(outPath).size).toBe(0);
+  }, 20_000);
+
+  it("a large producer piped into a misused pipe call with --tee exits 0, and the bytes pass through exactly", () => {
+    const inputPath = writeLargeInput();
+    const outDir = makeTempDir("madeit-log-sigpipe-out-");
+    const outPath = path.join(outDir, "out.bin");
+
+    const script = [
+      "set -o pipefail",
+      `cat ${JSON.stringify(inputPath)} | ${JSON.stringify(process.execPath)} ${JSON.stringify(cliDistPath)} pipe --tee > ${JSON.stringify(outPath)}`,
+      'echo "PRODUCER_EXIT:${PIPESTATUS[0]} MADEIT_EXIT:${PIPESTATUS[1]}"',
+    ].join("\n");
+
+    const result = spawnSync("bash", ["-c", script], { env: subprocessEnv(), encoding: "utf8" });
+
+    expect(result.stdout, result.stderr).toContain("PRODUCER_EXIT:0 MADEIT_EXIT:0");
+    expect(fs.readFileSync(outPath).equals(fs.readFileSync(inputPath))).toBe(true);
   }, 20_000);
 });

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
-import { fileSink, getLogger, stderrSink, stdoutSink, type Logger, type Sink } from "./index.ts";
+import { fileSink, getLogger, stderrSink, stdoutSink, type Logger, type LogRecord, type Sink } from "./index.ts";
 
 export interface CliIo {
   readonly stdin: NodeJS.ReadableStream;
@@ -86,18 +86,41 @@ interface SinkChoice {
   readonly extraAttributes: Record<string, unknown>;
 }
 
-// A file or stdout sink can fail only when it actually writes, and fanOut has
-// nowhere left to route that death's own notice once it is the only sink.
-// Rerouting the record itself to stderr, plus one diagnostic line, is what
-// keeps it from vanishing.
-function withStderrFallback(sink: Sink): Sink {
+// A CLI-generated failure reason must never destroy a caller's own
+// madeit.error, and two CLI reasons (a bad sink, then a later misuse) must
+// not destroy each other either: every CLI reason folds into
+// madeit.cli_error, joined by "; ", while madeit.error is left to the caller.
+function addCliError(attributes: Record<string, unknown>, reason: string): Record<string, unknown> {
+  const existing = attributes["madeit.cli_error"];
+  const combined = typeof existing === "string" ? `${existing}; ${reason}` : reason;
+  return { ...attributes, "madeit.cli_error": combined };
+}
+
+function markSinkFailure(record: LogRecord, rawSinkValue: string, reason: string): LogRecord {
+  return {
+    ...record,
+    Attributes: addCliError({ ...record.Attributes, "madeit.invalid_sink": rawSinkValue }, reason),
+  };
+}
+
+// A synchronous throw from sink() is fully caught here and rerouted to
+// stderr as one JSON record, with the failure disabling that sink for the
+// rest of the process rather than retrying it on every call. stdout's own
+// real failures (a broken pipe) surface asynchronously and never reach this
+// catch; the entrypoint's permanent 'error' listener covers those instead.
+function withStderrFallback(sink: Sink, rawSinkValue: string): Sink {
   const fallback = stderrSink();
+  let failure: string | undefined;
   return (record) => {
+    if (failure !== undefined) {
+      fallback(markSinkFailure(record, rawSinkValue, failure));
+      return;
+    }
     try {
       sink(record);
     } catch (error) {
-      process.stderr.write(`madeit-log: ${errorMessage(error)}\n`);
-      fallback(record);
+      failure = errorMessage(error);
+      fallback(markSinkFailure(record, rawSinkValue, failure));
     }
   };
 }
@@ -105,12 +128,12 @@ function withStderrFallback(sink: Sink): Sink {
 function chooseSink(env: Record<string, string | undefined>): SinkChoice {
   const raw = env.MADEIT_LOG_SINK;
   if (raw === undefined || raw === "stderr") return { sink: stderrSink(), extraAttributes: {} };
-  if (raw === "stdout") return { sink: withStderrFallback(stdoutSink()), extraAttributes: {} };
+  if (raw === "stdout") return { sink: withStderrFallback(stdoutSink(), raw), extraAttributes: {} };
   if (raw.startsWith("file:")) {
     const filePath = raw.slice("file:".length);
     if (filePath !== "") {
       try {
-        return { sink: withStderrFallback(fileSink(filePath)), extraAttributes: {} };
+        return { sink: withStderrFallback(fileSink(filePath), raw), extraAttributes: {} };
       } catch (error) {
         // fileSink's mkdirSync can fail before any record is ever written (an
         // ENOTDIR path segment, for example). The record, the sink value and
@@ -118,7 +141,7 @@ function chooseSink(env: Record<string, string | undefined>): SinkChoice {
         // diagnostic-only line.
         return {
           sink: stderrSink(),
-          extraAttributes: { "madeit.invalid_sink": raw, "madeit.error": errorMessage(error) },
+          extraAttributes: addCliError({ "madeit.invalid_sink": raw }, errorMessage(error)),
         };
       }
     }
@@ -153,27 +176,31 @@ function coerceValue(raw: string): unknown {
 }
 
 // A key the CLI reserves for its own marks can never become a caller
-// attribute, so a forged one is folded into madeit.invalid_attribute exactly
-// like an empty key or a bare argument, rather than overwriting the real mark.
+// attribute, so a forged one is folded into madeit.invalid_attribute_count
+// exactly like an empty key or a bare argument, rather than overwriting the
+// real mark.
 const RESERVED_ATTRIBUTE_KEYS = new Set([
-  "madeit.invalid_attribute",
+  "madeit.invalid_attribute_count",
   "madeit.invalid_sink",
   "madeit.missing_resource",
+  "madeit.cli_error",
 ]);
 
+// A bare argument's text is counted, never echoed: a forgotten "=" is exactly
+// how a caller who meant "key=value" ends up passing a raw secret instead.
 function parseAttributes(args: readonly string[]): Record<string, unknown> {
   const attributes: Record<string, unknown> = {};
-  const invalid: string[] = [];
+  let invalidCount = 0;
   for (const arg of args) {
     const separator = arg.indexOf("=");
     const key = separator > 0 ? arg.slice(0, separator) : "";
     if (separator <= 0 || RESERVED_ATTRIBUTE_KEYS.has(key)) {
-      invalid.push(arg);
+      invalidCount++;
       continue;
     }
     attributes[key] = coerceValue(arg.slice(separator + 1));
   }
-  if (invalid.length > 0) attributes["madeit.invalid_attribute"] = invalid.join(" ");
+  if (invalidCount > 0) attributes["madeit.invalid_attribute_count"] = invalidCount;
   return attributes;
 }
 
@@ -194,18 +221,32 @@ function isStream(value: string | undefined): value is Stream {
   return value === "stdout" || value === "stderr";
 }
 
+// An unrecognized argument is described by its key only: a "key=value" shape
+// is exactly how a caller who meant event mode's attributes ends up passing
+// one to pipe, and the value half can be a credential.
+function describePipeArgument(flag: string, position: number): string {
+  const separator = flag.indexOf("=");
+  if (separator > 0) return flag.slice(0, separator);
+  if (flag.startsWith("-")) return flag;
+  return `argument ${position + 1}`;
+}
+
 // Flags come after the event and are parsed left to right; any of them missing
 // its value, or an argument this loop does not recognize, is misuse and must
-// be caught before stdin is ever touched.
+// be caught before stdin is read for a record (draining it to avoid SIGPIPE
+// happens separately, in main).
 function parsePipeArgs(args: readonly string[]): PipeParseResult {
   const [event, ...rest] = args;
   if (event === undefined) return { ok: false, reason: `missing event for pipe. Usage: ${PIPE_USAGE}` };
+  // A flag in the event slot (a forgotten event, most often) must not
+  // silently become the event: "--tee" there would otherwise disable tee.
+  if (event.startsWith("-")) return { ok: false, reason: `event cannot start with "-". Usage: ${PIPE_USAGE}` };
 
   let level: Level = "info";
   let stream: Stream = "stdout";
   let tee = false;
   for (let index = 0; index < rest.length; index++) {
-    const flag = rest[index];
+    const flag = rest[index]!;
     if (flag === "--level") {
       const value = rest[++index];
       if (value === undefined) return { ok: false, reason: `missing value for --level. Usage: ${PIPE_USAGE}` };
@@ -219,7 +260,10 @@ function parsePipeArgs(args: readonly string[]): PipeParseResult {
     } else if (flag === "--tee") {
       tee = true;
     } else {
-      return { ok: false, reason: `unknown argument "${flag}" for pipe. Usage: ${PIPE_USAGE}` };
+      return {
+        ok: false,
+        reason: `unknown argument "${describePipeArgument(flag, index)}" for pipe. Usage: ${PIPE_USAGE}`,
+      };
     }
   }
   return { ok: true, options: { event, level, stream, tee } };
@@ -322,7 +366,7 @@ function emitLogMeta(
   body: string,
   reason: string,
 ): void {
-  logger.error("log.meta", body, { ...extraAttributes, "madeit.error": reason });
+  logger.error("log.meta", body, addCliError(extraAttributes, reason));
 }
 
 interface TeeGuard {
@@ -389,15 +433,14 @@ function attachTeeGuard(
     }
   }
 
-  // A write that returned true can still be sitting unflushed in the
-  // target's own buffer once the stdin loop ends. Waiting for it here, while
-  // the guard is still attached, is what lets a failure that only shows up
-  // later still reach this tee's own log.meta instead of only the
-  // entrypoint's silent, permanent listener.
+  // Node only ever emits 'drain' after a write() call that returned false;
+  // waiting for it when nothing set that flag would wait forever for an
+  // event that is never coming. writableNeedDrain mirrors that flag exactly,
+  // so this only waits when a real drain is actually still owed, while the
+  // race against breakage in awaitDrain still catches a late failure.
   async function flush(): Promise<void> {
     if (!tee || broken) return;
-    const writableLength = (stdout as { writableLength?: unknown }).writableLength;
-    if (typeof writableLength !== "number" || writableLength <= 0) return;
+    if ((stdout as { writableNeedDrain?: unknown }).writableNeedDrain !== true) return;
     await awaitDrain();
   }
 
@@ -483,6 +526,60 @@ async function runPipe(
   }
 }
 
+// A real terminal has no piped input to drain, and reading from one would
+// block until a human types something: draining is only for a redirected or
+// piped stdin, which is the only shape that can SIGPIPE an upstream producer.
+function isPipedStdin(stdin: NodeJS.ReadableStream): boolean {
+  return (stdin as { isTTY?: boolean }).isTTY !== true;
+}
+
+// A misused pipe call, or one whose event slot turned out to be "--help",
+// must still drain stdin to EOF: leaving it unread is what SIGPIPEs an
+// upstream producer under `set -o pipefail`. The same tee guard as a real
+// run keeps a broken or slow stdout from crashing or hanging this drain.
+async function drainPipedStdin(
+  logger: Logger,
+  markerAttributes: Record<string, unknown>,
+  io: CliIo,
+  tee: boolean,
+): Promise<void> {
+  if (!isPipedStdin(io.stdin)) return;
+  const teeGuard = attachTeeGuard(logger, markerAttributes, io.stdout, tee);
+  try {
+    try {
+      for await (const chunk of io.stdin) {
+        await teeGuard.forward(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+    } catch {
+      // Whatever stdin does while draining is not its own report: the
+      // caller already has the misuse record, or none was needed for help.
+    }
+  } finally {
+    await teeGuard.flush();
+    teeGuard.dispose();
+  }
+}
+
+// The outer catch below can run before logger even exists (a failure inside
+// its own construction), so this fallback drain has no reporting: it only
+// keeps an upstream producer from seeing SIGPIPE, best-effort.
+async function drainStdinRaw(io: CliIo, tee: boolean): Promise<void> {
+  if (!isPipedStdin(io.stdin)) return;
+  let stillTeeing = tee;
+  try {
+    for await (const chunk of io.stdin) {
+      if (!stillTeeing) continue;
+      try {
+        io.stdout.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      } catch {
+        stillTeeing = false;
+      }
+    }
+  } catch {
+    // best effort only
+  }
+}
+
 function describeMisuse(level: string | undefined, event: string | undefined, body: string | undefined): string {
   if (level === undefined) return `no command given. Usage: ${USAGE}`;
   if (!isLevel(level)) return `unknown level "${level}". Usage: ${USAGE}`;
@@ -500,12 +597,9 @@ export async function main(
   env: Record<string, string | undefined>,
   io: CliIo,
 ): Promise<number> {
+  const isPipeInvocation = argv[0] === "pipe";
+  const wantsTee = argv.includes("--tee");
   try {
-    if (argv[0] === "--help" || argv[0] === "-h") {
-      io.stdout.write(HELP);
-      return 0;
-    }
-
     const { fields, missing } = buildResource(env);
     const sinkChoice = chooseSink(env);
     const logger = getLogger({
@@ -522,10 +616,19 @@ export async function main(
     const markerAttributes: Record<string, unknown> = { ...sinkChoice.extraAttributes };
     if (missing.length > 0) markerAttributes["madeit.missing_resource"] = missing.join(",");
 
-    if (argv[0] === "pipe") {
+    // Checked anywhere in argv, not only argv[0], so "pipe --help" prints
+    // help instead of treating "--help" as the event and hanging on stdin.
+    if (argv.includes("--help") || argv.includes("-h")) {
+      io.stdout.write(HELP);
+      if (isPipeInvocation) await drainPipedStdin(logger, markerAttributes, io, wantsTee);
+      return 0;
+    }
+
+    if (isPipeInvocation) {
       const parsed = parsePipeArgs(argv.slice(1));
       if (!parsed.ok) {
         emitMisuse(logger, markerAttributes, parsed.reason);
+        await drainPipedStdin(logger, markerAttributes, io, wantsTee);
         return 0;
       }
       await runPipe(logger, parsed.options, markerAttributes, io);
@@ -546,6 +649,7 @@ export async function main(
     // handle their own known failure modes) is unexpected, and the caller
     // still sees exit 0, not a crashed shell.
     process.stderr.write(`madeit-log: ${errorMessage(error)}\n`);
+    if (isPipeInvocation) await drainStdinRaw(io, wantsTee);
     return 0;
   }
 }
