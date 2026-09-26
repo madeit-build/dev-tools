@@ -154,6 +154,35 @@ describe("cli main, event mode", () => {
     expect(record?.Attributes["madeit.invalid_attribute_count"]).toBe(4);
   });
 
+  // M4: a sink-creation failure and a later misuse are two separate
+  // CLI-generated reasons for the same record; neither may erase the other.
+  it("joins a sink-creation failure and a later misuse into one madeit.cli_error instead of one overwriting the other", async () => {
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), "cli-"));
+    const blocker = path.join(parent, "blocker");
+    fs.writeFileSync(blocker, "not a directory");
+    const target = path.join(blocker, "nested", "out.jsonl");
+    const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const exitCode = await main(
+        ["pipe", "build.output", "--level", "bogus"],
+        { ...baseEnv, MADEIT_LOG_SINK: `file:${target}` },
+        { stdin: Readable.from([]), stdout: { write: () => true } },
+      );
+      expect(exitCode).toBe(0);
+      expect(spy).toHaveBeenCalledOnce();
+      const written = spy.mock.calls[0]?.[0];
+      const str = typeof written === "string" ? written : String(written);
+      const record = JSON.parse(str.trim()) as LogRecord;
+      expect(record.Attributes["madeit.invalid_sink"]).toBe(`file:${target}`);
+      const cliError = String(record.Attributes["madeit.cli_error"]);
+      expect(cliError).toContain("ENOTDIR");
+      expect(cliError).toContain('unknown --level "bogus"');
+      expect(cliError).toContain("; ");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it("reads unknown for every resource field and names all five in madeit.missing_resource", async () => {
     const file = tmpFile();
     const exitCode = await main(["info", "probe.hello", "hi"], { MADEIT_LOG_SINK: `file:${file}` }, fakeIo());
