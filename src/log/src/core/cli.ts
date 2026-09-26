@@ -103,11 +103,10 @@ function markSinkFailure(record: LogRecord, rawSinkValue: string, reason: string
   };
 }
 
-// A synchronous throw from sink() is fully caught here and rerouted to
-// stderr as one JSON record, with the failure disabling that sink for the
-// rest of the process rather than retrying it on every call. stdout's own
-// real failures (a broken pipe) surface asynchronously and never reach this
-// catch; the entrypoint's permanent 'error' listener covers those instead.
+// A synchronous throw from sink() is caught here and rerouted to stderr as
+// one JSON record, disabling that sink instead of retrying it. stdout's own
+// failures are asynchronous, caught only by the entrypoint's permanent
+// 'error' listener, not this fallback.
 function withStderrFallback(sink: Sink, rawSinkValue: string): Sink {
   const fallback = stderrSink();
   let failure: string | undefined;
@@ -145,11 +144,14 @@ function chooseSink(env: Record<string, string | undefined>): SinkChoice {
         };
       }
     }
+    return { sink: stderrSink(), extraAttributes: addCliError({ "madeit.invalid_sink": raw }, "file: needs a path") };
   }
-  // An unrecognized sink, including a file: value with no path, must not
-  // swallow the caller's record, so it still ships, to the safe default, with
-  // the bad value visible on the record itself.
-  return { sink: stderrSink(), extraAttributes: { "madeit.invalid_sink": raw } };
+  // An unrecognized sink must not swallow the caller's record, so it still
+  // ships, to the safe default, with the bad value and a reason on the record.
+  return {
+    sink: stderrSink(),
+    extraAttributes: addCliError({ "madeit.invalid_sink": raw }, "unrecognized MADEIT_LOG_SINK value"),
+  };
 }
 
 function isLevel(value: string | undefined): value is Level {
@@ -250,12 +252,12 @@ function parsePipeArgs(args: readonly string[]): PipeParseResult {
     if (flag === "--level") {
       const value = rest[++index];
       if (value === undefined) return { ok: false, reason: `missing value for --level. Usage: ${PIPE_USAGE}` };
-      if (!isLevel(value)) return { ok: false, reason: `unknown --level "${value}". Usage: ${PIPE_USAGE}` };
+      if (!isLevel(value)) return { ok: false, reason: `unknown --level value. Usage: ${PIPE_USAGE}` };
       level = value;
     } else if (flag === "--stream") {
       const value = rest[++index];
       if (value === undefined) return { ok: false, reason: `missing value for --stream. Usage: ${PIPE_USAGE}` };
-      if (!isStream(value)) return { ok: false, reason: `unknown --stream "${value}". Usage: ${PIPE_USAGE}` };
+      if (!isStream(value)) return { ok: false, reason: `unknown --stream value. Usage: ${PIPE_USAGE}` };
       stream = value;
     } else if (flag === "--tee") {
       tee = true;
@@ -533,10 +535,10 @@ function isPipedStdin(stdin: NodeJS.ReadableStream): boolean {
   return (stdin as { isTTY?: boolean }).isTTY !== true;
 }
 
-// A misused pipe call, or one whose event slot turned out to be "--help",
-// must still drain stdin to EOF: leaving it unread is what SIGPIPEs an
-// upstream producer under `set -o pipefail`. The same tee guard as a real
-// run keeps a broken or slow stdout from crashing or hanging this drain.
+// A misused or help-only pipe call must still drain stdin to EOF: leaving it
+// unread is what SIGPIPEs an upstream producer under `set -o pipefail`. The
+// same tee guard as a real run keeps a broken or slow stdout from crashing
+// or hanging this drain.
 async function drainPipedStdin(
   logger: Logger,
   markerAttributes: Record<string, unknown>,
@@ -560,31 +562,31 @@ async function drainPipedStdin(
   }
 }
 
-// The outer catch below can run before logger even exists (a failure inside
-// its own construction), so this fallback drain has no reporting: it only
-// keeps an upstream producer from seeing SIGPIPE, best-effort.
+// A Logger that goes nowhere, for draining stdin when a real one is not
+// available yet (the outer catch below can run before it exists).
+const NOOP_LOGGER: Logger = {
+  debug: () => {},
+  info: () => {},
+  warn: () => {},
+  error: () => {},
+  withTrace: () => NOOP_LOGGER,
+};
+
+// The outer catch can run before logger even exists (a failure inside its
+// own construction), so this fallback drain reuses the same backpressure-
+// and EPIPE-safe guard as a real run, just with nothing to report to.
 async function drainStdinRaw(io: CliIo, tee: boolean): Promise<void> {
-  if (!isPipedStdin(io.stdin)) return;
-  let stillTeeing = tee;
-  try {
-    for await (const chunk of io.stdin) {
-      if (!stillTeeing) continue;
-      try {
-        io.stdout.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-      } catch {
-        stillTeeing = false;
-      }
-    }
-  } catch {
-    // best effort only
-  }
+  await drainPipedStdin(NOOP_LOGGER, {}, io, tee);
 }
 
+// isLevel(level) already guards the "missing event"/"missing body" branches
+// below, so level there is always one of the four fixed words, never
+// arbitrary caller text; event and body are arbitrary, so neither is echoed.
 function describeMisuse(level: string | undefined, event: string | undefined, body: string | undefined): string {
   if (level === undefined) return `no command given. Usage: ${USAGE}`;
-  if (!isLevel(level)) return `unknown level "${level}". Usage: ${USAGE}`;
+  if (!isLevel(level)) return `unknown level. Usage: ${USAGE}`;
   if (event === undefined) return `missing event for level "${level}". Usage: ${USAGE}`;
-  if (body === undefined) return `missing body for event "${event}". Usage: ${USAGE}`;
+  if (body === undefined) return `missing body. Usage: ${USAGE}`;
   return `madeit-log was called incorrectly. Usage: ${USAGE}`;
 }
 
@@ -598,7 +600,15 @@ export async function main(
   io: CliIo,
 ): Promise<number> {
   const isPipeInvocation = argv[0] === "pipe";
-  const wantsTee = argv.includes("--tee");
+  // Every argument after "pipe" is either the event or one of pipe's own
+  // flags, so -h/--help there always means help. In event mode, -h/--help is
+  // ordinary caller data (an event, a body, an attribute value) and must
+  // never be special-cased, or a value like "$1" happening to be -h would
+  // silently swallow a real record.
+  const pipeArgs = isPipeInvocation ? argv.slice(1) : [];
+  const wantsTee = pipeArgs.includes("--tee");
+  const helpRequested =
+    argv[0] === "--help" || argv[0] === "-h" || pipeArgs.includes("--help") || pipeArgs.includes("-h");
   try {
     const { fields, missing } = buildResource(env);
     const sinkChoice = chooseSink(env);
@@ -616,9 +626,20 @@ export async function main(
     const markerAttributes: Record<string, unknown> = { ...sinkChoice.extraAttributes };
     if (missing.length > 0) markerAttributes["madeit.missing_resource"] = missing.join(",");
 
-    // Checked anywhere in argv, not only argv[0], so "pipe --help" prints
-    // help instead of treating "--help" as the event and hanging on stdin.
-    if (argv.includes("--help") || argv.includes("-h")) {
+    if (helpRequested) {
+      if (isPipeInvocation && wantsTee) {
+        // Help text and teed bytes share stdout; mixing them would corrupt
+        // whatever the caller downstream expects. --tee wins: the request is
+        // noted as a record instead, and the bytes still pass through whole.
+        emitLogMeta(
+          logger,
+          markerAttributes,
+          "madeit-log pipe --help was ignored",
+          "--tee was present; help text is never mixed into teed output",
+        );
+        await drainPipedStdin(logger, markerAttributes, io, true);
+        return 0;
+      }
       io.stdout.write(HELP);
       if (isPipeInvocation) await drainPipedStdin(logger, markerAttributes, io, wantsTee);
       return 0;

@@ -87,14 +87,10 @@ describe("cli bin entrypoint, run as a subprocess through a symlink", () => {
 
 describe("process-level stream errors, at the entrypoint (subprocess repros)", () => {
   // A downstream reader that never reads anything lets the tee target's pipe
-  // buffer fill, forcing a drain wait, then exits, closing the pipe. Node
-  // reports the resulting EPIPE on process.stdout asynchronously, which must
-  // not crash the process, and must still be reported as this tee's own
-  // log.meta. A reader that reads a few bytes first (e.g. `head -c 10`) can
-  // free enough pipe capacity, on some platforms, for the rest of the queued
-  // data to flush before the reader exits, making the outcome a race; a
-  // reader that reads nothing, with input safely larger than any pipe
-  // buffer, makes the EPIPE unconditional.
+  // buffer fill and then close, making the resulting EPIPE unconditional and
+  // reportable as this tee's own log.meta. A reader that consumes even a few
+  // bytes first (e.g. `head -c 10`) can free enough capacity for the rest to
+  // flush before it exits, turning the outcome into a race on some platforms.
   it("pipe --tee resolves 0, does not crash, and reports exactly one tee failure when the downstream reader exits without reading", () => {
     const inputDir = makeTempDir("madeit-log-epipe-in-");
     const inputPath = path.join(inputDir, "input.txt");
@@ -133,6 +129,7 @@ describe("process-level stream errors, at the entrypoint (subprocess repros)", (
     const metaRecords = records.filter((record) => record.Attributes["madeit.event"] === "log.meta");
     expect(lineRecords.length).toBe(lines.length);
     expect(metaRecords).toHaveLength(1);
+    expect(String(metaRecords[0]?.Attributes["madeit.cli_error"])).toMatch(/EPIPE|closed/);
   }, 20_000);
 });
 

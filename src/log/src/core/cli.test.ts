@@ -154,8 +154,8 @@ describe("cli main, event mode", () => {
     expect(record?.Attributes["madeit.invalid_attribute_count"]).toBe(4);
   });
 
-  // M4: a sink-creation failure and a later misuse are two separate
-  // CLI-generated reasons for the same record; neither may erase the other.
+  // A sink-creation failure and a later misuse are two separate CLI-generated
+  // reasons for the same record; neither may erase the other.
   it("joins a sink-creation failure and a later misuse into one madeit.cli_error instead of one overwriting the other", async () => {
     const parent = fs.mkdtempSync(path.join(os.tmpdir(), "cli-"));
     const blocker = path.join(parent, "blocker");
@@ -176,7 +176,7 @@ describe("cli main, event mode", () => {
       expect(record.Attributes["madeit.invalid_sink"]).toBe(`file:${target}`);
       const cliError = String(record.Attributes["madeit.cli_error"]);
       expect(cliError).toContain("ENOTDIR");
-      expect(cliError).toContain('unknown --level "bogus"');
+      expect(cliError).toContain("unknown --level value");
       expect(cliError).toContain("; ");
     } finally {
       spy.mockRestore();
@@ -242,7 +242,19 @@ describe("cli main, event mode", () => {
     await assertSingleMisuse(["info"]);
   });
 
-  it("MADEIT_LOG_SINK=bogus still emits, to stderr, and carries madeit.invalid_sink", async () => {
+  // The rule is unconditional: an unrecognized level or a missing body must
+  // not echo the caller's text, since either can be a credential-shaped
+  // string mistakenly given as the level or the event.
+  it("never echoes a credential-shaped value from an unknown level or a missing body", async () => {
+    const secret = "ghp_SECRETVALUE";
+    for (const argv of [[secret, "probe.x", "hi"], ["info", secret]]) {
+      const [record] = await runToFile(argv);
+      expect(record?.Attributes["madeit.event"]).toBe("log.meta");
+      expect(JSON.stringify(record)).not.toContain(secret);
+    }
+  });
+
+  it("MADEIT_LOG_SINK=bogus still emits, to stderr, and carries madeit.invalid_sink and a madeit.cli_error reason", async () => {
     const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
       const exitCode = await main(
@@ -257,6 +269,7 @@ describe("cli main, event mode", () => {
       const record = JSON.parse(str.trim()) as LogRecord;
       expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
       expect(record.Attributes["madeit.invalid_sink"]).toBe("bogus");
+      expect(typeof record.Attributes["madeit.cli_error"]).toBe("string");
     } finally {
       spy.mockRestore();
     }
@@ -350,7 +363,7 @@ describe("cli main, event mode", () => {
     }
   });
 
-  it("treats an empty file: path as an invalid sink and falls back to stderr", async () => {
+  it("treats an empty file: path as an invalid sink, falls back to stderr, and carries a madeit.cli_error reason", async () => {
     const spy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
     try {
       const exitCode = await main(
@@ -365,6 +378,7 @@ describe("cli main, event mode", () => {
       const record = JSON.parse(str.trim()) as LogRecord;
       expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
       expect(record.Attributes["madeit.invalid_sink"]).toBe("file:");
+      expect(typeof record.Attributes["madeit.cli_error"]).toBe("string");
     } finally {
       spy.mockRestore();
     }
@@ -784,8 +798,8 @@ describe("cli main, pipe mode", () => {
     await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--bogus"], /unknown argument/);
   });
 
-  // I1: a caller who meant event mode's key=value attributes can easily pass
-  // one to pipe by mistake, and the value half of it can be a credential.
+  // A caller who meant event mode's key=value attributes can easily pass one
+  // to pipe by mistake, and the value half of it can be a credential.
   it("misuse from a key=value argument never echoes the value, only the key", async () => {
     const secret = "ghp_SECRETVALUE";
     const { records } = await runPipeToFile(["pipe", "build.output", `github_token=${secret}`], [Buffer.from("")]);
@@ -797,11 +811,26 @@ describe("cli main, pipe mode", () => {
   });
 
   it("misuse (bad --level value) resolves 0, emits log.meta, and drains stdin without logging it", async () => {
-    await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--level", "bogus"], /unknown --level "bogus"/);
+    await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--level", "bogus"], /unknown --level value/);
   });
 
   it("misuse (bad --stream value) resolves 0, emits log.meta, and drains stdin without logging it", async () => {
-    await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--stream", "bogus"], /unknown --stream "bogus"/);
+    await assertPipeMisuseDrainsStdin(["pipe", "build.output", "--stream", "bogus"], /unknown --stream value/);
+  });
+
+  // The rule is unconditional: a credential-shaped --level or --stream value
+  // must not reach stdout or stderr at all, not even truncated or partial.
+  it("never echoes a credential-shaped --level or --stream value into the misuse record", async () => {
+    const secret = "ghp_SECRETVALUE";
+    for (const argv of [
+      ["pipe", "build.output", "--level", secret],
+      ["pipe", "build.output", "--stream", secret],
+    ]) {
+      const { records } = await runPipeToFile(argv, [Buffer.from("")]);
+      const [record] = records;
+      expect(record?.Attributes["madeit.event"]).toBe("log.meta");
+      expect(JSON.stringify(record)).not.toContain(secret);
+    }
   });
 
   it("misuse (missing --level value) resolves 0, emits log.meta, and drains stdin without logging it", async () => {
@@ -816,9 +845,53 @@ describe("cli main, pipe mode", () => {
     await assertPipeMisuseDrainsStdin(["pipe", "--steam", "stderr"], /event cannot start with "-"/);
   });
 
-  // C1: draining must still respect --tee, so a caller who typed the flag in
-  // the wrong position (or made any other pipe mistake) does not silently
-  // lose their output on top of the misuse.
+  // The outer catch can run before a logger exists at all (something threw
+  // during buildResource here); its drain must still respect backpressure
+  // and tee correctly instead of writing every chunk without waiting.
+  it("respects backpressure while draining on the outer catch's fallback path", async () => {
+    const throwingEnv = new Proxy(
+      {},
+      {
+        get(_target, prop) {
+          if (prop === "MADEIT_SERVICE") throw new Error("boom");
+          return undefined;
+        },
+      },
+    ) as unknown as Record<string, string | undefined>;
+
+    const written: Buffer[] = [];
+    let writeCalls = 0;
+    let drainCallback: (() => void) | undefined;
+    const stdout = {
+      write: (chunk: string | Uint8Array) => {
+        written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        writeCalls++;
+        return writeCalls > 1;
+      },
+      once: (event: string, listener: () => void) => {
+        if (event === "drain") drainCallback = listener;
+      },
+    };
+    const chunks = [Buffer.from("a\n"), Buffer.from("b\n")];
+    const stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    try {
+      const runPromise = main(["pipe", "x", "--tee"], throwingEnv, { stdin: Readable.from(chunks), stdout });
+      for (let attempt = 0; attempt < 50 && drainCallback === undefined; attempt++) {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      expect(drainCallback).toBeDefined();
+      expect(writeCalls).toBe(1);
+      drainCallback?.();
+      const exitCode = await runPromise;
+      expect(exitCode).toBe(0);
+      expect(Buffer.concat(written).equals(Buffer.concat(chunks))).toBe(true);
+    } finally {
+      stderrSpy.mockRestore();
+    }
+  });
+
+  // Draining must still respect --tee, so a caller who typed the flag in the
+  // wrong position does not silently lose their output on top of the misuse.
   it("misuse drains stdin and tees it through unchanged when --tee is anywhere in argv", async () => {
     const input = Buffer.from("visible line\n");
     const stdin = Readable.from([input]);
@@ -859,24 +932,93 @@ describe("cli main, pipe mode", () => {
 });
 
 describe("cli main, --help", () => {
-  it("prints help and drains piped stdin when pipe misuse is really --help in the event slot", async () => {
+  // -h/--help is recognized only as argv[0] or among pipe's own arguments
+  // (every argument after "pipe" is a flag or the event), never as ordinary
+  // data elsewhere, so a value like "$1" happening to be -h in event mode
+  // cannot silently swallow a real record.
+  it("-h as an event-mode value is ordinary data, not a help trigger", async () => {
+    const written: string[] = [];
+    const io = {
+      stdin: Readable.from([]),
+      stdout: { write: (chunk: string | Uint8Array) => { written.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString()); return true; } },
+    };
+    const file = tmpFile();
+    const exitCode = await main(["info", "cli.invoked", "-h"], { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` }, io);
+    expect(exitCode).toBe(0);
+    expect(written.join("")).toBe("");
+    const [record] = readLines(file);
+    expect(record?.Attributes["madeit.event"]).toBe("cli.invoked");
+    expect(record?.Body).toBe("-h");
+  });
+
+  it("--help at argv[0] prints usage and resolves 0", async () => {
+    const io = fakeIo();
+    const exitCode = await main(["--help"], baseEnv, io);
+    expect(exitCode).toBe(0);
+    expect(io.written.join("")).toContain("madeit-log <debug|info|warn|error> <event> <body> [key=value ...]");
+  });
+
+  it("-h at argv[0] prints usage and resolves 0", async () => {
+    const io = fakeIo();
+    const exitCode = await main(["-h"], baseEnv, io);
+    expect(exitCode).toBe(0);
+    expect(io.written.join("")).toContain("madeit-log <debug|info|warn|error> <event> <body> [key=value ...]");
+  });
+
+  it("pipe --help prints usage and drains a non-TTY stdin without --tee", async () => {
+    const stdin = Readable.from([Buffer.from("should be discarded\n")]);
+    const written: string[] = [];
+    const exitCode = await main(["pipe", "--help"], baseEnv, {
+      stdin,
+      stdout: { write: (chunk) => { written.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString()); return true; } },
+    });
+    expect(exitCode).toBe(0);
+    expect(written.join("")).toContain(
+      "madeit-log pipe <event> [--level debug|info|warn|error] [--stream stdout|stderr] [--tee]",
+    );
+    expect(stdin.readableEnded).toBe(true);
+  });
+
+  it("pipe x.y -h prints usage and drains a non-TTY stdin", async () => {
+    const stdin = Readable.from([Buffer.from("should be discarded\n")]);
+    const written: string[] = [];
+    const exitCode = await main(["pipe", "x.y", "-h"], baseEnv, {
+      stdin,
+      stdout: { write: (chunk) => { written.push(typeof chunk === "string" ? chunk : Buffer.from(chunk).toString()); return true; } },
+    });
+    expect(exitCode).toBe(0);
+    expect(written.join("")).toContain(
+      "madeit-log pipe <event> [--level debug|info|warn|error] [--stream stdout|stderr] [--tee]",
+    );
+    expect(stdin.readableEnded).toBe(true);
+  });
+
+  // --tee wins over help: mixing usage text into the teed byte stream would
+  // corrupt it, so the request becomes a log.meta instead and the bytes
+  // still pass through whole.
+  it("pipe x --tee -h passes stdin through untouched instead of mixing in help text", async () => {
     const input = Buffer.from("visible line\n");
     const stdin = Readable.from([input]);
     const written: Buffer[] = [];
-    const io = {
-      stdin,
-      stdout: {
-        write: (chunk: string | Uint8Array) => {
-          written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-          return true;
+    const file = tmpFile();
+    const exitCode = await main(
+      ["pipe", "x", "--tee", "-h"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      {
+        stdin,
+        stdout: {
+          write: (chunk: string | Uint8Array) => {
+            written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            return true;
+          },
         },
       },
-    };
-    const exitCode = await main(["pipe", "--help", "--tee"], baseEnv, io);
+    );
     expect(exitCode).toBe(0);
-    const output = Buffer.concat(written).toString("utf8");
-    expect(output).toContain("madeit-log <debug|info|warn|error> <event> <body> [key=value ...]");
-    expect(output).toContain(input.toString("utf8"));
+    expect(Buffer.concat(written).equals(input)).toBe(true);
+    const [record] = readLines(file);
+    expect(record?.Attributes["madeit.event"]).toBe("log.meta");
+    expect(String(record?.Attributes["madeit.cli_error"])).toContain("--tee");
   });
 
   it("pipe -h prints help without hanging on an isTTY stdin", async () => {

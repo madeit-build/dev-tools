@@ -82,7 +82,7 @@ suites validate that.
 | `daemon.lifecycle` | `madeit.phase`, `madeit.pid`, `madeit.socket` | spawn, listening, the exits |
 | `crash` | `madeit.error`, `madeit.stack_digest` | an uncaught error, as a queryable record |
 | `sink.disabled` | `madeit.error` | a sink threw and was taken out of rotation |
-| `log.meta` | `madeit.error` | logging itself failed, as reported by logtape or by the wrapper |
+| `log.meta` | `madeit.error` or `madeit.cli_error` | logging itself failed (`madeit.error`, as reported by logtape or the wrapper), or the `madeit-log` CLI reported a misuse or a sink failure of its own (`madeit.cli_error`); a query needs both |
 | `log.unserializable` | `madeit.original_event`, `madeit.error` | a record JSON could not carry, standing in for the original |
 
 `event` must match `^[a-z][a-z0-9.-]*$` and `body` must be non-empty. The
@@ -138,6 +138,12 @@ about:
 ```bash
 madeit-log info deploy.started "starting deploy" madeit.target=box madeit.version="$VERSION"
 ```
+
+Each `key=value` becomes an attribute; a value that JSON-parses as a number,
+boolean or null keeps that type, and anything else stays a string. An
+argument with no `=` is not logged (its text could easily be a mis-quoted
+value, possibly a credential): it is only counted, in
+`madeit.invalid_attribute_count`.
 
 The second turns a subprocess's stdout and stderr into records, one per line,
 without swallowing the output a person or the next stage of a pipeline still
