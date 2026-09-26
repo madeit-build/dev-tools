@@ -111,11 +111,15 @@ function chooseSink(env: Record<string, string | undefined>): SinkChoice {
     if (filePath !== "") {
       try {
         return { sink: withStderrFallback(fileSink(filePath)), extraAttributes: {} };
-      } catch {
+      } catch (error) {
         // fileSink's mkdirSync can fail before any record is ever written (an
-        // ENOTDIR path segment, for example). The record must still reach
-        // stderr rather than vanish behind a diagnostic-only line.
-        return { sink: stderrSink(), extraAttributes: { "madeit.invalid_sink": raw } };
+        // ENOTDIR path segment, for example). The record, the sink value and
+        // the failure reason must all still reach stderr, not just a
+        // diagnostic-only line.
+        return {
+          sink: stderrSink(),
+          extraAttributes: { "madeit.invalid_sink": raw, "madeit.error": errorMessage(error) },
+        };
       }
     }
   }
@@ -323,6 +327,7 @@ function emitLogMeta(
 
 interface TeeGuard {
   readonly forward: (buffer: Buffer) => Promise<void>;
+  readonly flush: () => Promise<void>;
   readonly dispose: () => void;
 }
 
@@ -336,10 +341,9 @@ function attachTeeGuard(
   tee: boolean,
 ): TeeGuard {
   let broken = false;
-  // forward() is always awaited before the next chunk is processed, so at
-  // most one drain wait is ever pending. One slot for its release is enough:
-  // nothing accumulates while the tee stays healthy, unlike a fresh promise
-  // chained onto a long-lived signal for every wait.
+  // forward() and flush() are always awaited in sequence, so at most one
+  // drain wait is ever pending at a time. One slot for its release is
+  // enough: each new wait overwrites it instead of accumulating.
   let releasePendingDrain: (() => void) | undefined;
 
   function breakTee(error: unknown): void {
@@ -353,10 +357,8 @@ function attachTeeGuard(
   const onClose = (): void => breakTee(new Error("tee target closed before all output was written"));
 
   if (tee) {
-    // A dead tee target only ever announces itself through 'error' or
-    // 'close', and either can fire more than once; the listener must stay
-    // registered for as long as the tee is in use, not self-remove after the
-    // first event.
+    // 'error' can fire more than once, so its listener must stay attached.
+    // 'close' fires exactly once per stream, so once() already matches it.
     stdout.on?.("error", onError);
     stdout.once?.("close", onClose);
   }
@@ -387,12 +389,24 @@ function attachTeeGuard(
     }
   }
 
+  // A write that returned true can still be sitting unflushed in the
+  // target's own buffer once the stdin loop ends. Waiting for it here, while
+  // the guard is still attached, is what lets a failure that only shows up
+  // later still reach this tee's own log.meta instead of only the
+  // entrypoint's silent, permanent listener.
+  async function flush(): Promise<void> {
+    if (!tee || broken) return;
+    const writableLength = (stdout as { writableLength?: unknown }).writableLength;
+    if (typeof writableLength !== "number" || writableLength <= 0) return;
+    await awaitDrain();
+  }
+
   function dispose(): void {
     stdout.off?.("error", onError);
     stdout.off?.("close", onClose);
   }
 
-  return { forward, dispose };
+  return { forward, flush, dispose };
 }
 
 // A tee failure or a broken stdin must not discard lines that already
@@ -461,6 +475,10 @@ async function runPipe(
     // A final line with no trailing newline is still a record, not a dropped tail.
     flushPendingLine();
   } finally {
+    // A late failure in whatever the tee still has queued must be seen while
+    // the guard's listeners are attached, or it only reaches the
+    // entrypoint's silent, permanent listener instead of this tee's log.meta.
+    await teeGuard.flush();
     teeGuard.dispose();
   }
 }
@@ -524,19 +542,18 @@ export async function main(
     logger[level](event, body, attributes);
     return 0;
   } catch (error) {
-    // Whatever survives everything above lands here: a sink whose directory
-    // cannot be created, or any other unexpected failure. Either way the
-    // caller still sees exit 0, not a crashed shell.
+    // Whatever survives everything above (chooseSink and runPipe already
+    // handle their own known failure modes) is unexpected, and the caller
+    // still sees exit 0, not a crashed shell.
     process.stderr.write(`madeit-log: ${errorMessage(error)}\n`);
     return 0;
   }
 }
 
 // Node reports EPIPE or EBADF on process.stdout/process.stderr as
-// asynchronous 'error' events. With no listener, that crashes the process
-// after main has already resolved, so a permanent, silent listener has to be
-// in place before main ever runs. It must not itself write to the broken
-// stream.
+// asynchronous 'error' events, which crash the process if nothing is
+// listening, even after main already resolved. The listener stays silent:
+// writing to the broken stream here would just repeat the same failure.
 function ignoreStreamErrors(stream: NodeJS.WritableStream): void {
   stream.on("error", () => {});
 }
@@ -551,7 +568,23 @@ async function runAsEntrypoint(): Promise<void> {
   process.exitCode = exitCode;
 }
 
-const invokedPath = process.argv[1];
-if (invokedPath !== undefined && fs.realpathSync(invokedPath) === fileURLToPath(import.meta.url)) {
-  void runAsEntrypoint();
+// realpathSync throws when argv[1] names a path that does not exist, which
+// happens for a script fed on stdin or a module imported with an arbitrary
+// argv[1]. Any failure here just means this module was not run directly.
+function isDirectEntrypoint(invokedPath: string | undefined): boolean {
+  if (invokedPath === undefined) return false;
+  try {
+    return fs.realpathSync(invokedPath) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectEntrypoint(process.argv[1])) {
+  // main already resolves 0 for any input; this only guards a rejection that
+  // reaches past it, so the process still exits 0 instead of crashing on an
+  // unhandled rejection.
+  void runAsEntrypoint().catch(() => {
+    process.exitCode = 0;
+  });
 }

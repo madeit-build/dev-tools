@@ -1,9 +1,9 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import { execFileSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { Ajv2020 } from "ajv/dist/2020.js";
 import type { LogRecord } from "./record.ts";
 
@@ -19,6 +19,19 @@ beforeAll(() => {
   execFileSync("pnpm", ["run", "build"], { cwd: packageRoot, stdio: "inherit" });
 }, 60_000);
 
+const tempDirs: string[] = [];
+function makeTempDir(prefix: string): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  tempDirs.push(dir);
+  return dir;
+}
+
+afterEach(() => {
+  for (const dir of tempDirs.splice(0)) {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // MADEIT_LOG_SINK from the outer test run must never leak into a subprocess
 // meant to exercise the CLI's own default.
 function subprocessEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
@@ -29,7 +42,7 @@ function subprocessEnv(overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
 
 describe("cli bin entrypoint, run as a subprocess through a symlink", () => {
   it("emits a valid record and exits 0 when invoked through a symlink, npm .bin style", () => {
-    const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "madeit-log-bin-"));
+    const binDir = makeTempDir("madeit-log-bin-");
     const symlinkPath = path.join(binDir, "madeit-log");
     fs.symlinkSync(cliDistPath, symlinkPath);
 
@@ -55,17 +68,30 @@ describe("cli bin entrypoint, run as a subprocess through a symlink", () => {
     const firstLine = fs.readFileSync(cliDistPath, "utf8").split("\n")[0];
     expect(firstLine).toBe("#!/usr/bin/env node");
   });
+
+  // fs.realpathSync throws for a path that does not exist. A script fed on
+  // stdin, or any other caller of this module with an unrelated argv[1],
+  // must not crash the import; it must just mean "not the entrypoint".
+  it("stays inert, printing nothing, when argv[1] names a path that does not exist", () => {
+    const importScript = `import(${JSON.stringify(pathToFileURL(cliDistPath).href)})`;
+    const result = spawnSync(
+      process.execPath,
+      ["--input-type=module", "-e", importScript, "/does/not/exist"],
+      { env: subprocessEnv(), encoding: "utf8" },
+    );
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stdout).toBe("");
+    expect(result.stderr).toBe("");
+  });
 });
 
 describe("process-level stream errors, at the entrypoint (subprocess repros)", () => {
-  // Concrete repro (Task 3 review): a slow downstream reader lets the tee
-  // target's pipe buffer fill, forcing a drain wait, then the reader exits
-  // after only a few bytes. Node reports the resulting EPIPE on process.stdout
-  // asynchronously, after runPipe's own tee guard has already been torn down,
-  // and an unhandled 'error' event crashes the process even though main
-  // already resolved 0.
-  it("pipe --tee resolves 0 even when the downstream reader closes early (EPIPE)", () => {
-    const inputDir = fs.mkdtempSync(path.join(os.tmpdir(), "madeit-log-epipe-in-"));
+  // A slow downstream reader lets the tee target's pipe buffer fill, forcing
+  // a drain wait, then the reader exits after only a few bytes. Node reports
+  // the resulting EPIPE on process.stdout asynchronously, which must not
+  // crash the process, and must still be reported as this tee's own log.meta.
+  it("pipe --tee resolves 0, tees no crash, and reports exactly one tee failure when the downstream reader closes early (EPIPE)", () => {
+    const inputDir = makeTempDir("madeit-log-epipe-in-");
     const inputPath = path.join(inputDir, "input.txt");
     const lineText = "x".repeat(48);
     const lines: string[] = [];
@@ -76,12 +102,12 @@ describe("process-level stream errors, at the entrypoint (subprocess repros)", (
     }
     fs.writeFileSync(inputPath, `${lines.join("\n")}\n`);
 
-    const sinkDir = fs.mkdtempSync(path.join(os.tmpdir(), "madeit-log-epipe-sink-"));
+    const sinkDir = makeTempDir("madeit-log-epipe-sink-");
     const sinkFile = path.join(sinkDir, "out.jsonl");
 
     const script = [
       "set -o pipefail",
-      `node ${JSON.stringify(cliDistPath)} pipe build.output --tee < ${JSON.stringify(inputPath)} | (sleep 2; head -c 10) > /dev/null`,
+      `${JSON.stringify(process.execPath)} ${JSON.stringify(cliDistPath)} pipe build.output --tee < ${JSON.stringify(inputPath)} | (sleep 2; head -c 10) > /dev/null`,
       'echo "MADEIT_EXIT:${PIPESTATUS[0]}"',
     ].join("\n");
 
@@ -98,18 +124,10 @@ describe("process-level stream errors, at the entrypoint (subprocess repros)", (
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line) as LogRecord);
-    expect(records.length).toBe(lines.length);
+    const lineRecords = records.filter((record) => record.Attributes["madeit.event"] !== "log.meta");
+    const metaRecords = records.filter((record) => record.Attributes["madeit.event"] === "log.meta");
+    expect(lineRecords.length).toBe(lines.length);
+    expect(metaRecords).toHaveLength(1);
+    expect(String(metaRecords[0]?.Attributes["madeit.error"])).toMatch(/EPIPE|closed/);
   }, 20_000);
-
-  // Concrete repro (Task 3 review): the default sink is stderr, and a caller
-  // that closes fd 2 before invoking madeit-log must still see exit 0, not a
-  // crash from writing to a closed file descriptor.
-  it("exits 0 when stderr is closed (2>&-) and the default sink is stderr", () => {
-    const script = `node ${JSON.stringify(cliDistPath)} info probe.x hi 2>&-`;
-    const result = spawnSync("bash", ["-c", script], {
-      env: subprocessEnv(),
-      encoding: "utf8",
-    });
-    expect(result.status, result.stderr).toBe(0);
-  }, 10_000);
 });

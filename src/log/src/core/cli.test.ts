@@ -254,6 +254,7 @@ describe("cli main, event mode", () => {
       expect(validate(record), JSON.stringify(validate.errors)).toBe(true);
       expect(record.Body).toBe("hi");
       expect(record.Attributes["madeit.invalid_sink"]).toBe(`file:${target}`);
+      expect(String(record.Attributes["madeit.error"])).toContain("ENOTDIR");
     } finally {
       spy.mockRestore();
     }
@@ -530,9 +531,6 @@ describe("cli main, pipe mode", () => {
     expect(metaRecords).toHaveLength(1);
   });
 
-  // A dead tee target only ever announces itself through 'error', never through
-  // another chance to write, so the listener has to survive past the first
-  // 'error' for as long as the tee is still in use, not self-remove on it.
   // Each drain wait must be independent of how many waits came before it: a
   // tee that keeps reporting backpressure for thousands of lines must still
   // resolve correctly and promptly, not accumulate state per wait.
@@ -575,6 +573,9 @@ describe("cli main, pipe mode", () => {
     expect(readLines(file)).toHaveLength(lineCount);
   });
 
+  // A dead tee target only ever announces itself through 'error', never
+  // through another chance to write, so the listener has to survive past the
+  // first 'error' for as long as the tee is still in use, not self-remove on it.
   it("keeps swallowing tee target errors after the first one instead of throwing on the second", async () => {
     const stdout = new EventEmitter() as EventEmitter & CliIo["stdout"];
     stdout.write = () => true;

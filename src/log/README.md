@@ -154,6 +154,11 @@ output never reaches the terminal or the next pipe stage, only the records
 do. A line longer than 16 KiB is cut to that length, and the record says so
 with `madeit.truncated` and `madeit.line_bytes`.
 
+The `2> >(...)` process substitution can still be running after
+`some-build-command` finishes, since it reads stderr on its own schedule. Add
+`wait` (bash 4.4+ waits for the last process substitution) before reading the
+records, or the stderr side's lines may not be there yet.
+
 ### Environment variables
 
 **Resource**, set once at the top of a script. A variable left unset becomes
