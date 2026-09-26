@@ -9,12 +9,14 @@ const LEVELS = ["debug", "info", "warn", "error"] as const;
 type Level = (typeof LEVELS)[number];
 
 const USAGE = "madeit-log <debug|info|warn|error> <event> <body> [key=value ...]";
+const PIPE_USAGE =
+  "madeit-log pipe <event> [--level debug|info|warn|error] [--stream stdout|stderr] [--tee]";
 
 const HELP = `madeit-log: emit one madeit-log-v1 record from bash
 
 Usage:
   ${USAGE}
-  madeit-log pipe <event> [--level debug|info|warn|error] [--stream stdout|stderr] [--tee]
+  ${PIPE_USAGE}
   madeit-log --help
 
 Resource environment variables (each falls back to "unknown" when unset):
@@ -155,6 +157,116 @@ function parseAttributes(args: readonly string[]): Record<string, unknown> {
   return attributes;
 }
 
+type Stream = "stdout" | "stderr";
+
+interface PipeOptions {
+  readonly event: string;
+  readonly level: Level;
+  readonly stream: Stream;
+  readonly tee: boolean;
+}
+
+type PipeParseResult =
+  | { readonly ok: true; readonly options: PipeOptions }
+  | { readonly ok: false; readonly reason: string };
+
+function isStream(value: string | undefined): value is Stream {
+  return value === "stdout" || value === "stderr";
+}
+
+// Flags come after the event and are parsed left to right; any of them missing
+// its value, or an argument this loop does not recognize, is misuse and must
+// be caught before stdin is ever touched.
+function parsePipeArgs(args: readonly string[]): PipeParseResult {
+  const [event, ...rest] = args;
+  if (event === undefined) return { ok: false, reason: `missing event for pipe. Usage: ${PIPE_USAGE}` };
+
+  let level: Level = "info";
+  let stream: Stream = "stdout";
+  let tee = false;
+  for (let index = 0; index < rest.length; index++) {
+    const flag = rest[index];
+    if (flag === "--level") {
+      const value = rest[++index];
+      if (!isLevel(value)) return { ok: false, reason: `unknown --level "${value}". Usage: ${PIPE_USAGE}` };
+      level = value;
+    } else if (flag === "--stream") {
+      const value = rest[++index];
+      if (!isStream(value)) return { ok: false, reason: `unknown --stream "${value}". Usage: ${PIPE_USAGE}` };
+      stream = value;
+    } else if (flag === "--tee") {
+      tee = true;
+    } else {
+      return { ok: false, reason: `unknown argument "${flag}" for pipe. Usage: ${PIPE_USAGE}` };
+    }
+  }
+  return { ok: true, options: { event, level, stream, tee } };
+}
+
+const MAX_LINE_BYTES = 16384;
+
+interface ProcessedLine {
+  readonly text: string;
+  readonly truncated: boolean;
+  readonly lineBytes: number;
+}
+
+// madeit.line_bytes counts the raw segment between newlines, including a
+// trailing \r when present. Stripping that \r and cutting to MAX_LINE_BYTES
+// both happen afterward, to the logged text, so they never shrink this count.
+function processLine(rawLine: Buffer): ProcessedLine {
+  const lineBytes = rawLine.length;
+  const hasTrailingCr = lineBytes > 0 && rawLine[lineBytes - 1] === 0x0d;
+  const content = hasTrailingCr ? rawLine.subarray(0, lineBytes - 1) : rawLine;
+  const truncated = content.length > MAX_LINE_BYTES;
+  const text = (truncated ? content.subarray(0, MAX_LINE_BYTES) : content).toString("utf8");
+  return { text, truncated, lineBytes };
+}
+
+function emitPipeLine(
+  logger: Logger,
+  options: PipeOptions,
+  markerAttributes: Record<string, unknown>,
+  rawLine: Buffer,
+): void {
+  const { text, truncated, lineBytes } = processLine(rawLine);
+  const attributes: Record<string, unknown> = {
+    "madeit.line": text,
+    "madeit.stream": options.stream,
+    ...(truncated ? { "madeit.truncated": true, "madeit.line_bytes": lineBytes } : {}),
+    ...markerAttributes,
+  };
+  // An empty line is still a real record, not a malformed call, so it gets a
+  // placeholder Body rather than tripping the core's invalid-body mark.
+  const body = text.length > 0 ? text : "(empty line)";
+  logger[options.level](options.event, body, attributes);
+}
+
+// Reads stdin as raw bytes so a multi-byte UTF-8 character split across two
+// chunks only gets decoded once both halves have arrived, and --tee can
+// forward every chunk unchanged before it is ever touched for line-splitting.
+async function runPipe(
+  logger: Logger,
+  options: PipeOptions,
+  markerAttributes: Record<string, unknown>,
+  io: CliIo,
+): Promise<void> {
+  let remainder = Buffer.alloc(0);
+  for await (const chunk of io.stdin) {
+    const buffer = typeof chunk === "string" ? Buffer.from(chunk) : Buffer.from(chunk);
+    if (options.tee) io.stdout.write(buffer);
+    remainder = Buffer.concat([remainder, buffer]);
+    let newlineIndex = remainder.indexOf(0x0a);
+    while (newlineIndex !== -1) {
+      emitPipeLine(logger, options, markerAttributes, remainder.subarray(0, newlineIndex));
+      remainder = remainder.subarray(newlineIndex + 1);
+      newlineIndex = remainder.indexOf(0x0a);
+    }
+  }
+  // A final line with no trailing newline is still a record, not a dropped tail.
+  if (remainder.length > 0) emitPipeLine(logger, options, markerAttributes, remainder);
+}
+
 function describeMisuse(level: string | undefined, event: string | undefined, body: string | undefined): string {
   if (level === undefined) return `no command given. Usage: ${USAGE}`;
   if (!isLevel(level)) return `unknown level "${level}". Usage: ${USAGE}`;
@@ -196,6 +308,16 @@ export async function main(
     // chooseSink's result a pure description of the sink it picked.
     const markerAttributes: Record<string, unknown> = { ...sinkChoice.extraAttributes };
     if (missing.length > 0) markerAttributes["madeit.missing_resource"] = missing.join(",");
+
+    if (argv[0] === "pipe") {
+      const parsed = parsePipeArgs(argv.slice(1));
+      if (!parsed.ok) {
+        emitMisuse(logger, markerAttributes, parsed.reason);
+        return 0;
+      }
+      await runPipe(logger, parsed.options, markerAttributes, io);
+      return 0;
+    }
 
     const [level, event, body, ...rest] = argv;
     if (!isLevel(level) || event === undefined || body === undefined) {
