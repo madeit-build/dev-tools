@@ -7,6 +7,7 @@ export interface CliIo {
   readonly stdin: NodeJS.ReadableStream;
   readonly stdout: {
     write(chunk: string | Uint8Array): unknown;
+    on?(event: string, listener: (...args: unknown[]) => void): unknown;
     once?(event: string, listener: (...args: unknown[]) => void): unknown;
     off?(event: string, listener: (...args: unknown[]) => void): unknown;
   };
@@ -335,42 +336,44 @@ function attachTeeGuard(
   tee: boolean,
 ): TeeGuard {
   let broken = false;
-  let resolveBroken: (() => void) | undefined;
-  const brokenSignal = new Promise<void>((resolve) => {
-    resolveBroken = resolve;
-  });
+  // forward() is always awaited before the next chunk is processed, so at
+  // most one drain wait is ever pending. One slot for its release is enough:
+  // nothing accumulates while the tee stays healthy, unlike a fresh promise
+  // chained onto a long-lived signal for every wait.
+  let releasePendingDrain: (() => void) | undefined;
 
   function breakTee(error: unknown): void {
     if (broken) return;
     broken = true;
     emitLogMeta(logger, markerAttributes, "madeit-log pipe tee failed", errorMessage(error));
-    resolveBroken?.();
+    releasePendingDrain?.();
   }
 
   const onError = (error: unknown): void => breakTee(error);
   const onClose = (): void => breakTee(new Error("tee target closed before all output was written"));
 
   if (tee) {
-    stdout.once?.("error", onError);
+    // A dead tee target only ever announces itself through 'error' or
+    // 'close', and either can fire more than once; the listener must stay
+    // registered for as long as the tee is in use, not self-remove after the
+    // first event.
+    stdout.on?.("error", onError);
     stdout.once?.("close", onClose);
   }
 
   async function awaitDrain(): Promise<void> {
-    if (typeof stdout.once !== "function") return;
+    if (typeof stdout.once !== "function" || broken) return;
     await new Promise<void>((resolve) => {
-      let settled = false;
       const onDrain = (): void => {
-        if (settled) return;
-        settled = true;
+        releasePendingDrain = undefined;
+        resolve();
+      };
+      releasePendingDrain = (): void => {
+        stdout.off?.("drain", onDrain);
+        releasePendingDrain = undefined;
         resolve();
       };
       stdout.once?.("drain", onDrain);
-      void brokenSignal.then(() => {
-        if (settled) return;
-        settled = true;
-        stdout.off?.("drain", onDrain);
-        resolve();
-      });
     });
   }
 

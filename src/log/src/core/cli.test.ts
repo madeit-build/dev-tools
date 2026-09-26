@@ -3,6 +3,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { EventEmitter } from "node:events";
 import { Readable, Writable } from "node:stream";
 import { main, type CliIo } from "./cli.ts";
 import type { LogRecord } from "./record.ts";
@@ -526,6 +527,83 @@ describe("cli main, pipe mode", () => {
     const lineRecords = records.filter((record) => record?.Attributes["madeit.event"] !== "log.meta");
     expect(lineRecords.map((record) => record?.Attributes["madeit.line"])).toEqual(["a", "b"]);
     const metaRecords = records.filter((record) => record?.Attributes["madeit.event"] === "log.meta");
+    expect(metaRecords).toHaveLength(1);
+  });
+
+  // A dead tee target only ever announces itself through 'error', never through
+  // another chance to write, so the listener has to survive past the first
+  // 'error' for as long as the tee is still in use, not self-remove on it.
+  // Each drain wait must be independent of how many waits came before it: a
+  // tee that keeps reporting backpressure for thousands of lines must still
+  // resolve correctly and promptly, not accumulate state per wait.
+  it("handles 10,000 drain waits while the tee stays healthy, without hanging or losing lines", async () => {
+    let writeCalls = 0;
+    const written: Buffer[] = [];
+    let pendingDrainListener: (() => void) | undefined;
+    const stdout: CliIo["stdout"] = {
+      write: (chunk) => {
+        writeCalls++;
+        written.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+        setImmediate(() => {
+          const listener = pendingDrainListener;
+          pendingDrainListener = undefined;
+          listener?.();
+        });
+        return false;
+      },
+      once: (event, listener) => {
+        if (event === "drain") pendingDrainListener = listener as () => void;
+      },
+      off: (event, listener) => {
+        if (event === "drain" && pendingDrainListener === listener) pendingDrainListener = undefined;
+      },
+    };
+    const lineCount = 10_000;
+    // One chunk per line, so forward() writes 10,000 times and every one of
+    // them reports backpressure: this is what makes each awaitDrain a
+    // separate wait rather than one wait for the whole input.
+    const chunks = Array.from({ length: lineCount }, (_, i) => Buffer.from(`line-${i}\n`));
+    const file = tmpFile();
+    const exitCode = await main(
+      ["pipe", "build.output", "--tee"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      { stdin: Readable.from(chunks), stdout },
+    );
+    expect(exitCode).toBe(0);
+    expect(writeCalls).toBe(lineCount);
+    expect(Buffer.concat(written).equals(Buffer.concat(chunks))).toBe(true);
+    expect(readLines(file)).toHaveLength(lineCount);
+  });
+
+  it("keeps swallowing tee target errors after the first one instead of throwing on the second", async () => {
+    const stdout = new EventEmitter() as EventEmitter & CliIo["stdout"];
+    stdout.write = () => true;
+    const stdin = new Readable({ read() {} });
+    const file = tmpFile();
+    const runPromise = main(
+      ["pipe", "build.output", "--tee"],
+      { ...baseEnv, MADEIT_LOG_SINK: `file:${file}` },
+      { stdin, stdout },
+    );
+
+    stdin.push(Buffer.from("a\n"));
+    for (let attempt = 0; attempt < 50; attempt++) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    stdout.emit("error", new Error("first failure"));
+
+    let threwOnSecondEmit = false;
+    try {
+      stdout.emit("error", new Error("second failure"));
+    } catch {
+      threwOnSecondEmit = true;
+    }
+    expect(threwOnSecondEmit).toBe(false);
+
+    stdin.push(null);
+    const exitCode = await runPromise;
+    expect(exitCode).toBe(0);
+    const metaRecords = readLines(file).filter((record) => record?.Attributes["madeit.event"] === "log.meta");
     expect(metaRecords).toHaveLength(1);
   });
 
