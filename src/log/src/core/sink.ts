@@ -8,6 +8,10 @@ export function stdoutSink(): Sink {
   return (record) => { process.stdout.write(serialize(record) + "\n"); };
 }
 
+export function stderrSink(): Sink {
+  return (record) => { process.stderr.write(serialize(record) + "\n"); };
+}
+
 export function fileSink(filePath: string): Sink {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   return (record) => { fs.appendFileSync(filePath, serialize(record) + "\n"); };
