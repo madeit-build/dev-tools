@@ -92,6 +92,18 @@ describe("cli main, event mode", () => {
     expect(JSON.stringify(record?.Attributes)).not.toContain("ghp_SECRETVALUE");
   });
 
+  // Base64 padding and URL query strings both contain "=", so without a key
+  // shape check nearly the whole secret would become the attribute's key.
+  it("counts an argument whose key is not key-shaped, or whose value is only base64 padding, without echoing it", async () => {
+    const secrets = ["c2stbGl2ZS1hYmMxMjM=", "dG9rZW4+Lw==", "https://example.com/cb?access_token=abc123"];
+    const [record] = await runToFile(["info", "probe.hello", "hi", ...secrets, "madeit.target=box"]);
+    expect(record?.Attributes["madeit.invalid_attribute_count"]).toBe(3);
+    expect(record?.Attributes["madeit.target"]).toBe("box");
+    for (const secret of secrets) {
+      expect(JSON.stringify(record)).not.toContain(secret.replace(/=+$/, "").slice(0, 12));
+    }
+  });
+
   // Mirrors the CLI's key=value JSON-typing rule, so the "keep" branch below can
   // assert on the exact typed value rather than only its presence.
   function expectedAttributeValue(raw: string): unknown {
@@ -808,6 +820,21 @@ describe("cli main, pipe mode", () => {
     expect(String(record?.Attributes["madeit.cli_error"])).toContain("github_token");
     expect(String(record?.Attributes["madeit.cli_error"])).not.toContain(secret);
     expect(JSON.stringify(record)).not.toContain(secret);
+  });
+
+  it("misuse from a padded base64 or dash-led argument never echoes any of it", async () => {
+    for (const secret of ["c2stbGl2ZS1hYmMxMjM=", "-sk_live_abc123def456", "--token/abc+def"]) {
+      const { records } = await runPipeToFile(["pipe", "build.output", secret], [Buffer.from("")]);
+      const [record] = records;
+      expect(record?.Attributes["madeit.event"]).toBe("log.meta");
+      expect(String(record?.Attributes["madeit.cli_error"])).toContain("argument 1");
+      expect(JSON.stringify(record)).not.toContain(secret.replace(/^-+|=+$/g, "").slice(0, 8));
+    }
+  });
+
+  it("misuse from a well-shaped unknown flag still names the flag", async () => {
+    const { records } = await runPipeToFile(["pipe", "build.output", "--bogus"], [Buffer.from("")]);
+    expect(String(records[0]?.Attributes["madeit.cli_error"])).toContain("--bogus");
   });
 
   it("misuse (bad --level value) resolves 0, emits log.meta, and drains stdin without logging it", async () => {

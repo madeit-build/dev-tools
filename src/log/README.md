@@ -141,8 +141,10 @@ madeit-log info deploy.started "starting deploy" madeit.target=box madeit.versio
 
 Each `key=value` becomes an attribute; a value that JSON-parses as a number,
 boolean or null keeps that type, and anything else stays a string. An
-argument with no `=` is not logged (its text could easily be a mis-quoted
-value, possibly a credential): it is only counted, in
+argument with no `=`, a key that is not 1 to 64 characters of letters,
+digits, `_`, `.` or `-` (starting with a letter or `_`), or a value that is
+only `=` padding is not logged (its text could easily be a mis-quoted value,
+possibly a credential): it is only counted, in
 `madeit.invalid_attribute_count`.
 
 The second turns a subprocess's stdout and stderr into records, one per line,

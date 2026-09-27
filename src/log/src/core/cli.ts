@@ -188,19 +188,32 @@ const RESERVED_ATTRIBUTE_KEYS = new Set([
   "madeit.cli_error",
 ]);
 
+const ATTRIBUTE_KEY = /^[A-Za-z_][A-Za-z0-9_.-]{0,63}$/;
+const BASE64_PADDING_ONLY = /^=*$/;
+
+// Base64 padding and URL query strings both carry "=", so splitting on the
+// first one alone would turn most of a mis-passed secret into a key.
+function splitAttribute(arg: string): { readonly key: string; readonly raw: string } | undefined {
+  const separator = arg.indexOf("=");
+  if (separator <= 0) return undefined;
+  const key = arg.slice(0, separator);
+  const raw = arg.slice(separator + 1);
+  if (!ATTRIBUTE_KEY.test(key) || BASE64_PADDING_ONLY.test(raw)) return undefined;
+  return { key, raw };
+}
+
 // A bare argument's text is counted, never echoed: a forgotten "=" is exactly
 // how a caller who meant "key=value" ends up passing a raw secret instead.
 function parseAttributes(args: readonly string[]): Record<string, unknown> {
   const attributes: Record<string, unknown> = {};
   let invalidCount = 0;
   for (const arg of args) {
-    const separator = arg.indexOf("=");
-    const key = separator > 0 ? arg.slice(0, separator) : "";
-    if (separator <= 0 || RESERVED_ATTRIBUTE_KEYS.has(key)) {
+    const attribute = splitAttribute(arg);
+    if (attribute === undefined || RESERVED_ATTRIBUTE_KEYS.has(attribute.key)) {
       invalidCount++;
       continue;
     }
-    attributes[key] = coerceValue(arg.slice(separator + 1));
+    attributes[attribute.key] = coerceValue(attribute.raw);
   }
   if (invalidCount > 0) attributes["madeit.invalid_attribute_count"] = invalidCount;
   return attributes;
@@ -223,13 +236,15 @@ function isStream(value: string | undefined): value is Stream {
   return value === "stdout" || value === "stderr";
 }
 
+const FLAG_SHAPE = /^--?[A-Za-z][A-Za-z0-9-]{0,31}$/;
+
 // An unrecognized argument is described by its key only: a "key=value" shape
 // is exactly how a caller who meant event mode's attributes ends up passing
 // one to pipe, and the value half can be a credential.
 function describePipeArgument(flag: string, position: number): string {
-  const separator = flag.indexOf("=");
-  if (separator > 0) return flag.slice(0, separator);
-  if (flag.startsWith("-")) return flag;
+  const attribute = splitAttribute(flag);
+  if (attribute !== undefined) return attribute.key;
+  if (FLAG_SHAPE.test(flag)) return flag;
   return `argument ${position + 1}`;
 }
 
