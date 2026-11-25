@@ -9,6 +9,7 @@
       "commonDir": "/work/box.provisioning/.git",
       "repoFolder": "box.provisioning",
       "origin": {
+        "host": "github.com",
         "owner": "madeit-build",
         "name": "box.provisioning"
       },
@@ -38,6 +39,7 @@
       "commonDir": "/work/box.provisioning/.git",
       "repoFolder": "box.provisioning",
       "origin": {
+        "host": "github.com",
         "owner": "madeit-build",
         "name": "box.provisioning"
       },
@@ -67,6 +69,7 @@
       "commonDir": "/work/seaboard/.git",
       "repoFolder": "seaboard",
       "origin": {
+        "host": "github.com",
         "owner": "madeit-build",
         "name": "seaboard"
       },
@@ -81,6 +84,7 @@
       "commonDir": "/work/box.provisioning/.git",
       "repoFolder": "box.provisioning",
       "origin": {
+        "host": "github.com",
         "owner": "madeit-build",
         "name": "box.provisioning"
       },
@@ -109,6 +113,7 @@
       "commonDir": "/scratch/src/gufo-v0.35.0/.git",
       "repoFolder": "gufo-v0.35.0",
       "origin": {
+        "host": "github.com",
         "owner": "gufo-org",
         "name": "gufo"
       },
@@ -123,6 +128,7 @@
       "commonDir": "/work/box.provisioning/.git",
       "repoFolder": "box.provisioning",
       "origin": {
+        "host": "github.com",
         "owner": "madeit-build",
         "name": "box.provisioning"
       },
@@ -156,6 +162,7 @@
       "commonDir": "/scratch/src/gufo-v0.35.0/.git",
       "repoFolder": "gufo-v0.35.0",
       "origin": {
+        "host": "github.com",
         "owner": "gufo-org",
         "name": "gufo"
       },
@@ -185,6 +192,7 @@
       "commonDir": "/scratch/src/gufo-v0.35.0/.git",
       "repoFolder": "gufo-v0.35.0",
       "origin": {
+        "host": "github.com",
         "owner": "gufo-org",
         "name": "gufo"
       },
@@ -224,6 +232,7 @@
       "commonDir": "/scratch/src/gufo-v0.35.0/.git",
       "repoFolder": "gufo-v0.35.0",
       "origin": {
+        "host": "github.com",
         "owner": "gufo-org",
         "name": "gufo"
       },
@@ -238,6 +247,7 @@
       "commonDir": "/scratch/src/thing/.git",
       "repoFolder": "thing",
       "origin": {
+        "host": "github.com",
         "owner": "other",
         "name": "thing"
       },
@@ -282,6 +292,7 @@
       "commonDir": "/work/box.provisioning/.git",
       "repoFolder": "box.provisioning",
       "origin": {
+        "host": "github.com",
         "owner": "madeit-build",
         "name": "box.provisioning"
       },
@@ -352,6 +363,7 @@
       "commonDir": "/work/box.provisioning/.git",
       "repoFolder": "box.provisioning",
       "origin": {
+        "host": "github.com",
         "owner": "madeit-build",
         "name": "box.provisioning"
       },
@@ -411,6 +423,7 @@
       "commonDir": "/work/box.provisioning/.git",
       "repoFolder": "box.provisioning",
       "origin": {
+        "host": "github.com",
         "owner": "madeit-build",
         "name": "box.provisioning"
       },
@@ -425,6 +438,7 @@
       "commonDir": "/work/box.provisioning/.git",
       "repoFolder": "box.provisioning",
       "origin": {
+        "host": "github.com",
         "owner": "madeit-build",
         "name": "box.provisioning"
       },
@@ -453,6 +467,7 @@
       "commonDir": "/scratch/src/gufo-v0.35.0/.git",
       "repoFolder": "gufo-v0.35.0",
       "origin": {
+        "host": "github.com",
         "owner": "gufo-org",
         "name": "gufo"
       },
@@ -497,6 +512,7 @@
       "commonDir": "/scratch/src/gufo-v0.35.0/.git",
       "repoFolder": "gufo-v0.35.0",
       "origin": {
+        "host": "github.com",
         "owner": "gufo-org",
         "name": "gufo"
       },
@@ -541,6 +557,7 @@
       "commonDir": "/scratch/src/gufo-v0.35.0/.git",
       "repoFolder": "gufo-v0.35.0",
       "origin": {
+        "host": "github.com",
         "owner": "gufo-org",
         "name": "gufo"
       },
@@ -555,6 +572,7 @@
       "commonDir": "/scratch/src/gufo-v0.35.0/.git",
       "repoFolder": "gufo-v0.35.0",
       "origin": {
+        "host": "github.com",
         "owner": "gufo-org",
         "name": "gufo"
       },
@@ -583,6 +601,7 @@
       "commonDir": "/work/box.provisioning/.git",
       "repoFolder": "box.provisioning",
       "origin": {
+        "host": "github.com",
         "owner": "MadeIt-Build",
         "name": "box.provisioning"
       },
@@ -600,6 +619,85 @@
       "refKind": "branch",
       "context": null,
       "display": "box.provisioning on branch main"
+    }
+  },
+  {
+    "name": "our org's name on another host is not ours",
+    "org": "madeit-build",
+    "cwd": {
+      "path": "/work/box.provisioning",
+      "exists": true,
+      "folder": "box.provisioning",
+      "commonDir": "/work/box.provisioning/.git",
+      "repoFolder": "box.provisioning",
+      "origin": {
+        "host": "git.example.net",
+        "owner": "madeit-build",
+        "name": "box.provisioning"
+      },
+      "ref": "main",
+      "refKind": "branch",
+      "failures": []
+    },
+    "session": null,
+    "expect": {
+      "project": "git.example.net/madeit-build/box.provisioning",
+      "source": "origin",
+      "sessionSource": null,
+      "ours": false,
+      "ref": "main",
+      "refKind": "branch",
+      "context": null,
+      "display": "git.example.net/madeit-build/box.provisioning on branch main (not one of ours)"
+    }
+  },
+  {
+    "name": "the same owner and name on two hosts are two repos",
+    "org": "madeit-build",
+    "cwd": {
+      "path": "/scratch/src/lookalike",
+      "exists": true,
+      "folder": "lookalike",
+      "commonDir": "/scratch/src/lookalike/.git",
+      "repoFolder": "lookalike",
+      "origin": {
+        "host": "git.example.net",
+        "owner": "madeit-build",
+        "name": "box.provisioning"
+      },
+      "ref": "main",
+      "refKind": "branch",
+      "failures": []
+    },
+    "session": {
+      "path": "/work/box.provisioning",
+      "exists": true,
+      "folder": "box.provisioning",
+      "commonDir": "/work/box.provisioning/.git",
+      "repoFolder": "box.provisioning",
+      "origin": {
+        "host": "github.com",
+        "owner": "madeit-build",
+        "name": "box.provisioning"
+      },
+      "ref": "main",
+      "refKind": "branch",
+      "failures": []
+    },
+    "expect": {
+      "project": "box.provisioning",
+      "source": "session",
+      "sessionSource": "origin",
+      "ours": true,
+      "ref": "main",
+      "refKind": "branch",
+      "context": {
+        "project": "git.example.net/madeit-build/box.provisioning",
+        "source": "origin",
+        "ref": "main",
+        "refKind": "branch"
+      },
+      "display": "box.provisioning on branch main, while inside a clone of git.example.net/madeit-build/box.provisioning on branch main"
     }
   }
 ]

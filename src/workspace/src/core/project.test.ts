@@ -89,3 +89,17 @@ describe("resolveProject", () => {
     for (const resolution of seen) expect(validate(resolution), JSON.stringify(validate.errors)).toBe(true);
   });
 });
+
+describe("who counts as ours", () => {
+  it("our org's name on a host we do not use is not ours, and does not beat the session", () => {
+    const lookalike = makeRepo(root, "lookalike", { origin: "https://git.example.net/madeit-build/box.provisioning.git" });
+    const resolution = resolveProject({ cwd: lookalike, sessionDir: ours });
+    expect(resolution).toMatchObject({ project: "box.provisioning", source: "session", ours: true });
+    expect(resolution.context?.project).toBe("git.example.net/madeit-build/box.provisioning");
+  });
+
+  it("hosts is an input", () => {
+    const lookalike = makeRepo(root, "mirror", { origin: "https://git.example.net/madeit-build/seaboard.git" });
+    expect(resolveProject({ cwd: lookalike, hosts: ["github.com", "git.example.net"] })).toMatchObject({ project: "seaboard", ours: true });
+  });
+});

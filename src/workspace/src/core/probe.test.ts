@@ -59,13 +59,13 @@ describe("probeDirectory against real repositories", () => {
 
   it("a foreign origin", () => {
     const dir = makeRepo(root, "gufo-v0.35.0", { origin: "https://github.com/gufo-org/gufo" });
-    expect(probeDirectory(dir).origin).toEqual({ owner: "gufo-org", name: "gufo" });
+    expect(probeDirectory(dir).origin).toEqual({ host: "github.com", owner: "gufo-org", name: "gufo" });
   });
 
   it("an origin carrying a credential never surfaces it", () => {
     const dir = makeRepo(root, "with-credential", { origin: "https://someuser:s3cr3tvalue@github.com/madeit-build/example.git" });
     const facts = probeDirectory(dir);
-    expect(facts.origin).toEqual({ owner: "madeit-build", name: "example" });
+    expect(facts.origin).toEqual({ host: "github.com", owner: "madeit-build", name: "example" });
     expect(JSON.stringify(facts)).not.toContain("s3cr3tvalue");
     expect(JSON.stringify(facts)).not.toContain("someuser");
   });

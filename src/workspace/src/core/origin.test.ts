@@ -12,8 +12,25 @@ it.each([
   ["  https://github.com/madeit-build/dev-tools.git\n", "madeit-build", "dev-tools"],
   ["git@github.com:group/sub/name.git", "group/sub", "name"],
 ])("parses %s", (url, owner, name) => {
-  expect(parseOrigin(url)).toEqual({ owner, name });
+  expect(parseOrigin(url)).toMatchObject({ owner, name });
 });
+
+it.each([
+  ["https://github.com/madeit-build/dev-tools.git", "github.com"],
+  ["git@github.com:madeit-build/box.provisioning.git", "github.com"],
+  ["ssh://git@GitHub.com:22/madeit-build/seaboard.git", "github.com"],
+  ["https://git.example.net/madeit-build/box.provisioning.git", "git.example.net"],
+  ["git@work-alias:madeit-build/dev-tools.git", "work-alias"],
+])("keeps the host of %s, lowercased", (url, host) => {
+  expect(parseOrigin(url)?.host).toBe(host);
+});
+
+it.each(["file:/srv/git/owner/thing.git", "ext::sh -c owner/thing", "foo:bar/baz", "javascript:owner/thing", "host.example:/abs/owner/thing"])(
+  "does not read %s as a host and path",
+  (url) => {
+    expect(parseOrigin(url)).toBeNull();
+  },
+);
 
 it.each(["/srv/git/thing.git", "../sibling", "", "https://github.com/onlyowner", "not a url", "file:///srv/git/owner/thing.git", "C:\\repos\\owner\\thing"])(
   "returns null for %s",

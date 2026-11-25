@@ -1,15 +1,15 @@
 import { decide } from "./decide.ts";
 import { displayLine } from "./display.ts";
-import { DEFAULT_ORG, SCHEMA_ID, type ProjectResolution } from "./facts.ts";
+import { DEFAULT_HOSTS, DEFAULT_ORG, SCHEMA_ID, type ProjectResolution } from "./facts.ts";
 import { probeDirectory, runGit, type GitRun } from "./probe.ts";
 
-export { DEFAULT_ORG } from "./facts.ts";
+export { DEFAULT_HOSTS, DEFAULT_ORG } from "./facts.ts";
 export type {
   DirectorySource, Layer, ProjectContext, ProjectResolution, RefKind, Source,
 } from "./facts.ts";
 export type { GitRun } from "./probe.ts";
 
-export type ResolveInput = { cwd: string; sessionDir?: string | null; org?: string };
+export type ResolveInput = { cwd: string; sessionDir?: string | null; org?: string; hosts?: readonly string[] };
 
 // The last resort when the input itself is unusable. It is labeled a folder so it cannot read as an answer.
 function unusable(): ProjectResolution {
@@ -29,7 +29,7 @@ export function resolveProject(input: ResolveInput, run: GitRun = runGit): Proje
   try {
     const cwd = probeDirectory(input.cwd, run);
     const session = input.sessionDir ? probeDirectory(input.sessionDir, run) : null;
-    const decided = decide({ cwd, session, org: input.org || DEFAULT_ORG });
+    const decided = decide({ cwd, session, org: input.org || DEFAULT_ORG, hosts: input.hosts ?? DEFAULT_HOSTS });
     return { ...decided, display: displayLine(decided) };
   } catch {
     return unusable();

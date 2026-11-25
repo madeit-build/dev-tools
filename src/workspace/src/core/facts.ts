@@ -10,7 +10,7 @@ export type DirectoryFacts = {
   folder: string;
   commonDir: string | null;
   repoFolder: string | null;
-  origin: { owner: string; name: string } | null;
+  origin: { host: string; owner: string; name: string } | null;
   ref: string | null;
   refKind: RefKind | null;
   failures: Failure[];
@@ -46,3 +46,4 @@ export type ProjectResolution = {
 
 export const SCHEMA_ID = "madeit-workspace-project-v1" as const;
 export const DEFAULT_ORG = "madeit-build";
+export const DEFAULT_HOSTS: readonly string[] = ["github.com"];

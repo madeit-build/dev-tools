@@ -1,4 +1,5 @@
 import {
+  DEFAULT_HOSTS,
   SCHEMA_ID,
   type DirectoryFacts,
   type DirectorySource,
@@ -11,24 +12,35 @@ type Named = { name: string; source: DirectorySource; ours: boolean | null };
 
 const SOURCES: readonly DirectorySource[] = ["origin", "git-common-dir", "folder"];
 
-function isOurs(facts: DirectoryFacts, org: string): boolean | null {
-  if (!facts.origin) return null;
-  return facts.origin.owner.toLowerCase() === org.toLowerCase();
+// Who counts as us: an owner on a forge. The owner alone is not an identity, since anyone can
+// create that owner name on a host of their own.
+type Org = { name: string; hosts: readonly string[] };
+
+function onKnownHost(facts: DirectoryFacts, org: Org): boolean {
+  return facts.origin !== null && org.hosts.some((host) => host.toLowerCase() === facts.origin!.host);
 }
 
-// A repo that is not ours keeps its owner, so it can never read like one of ours.
-function originName(facts: DirectoryFacts, org: string): string | null {
+function isOurs(facts: DirectoryFacts, org: Org): boolean | null {
   if (!facts.origin) return null;
-  return isOurs(facts, org) ? facts.origin.name : `${facts.origin.owner}/${facts.origin.name}`;
+  return onKnownHost(facts, org) && facts.origin.owner.toLowerCase() === org.name.toLowerCase();
 }
 
-function valueOf(facts: DirectoryFacts, source: DirectorySource, org: string): string | null {
+// A repo that is not ours keeps its owner, and its host when that is not a forge we use,
+// so it can never read like one of ours.
+function originName(facts: DirectoryFacts, org: Org): string | null {
+  if (!facts.origin) return null;
+  if (isOurs(facts, org)) return facts.origin.name;
+  const ownerAndName = `${facts.origin.owner}/${facts.origin.name}`;
+  return onKnownHost(facts, org) ? ownerAndName : `${facts.origin.host}/${ownerAndName}`;
+}
+
+function valueOf(facts: DirectoryFacts, source: DirectorySource, org: Org): string | null {
   if (source === "origin") return originName(facts, org);
   if (source === "git-common-dir") return facts.repoFolder;
   return facts.folder;
 }
 
-function nameOf(facts: DirectoryFacts, org: string): Named {
+function nameOf(facts: DirectoryFacts, org: Org): Named {
   const source = SOURCES.find((each) => valueOf(facts, each, org) !== null) ?? "folder";
   return { name: valueOf(facts, source, org) ?? facts.folder, source, ours: isOurs(facts, org) };
 }
@@ -36,20 +48,23 @@ function nameOf(facts: DirectoryFacts, org: string): Named {
 function sameRepo(a: DirectoryFacts, b: DirectoryFacts): boolean {
   if (a.commonDir !== null && a.commonDir === b.commonDir) return true;
   if (!a.origin || !b.origin) return false;
+  if (a.origin.host !== b.origin.host) return false;
   return a.origin.owner.toLowerCase() === b.origin.owner.toLowerCase() && a.origin.name === b.origin.name;
 }
 
-function describe(facts: DirectoryFacts, source: DirectorySource, org: string): string {
+function describe(facts: DirectoryFacts, source: DirectorySource, org: Org): string {
   const inRepo = facts.commonDir !== null;
   if (source === "origin") {
     if (!facts.origin) return inRepo ? "the repo has no origin remote" : "not a git repo";
-    return isOurs(facts, org) ? `the origin remote is in ${org}` : `the origin remote belongs to ${facts.origin.owner}, not ${org}`;
+    return isOurs(facts, org)
+      ? `the origin remote is in ${org.name}`
+      : `the origin remote is ${facts.origin.owner} on ${facts.origin.host}, which is not ${org.name} on ${org.hosts.join(" or ")}`;
   }
   if (source === "git-common-dir") return inRepo ? "the folder that holds the repo's git directory" : "not a git repo";
   return "the directory's own name";
 }
 
-function layersFor(where: Layer["where"], facts: DirectoryFacts, org: string, used: DirectorySource | null): Layer[] {
+function layersFor(where: Layer["where"], facts: DirectoryFacts, org: Org, used: DirectorySource | null): Layer[] {
   return SOURCES.map((source) => {
     const failure = facts.failures.find((each) => each.source === source);
     if (failure) return { where, source, outcome: "failed", value: null, detail: failure.detail };
@@ -63,8 +78,10 @@ export function decide(input: {
   cwd: DirectoryFacts;
   session: DirectoryFacts | null;
   org: string;
+  hosts?: readonly string[];
 }): Omit<ProjectResolution, "display"> {
-  const { cwd, session, org } = input;
+  const { cwd, session } = input;
+  const org: Org = { name: input.org, hosts: input.hosts ?? DEFAULT_HOSTS };
   const cwdNamed = nameOf(cwd, org);
   // A session that started in a plain folder never wins: its name would be a fallback labeled as an answer.
   const sessionWins = cwdNamed.ours !== true && session !== null && session.commonDir !== null;
