@@ -7,7 +7,11 @@ import { gitCanStart, probeDirectory } from "./probe.ts";
 import { resolveProject } from "./project.ts";
 import { claudeCodeSessionDir, type SessionDir } from "./session.ts";
 
-export type CliIo = { out(text: string): void; env: NodeJS.ProcessEnv; cwd: string };
+export type CliIo = {
+  out(text: string): void;
+  env: NodeJS.ProcessEnv;
+  cwd: string;
+};
 
 const USAGE = `madeit-workspace: which project is this work about, and how do we know
 
@@ -26,7 +30,12 @@ const EXIT_OK = 0;
 const EXIT_CHECK_FAILED = 1;
 const EXIT_USAGE = 2;
 
-type Options = { cwd?: string; "session-dir"?: string; org?: string; help?: boolean };
+type Options = {
+  cwd?: string;
+  "session-dir"?: string;
+  org?: string;
+  help?: boolean;
+};
 
 function sessionFromEnvironment(env: NodeJS.ProcessEnv): SessionDir {
   return claudeCodeSessionDir({
@@ -36,8 +45,13 @@ function sessionFromEnvironment(env: NodeJS.ProcessEnv): SessionDir {
 }
 
 function project(options: Options, io: CliIo): number {
-  const sessionDir = options["session-dir"] ?? sessionFromEnvironment(io.env).dir;
-  const resolution = resolveProject({ cwd: options.cwd ?? io.cwd, sessionDir, org: options.org });
+  const sessionDir =
+    options["session-dir"] ?? sessionFromEnvironment(io.env).dir;
+  const resolution = resolveProject({
+    cwd: options.cwd ?? io.cwd,
+    sessionDir,
+    org: options.org,
+  });
   io.out(JSON.stringify(resolution, null, 2));
   return EXIT_OK;
 }
@@ -49,17 +63,43 @@ function checks(cwd: string, env: NodeJS.ProcessEnv): Check[] {
   const facts = probeDirectory(cwd);
   const hasSessionId = (env.CLAUDE_CODE_SESSION_ID ?? "") !== "";
   const session = hasSessionId ? sessionFromEnvironment(env) : null;
-  const originFailure = facts.failures.find((failure) => failure.source === "origin");
-  const check = (name: string, passed: boolean, detail: string): Check => ({ name, outcome: passed ? "ok" : "fail", detail });
+  const originFailure = facts.failures.find(
+    (failure) => failure.source === "origin",
+  );
+  const check = (name: string, passed: boolean, detail: string): Check => ({
+    name,
+    outcome: passed ? "ok" : "fail",
+    detail,
+  });
 
   return [
     check("git starts", gitCanStart(), "install git or fix PATH"),
-    check("the working directory exists", facts.exists, "pass --cwd with a directory that exists"),
-    check("a session id is in the environment", hasSessionId, "CLAUDE_CODE_SESSION_ID is unset; run inside a Claude Code session or pass --session-dir to project"),
+    check(
+      "the working directory exists",
+      facts.exists,
+      "pass --cwd with a directory that exists",
+    ),
+    check(
+      "a session id is in the environment",
+      hasSessionId,
+      "CLAUDE_CODE_SESSION_ID is unset; run inside a Claude Code session or pass --session-dir to project",
+    ),
     session === null
-      ? { name: "the session's transcript names a start directory", outcome: "skip", detail: "there is no session id to look up" }
-      : check("the session's transcript names a start directory", session.dir !== null, session.detail),
-    check("the origin remote is readable", originFailure === undefined, originFailure?.detail ?? ""),
+      ? {
+          name: "the session's transcript names a start directory",
+          outcome: "skip",
+          detail: "there is no session id to look up",
+        }
+      : check(
+          "the session's transcript names a start directory",
+          session.dir !== null,
+          session.detail,
+        ),
+    check(
+      "the origin remote is readable",
+      originFailure === undefined,
+      originFailure?.detail ?? "",
+    ),
   ];
 }
 
@@ -67,9 +107,14 @@ function doctor(options: Options, io: CliIo): number {
   const results = checks(options.cwd ?? io.cwd, io.env);
   for (const result of results) {
     if (result.outcome === "ok") io.out(`ok   ${result.name}`);
-    else io.out(`${result.outcome === "fail" ? "FAIL" : "skip"} ${result.name}: ${result.detail}`);
+    else
+      io.out(
+        `${result.outcome === "fail" ? "FAIL" : "skip"} ${result.name}: ${result.detail}`,
+      );
   }
-  return results.some((result) => result.outcome === "fail") ? EXIT_CHECK_FAILED : EXIT_OK;
+  return results.some((result) => result.outcome === "fail")
+    ? EXIT_CHECK_FAILED
+    : EXIT_OK;
 }
 
 function usage(io: CliIo, code: number): number {
@@ -84,7 +129,12 @@ export function main(argv: string[], io: CliIo): number {
       args: argv,
       strict: true,
       allowPositionals: true,
-      options: { cwd: { type: "string" }, "session-dir": { type: "string" }, org: { type: "string" }, help: { type: "boolean" } },
+      options: {
+        cwd: { type: "string" },
+        "session-dir": { type: "string" },
+        org: { type: "string" },
+        help: { type: "boolean" },
+      },
     });
   } catch {
     return usage(io, EXIT_USAGE);
@@ -108,5 +158,9 @@ function isDirectEntrypoint(invokedPath: string | undefined): boolean {
 }
 
 if (isDirectEntrypoint(process.argv[1])) {
-  process.exitCode = main(process.argv.slice(2), { out: (text) => console.log(text), env: process.env, cwd: process.cwd() });
+  process.exitCode = main(process.argv.slice(2), {
+    out: (text) => console.log(text),
+    env: process.env,
+    cwd: process.cwd(),
+  });
 }

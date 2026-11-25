@@ -25,20 +25,12 @@
       "minLength": 1
     },
     "source": {
-      "enum": [
-        "origin",
-        "git-common-dir",
-        "folder",
-        "session"
-      ]
+      "enum": ["origin", "git-common-dir", "folder", "session"]
     },
     "sessionSource": {
       "anyOf": [
         {
-          "enum": [
-            "origin",
-            "git-common-dir"
-          ]
+          "enum": ["origin", "git-common-dir"]
         },
         {
           "type": "null"
@@ -69,11 +61,7 @@
     "refKind": {
       "anyOf": [
         {
-          "enum": [
-            "branch",
-            "tag",
-            "commit"
-          ]
+          "enum": ["branch", "tag", "commit"]
         },
         {
           "type": "null"
@@ -85,23 +73,14 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "project",
-            "source",
-            "ref",
-            "refKind"
-          ],
+          "required": ["project", "source", "ref", "refKind"],
           "properties": {
             "project": {
               "type": "string",
               "minLength": 1
             },
             "source": {
-              "enum": [
-                "origin",
-                "git-common-dir",
-                "folder"
-              ]
+              "enum": ["origin", "git-common-dir", "folder"]
             },
             "ref": {
               "anyOf": [
@@ -117,11 +96,7 @@
             "refKind": {
               "anyOf": [
                 {
-                  "enum": [
-                    "branch",
-                    "tag",
-                    "commit"
-                  ]
+                  "enum": ["branch", "tag", "commit"]
                 },
                 {
                   "type": "null"
@@ -140,34 +115,16 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "where",
-          "source",
-          "outcome",
-          "value",
-          "detail"
-        ],
+        "required": ["where", "source", "outcome", "value", "detail"],
         "properties": {
           "where": {
-            "enum": [
-              "cwd",
-              "session"
-            ]
+            "enum": ["cwd", "session"]
           },
           "source": {
-            "enum": [
-              "origin",
-              "git-common-dir",
-              "folder"
-            ]
+            "enum": ["origin", "git-common-dir", "folder"]
           },
           "outcome": {
-            "enum": [
-              "used",
-              "available",
-              "absent",
-              "failed"
-            ]
+            "enum": ["used", "available", "absent", "failed"]
           },
           "value": {
             "anyOf": [

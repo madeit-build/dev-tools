@@ -10,15 +10,21 @@ function scpLike(url: string): Remote | null {
   const match = SCP_LIKE.exec(url);
   if (!match) return null;
   const [, user, host, path] = match;
-  return user !== undefined || host.includes(".") ? { host: host.toLowerCase(), path } : null;
+  return user !== undefined || host.includes(".")
+    ? { host: host.toLowerCase(), path }
+    : null;
 }
 
 function networkUrl(url: string): Remote | null {
   if (!URL.canParse(url)) return null;
   const parsed = new URL(url);
-  if (!NETWORK_SCHEMES.has(parsed.protocol) || parsed.hostname === "") return null;
+  if (!NETWORK_SCHEMES.has(parsed.protocol) || parsed.hostname === "")
+    return null;
   try {
-    return { host: parsed.hostname.toLowerCase(), path: decodeURIComponent(parsed.pathname) };
+    return {
+      host: parsed.hostname.toLowerCase(),
+      path: decodeURIComponent(parsed.pathname),
+    };
   } catch {
     return null;
   }
@@ -35,7 +41,13 @@ export function parseOrigin(url: string): Origin | null {
   const segments = remote.path.split("/").filter((segment) => segment !== "");
   if (segments.length < 2) return null;
   const last = segments[segments.length - 1];
-  segments[segments.length - 1] = last.endsWith(".git") ? last.slice(0, -4) : last;
+  segments[segments.length - 1] = last.endsWith(".git")
+    ? last.slice(0, -4)
+    : last;
   if (!segments.every((segment) => SEGMENT.test(segment))) return null;
-  return { host: remote.host, owner: segments.slice(0, -1).join("/"), name: segments[segments.length - 1] };
+  return {
+    host: remote.host,
+    owner: segments.slice(0, -1).join("/"),
+    name: segments[segments.length - 1],
+  };
 }

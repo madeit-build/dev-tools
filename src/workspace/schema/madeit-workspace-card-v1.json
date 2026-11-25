@@ -25,20 +25,12 @@
       "pattern": "^[^\\u0000-\\u001f]+$"
     },
     "source": {
-      "enum": [
-        "origin",
-        "git-common-dir",
-        "folder",
-        "session"
-      ]
+      "enum": ["origin", "git-common-dir", "folder", "session"]
     },
     "sessionSource": {
       "anyOf": [
         {
-          "enum": [
-            "origin",
-            "git-common-dir"
-          ]
+          "enum": ["origin", "git-common-dir"]
         },
         {
           "type": "null"
@@ -71,11 +63,7 @@
     "refKind": {
       "anyOf": [
         {
-          "enum": [
-            "branch",
-            "tag",
-            "commit"
-          ]
+          "enum": ["branch", "tag", "commit"]
         },
         {
           "type": "null"
@@ -87,12 +75,7 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": [
-            "project",
-            "source",
-            "ref",
-            "refKind"
-          ],
+          "required": ["project", "source", "ref", "refKind"],
           "properties": {
             "project": {
               "type": "string",
@@ -101,11 +84,7 @@
               "pattern": "^[^\\u0000-\\u001f]+$"
             },
             "source": {
-              "enum": [
-                "origin",
-                "git-common-dir",
-                "folder"
-              ]
+              "enum": ["origin", "git-common-dir", "folder"]
             },
             "ref": {
               "anyOf": [
@@ -123,11 +102,7 @@
             "refKind": {
               "anyOf": [
                 {
-                  "enum": [
-                    "branch",
-                    "tag",
-                    "commit"
-                  ]
+                  "enum": ["branch", "tag", "commit"]
                 },
                 {
                   "type": "null"
@@ -152,10 +127,7 @@
   "then": {
     "properties": {
       "sessionSource": {
-        "enum": [
-          "origin",
-          "git-common-dir"
-        ]
+        "enum": ["origin", "git-common-dir"]
       }
     }
   },

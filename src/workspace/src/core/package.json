@@ -11,13 +11,28 @@
     "directory": "src/workspace/src/core"
   },
   "exports": {
-    "./project": { "types": "./dist/project.d.ts", "import": "./dist/project.js" },
-    "./session": { "types": "./dist/session.d.ts", "import": "./dist/session.js" }
+    "./project": {
+      "types": "./dist/project.d.ts",
+      "import": "./dist/project.js"
+    },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "import": "./dist/session.js"
+    }
   },
-  "bin": { "madeit-workspace": "./dist/cli.js" },
-  "files": ["dist"],
-  "engines": { "node": ">=22" },
-  "publishConfig": { "registry": "https://npm.pkg.github.com", "access": "restricted" },
+  "bin": {
+    "madeit-workspace": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "restricted"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -25,5 +40,10 @@
     "lint": "eslint . --ignore-pattern dist",
     "prepublishOnly": "pnpm run typecheck && pnpm run test && pnpm run build"
   },
-  "devDependencies": { "ajv": "^8.17.1", "vitest": "^3.0.0", "typescript": "^5.8.3", "@types/node": "^20.17.0" }
+  "devDependencies": {
+    "ajv": "^8.17.1",
+    "vitest": "^3.0.0",
+    "typescript": "^5.8.3",
+    "@types/node": "^20.17.0"
+  }
 }
