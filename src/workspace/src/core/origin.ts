@@ -19,13 +19,22 @@ function scpLike(url: string, knownHosts: readonly string[]): Remote | null {
   return isHost ? { host, path } : null;
 }
 
-// URL parsing resolves "..", encoded or not, before we see the path. What a server does with the
-// raw form is its own business, so a remote that needs resolving is not one we name.
-const RAW_DOT_SEGMENT = /\/(?:\.|%2e){1,2}(?:\/|$)/i;
+// The path as written: everything after scheme://authority, up to a query or fragment.
+const WRITTEN_PATH = /^[A-Za-z][A-Za-z0-9+.-]*:\/\/[^/?#]*([^?#]*)/;
+
+// The URL parser resolves dot segments, drops tabs and newlines, and reads a backslash as a slash.
+// Checking the raw text for each trick is a losing game, so the rule is: a remote whose path the
+// parser had to change at all is not one we name.
+function parsedUnchanged(url: string): URL | null {
+  if (!URL.canParse(url)) return null;
+  const parsed = new URL(url);
+  const written = WRITTEN_PATH.exec(url)?.[1];
+  return written === parsed.pathname ? parsed : null;
+}
 
 function networkUrl(url: string): Remote | null {
-  if (RAW_DOT_SEGMENT.test(url) || !URL.canParse(url)) return null;
-  const parsed = new URL(url);
+  const parsed = parsedUnchanged(url);
+  if (parsed === null) return null;
   if (!NETWORK_SCHEMES.has(parsed.protocol) || parsed.hostname === "")
     return null;
   try {

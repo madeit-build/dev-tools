@@ -113,3 +113,27 @@ it("reads a bare host alias only when the caller names it", () => {
   });
   expect(parseOrigin("file:owner/thing", ["gh"])).toBeNull();
 });
+
+// The URL parser strips tabs and newlines and reads a backslash as a slash, so a dot segment
+// can be hidden from a check on the raw text and still be resolved.
+it.each([
+  "https://github.com/evil/.\t./madeit-build/repo",
+  "https://github.com/evil/.\n./madeit-build/repo",
+  "https://github.com/evil/..\\madeit-build/repo",
+  "https://github.com/evil\\..\\madeit-build\\repo",
+  "https://github.com/evil/%2E%2e/madeit-build/repo",
+  "https://github.com\\@git.example.net/madeit-build/repo",
+  "https://github.com/madeit-build/re po",
+  "https://github.com/evil/..;/madeit-build/repo?x=/../",
+])("refuses a URL the parser would have to rewrite: %j", (url) => {
+  expect(parseOrigin(url)).toBeNull();
+});
+
+it("still reads a URL with a query or fragment after an unchanged path", () => {
+  expect(
+    parseOrigin("https://github.com/madeit-build/dev-tools.git?ref=main#x"),
+  ).toMatchObject({
+    owner: "madeit-build",
+    name: "dev-tools",
+  });
+});
