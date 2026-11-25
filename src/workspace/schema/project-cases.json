@@ -699,5 +699,62 @@
       },
       "display": "box.provisioning on branch main, while inside a clone of git.example.net/madeit-build/box.provisioning on branch main"
     }
+  },
+  {
+    "name": "a folder name cannot put markup or a line break in the display line",
+    "org": "madeit-build",
+    "cwd": {
+      "path": "/home/a\nb<!-- x -->",
+      "exists": true,
+      "folder": "a\nb<!-- x -->",
+      "commonDir": null,
+      "repoFolder": null,
+      "origin": null,
+      "ref": null,
+      "refKind": null,
+      "failures": []
+    },
+    "session": null,
+    "expect": {
+      "project": "a_b<!-- x -->",
+      "source": "folder",
+      "sessionSource": null,
+      "ours": null,
+      "ref": null,
+      "refKind": null,
+      "context": null,
+      "display": "a_b_!-- x --_ (a folder, not a git repo)"
+    }
+  },
+  {
+    "name": "an origin that could not be read is not called a missing remote",
+    "org": "madeit-build",
+    "cwd": {
+      "path": "/work/scratch-idea",
+      "exists": true,
+      "folder": "scratch-idea",
+      "commonDir": "/work/scratch-idea/.git",
+      "repoFolder": "scratch-idea",
+      "origin": null,
+      "ref": "main",
+      "refKind": "branch",
+      "failures": [
+        {
+          "source": "origin",
+          "detail": "the origin remote could not be read"
+        }
+      ]
+    },
+    "session": null,
+    "expect": {
+      "project": "scratch-idea",
+      "source": "git-common-dir",
+      "sessionSource": null,
+      "ours": null,
+      "ref": "main",
+      "refKind": "branch",
+      "context": null,
+      "display": "scratch-idea on branch main (a repo whose remote could not be read)"
+    }
   }
 ]

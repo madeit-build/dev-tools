@@ -86,3 +86,30 @@ it("refuses a name that could not be a repo", () => {
 it("returns null, and does not throw, for a malformed percent escape", () => {
   expect(parseOrigin("https://github.com/owner/%E0%A4%A")).toBeNull();
 });
+
+it.each([
+  ["https://github.com/madeit-build/.github", ".github"],
+  ["git@github.com:madeit-build/_private.git", "_private"],
+])("accepts the repo name in %s", (url, name) => {
+  expect(parseOrigin(url)).toMatchObject({ owner: "madeit-build", name });
+});
+
+it.each([
+  "https://github.com/evil/%2e%2e/madeit-build/repo",
+  "https://github.com/owner/.",
+  "https://github.com/./repo",
+])("refuses a dot segment in %s", (url) => {
+  expect(parseOrigin(url)).toBeNull();
+});
+
+it("reads a bare host alias only when the caller names it", () => {
+  expect(parseOrigin("gh:madeit-build/box.provisioning")).toBeNull();
+  expect(
+    parseOrigin("gh:madeit-build/box.provisioning", ["github.com", "gh"]),
+  ).toEqual({
+    host: "gh",
+    owner: "madeit-build",
+    name: "box.provisioning",
+  });
+  expect(parseOrigin("file:owner/thing", ["gh"])).toBeNull();
+});

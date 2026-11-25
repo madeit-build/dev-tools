@@ -1,7 +1,13 @@
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import type { DirectoryFacts, Failure, RefKind } from "./facts.ts";
+import {
+  DEFAULT_HOSTS,
+  type DirectoryFacts,
+  type Failure,
+  type RefKind,
+} from "./facts.ts";
 import { parseOrigin } from "./origin.ts";
 
 export type GitRun = (
@@ -20,7 +26,8 @@ const SHORT_COMMIT = ["rev-parse", "--short", "HEAD"] as const;
 const ORIGIN_URL = ["config", "--get", "remote.origin.url"] as const;
 
 // The directory is often an untrusted clone. These read refs and config only; a command that
-// reads the working tree can run a program the repo's own config names.
+// reads the working tree can run a program the repo's own config names. The list limits the
+// arguments, not what git does with them: HARDENING below is what stops the rest.
 export const ALLOWED_GIT_ARGS: readonly (readonly string[])[] = [
   COMMON_DIR,
   BRANCH,
@@ -30,6 +37,33 @@ export const ALLOWED_GIT_ARGS: readonly (readonly string[])[] = [
 ];
 
 const CANNOT_START = { code: -1, stdout: "" } as const;
+
+// Settings that outrank the repo's own config. Without them an allowed command can still run a
+// repo-named program: a missing object in a promisor repo is fetched on demand, through a shell.
+const HARDENING: readonly (readonly [string, string])[] = [
+  ["safe.bareRepository", "explicit"],
+  ["protocol.allow", "never"],
+  ["core.fsmonitor", "false"],
+];
+
+// The caller's GIT_* variables are dropped: under a git hook, GIT_DIR would point every probe at the hook's repo.
+function gitEnvironment(): NodeJS.ProcessEnv {
+  const inherited = Object.entries(process.env).filter(
+    ([name]) => !name.startsWith("GIT_"),
+  );
+  const hardening = HARDENING.flatMap(([key, value], i) => [
+    [`GIT_CONFIG_KEY_${i}`, key],
+    [`GIT_CONFIG_VALUE_${i}`, value],
+  ]);
+  return {
+    ...Object.fromEntries(inherited),
+    ...Object.fromEntries(hardening),
+    GIT_CONFIG_COUNT: String(HARDENING.length),
+    GIT_NO_LAZY_FETCH: "1",
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_CONFIG_NOSYSTEM: "1",
+  };
+}
 const GIT_TIMEOUT_MS = 2000;
 
 function isAllowed(args: readonly string[]): boolean {
@@ -46,11 +80,9 @@ export const runGit: GitRun = (dir, args) => {
       encoding: "utf8",
       timeout: GIT_TIMEOUT_MS,
       stdio: ["ignore", "pipe", "ignore"],
-      env: {
-        ...process.env,
-        GIT_TERMINAL_PROMPT: "0",
-        GIT_CONFIG_NOSYSTEM: "1",
-      },
+      // Not the caller's working directory, which may have been removed.
+      cwd: os.tmpdir(),
+      env: gitEnvironment(),
     });
     return { code: 0, stdout: stdout.trim() };
   } catch (error) {
@@ -106,21 +138,32 @@ function refOf(
 function originOf(
   dir: string,
   run: GitRun,
+  hosts: readonly string[],
 ): { origin: DirectoryFacts["origin"]; failures: Failure[] } {
+  const failed = (detail: string) => ({
+    origin: null,
+    failures: [{ source: "origin" as const, detail }],
+  });
   const result = run(dir, ORIGIN_URL);
+  if (result.code === -1) {
+    return failed(
+      "git did not answer when asked for the origin remote, so the repo is named by its folder; run madeit-workspace doctor",
+    );
+  }
   if (result.code !== 0 || result.stdout === "")
     return { origin: null, failures: [] };
-  const origin = parseOrigin(result.stdout);
+  const origin = parseOrigin(result.stdout, hosts);
   if (origin) return { origin, failures: [] };
   // The URL is never quoted: it can carry a credential.
-  const detail =
-    "the origin remote is not a host/owner/name URL, so the repo is named by its folder; check it with git remote -v";
-  return { origin: null, failures: [{ source: "origin", detail }] };
+  return failed(
+    "the origin remote is not a host/owner/name URL this package reads, so the repo is named by its folder; an ssh host alias must be passed as a host",
+  );
 }
 
 export function probeDirectory(
   dir: string,
   run: GitRun = runGit,
+  hosts: readonly string[] = DEFAULT_HOSTS,
 ): DirectoryFacts {
   const resolved = path.resolve(dir);
   const folder = path.basename(resolved);
@@ -162,10 +205,10 @@ export function probeDirectory(
     commonDir: common.stdout,
     repoFolder: repoFolderOf(common.stdout),
     ...refOf(resolved, safeRun),
-    ...originOf(resolved, safeRun),
+    ...originOf(resolved, safeRun, hosts),
   };
 }
 
 export function gitCanStart(run: GitRun = runGit): boolean {
-  return safely(run)(process.cwd(), COMMON_DIR).code !== -1;
+  return safely(run)(os.tmpdir(), COMMON_DIR).code !== -1;
 }

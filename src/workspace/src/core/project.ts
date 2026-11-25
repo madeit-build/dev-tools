@@ -65,15 +65,16 @@ export function resolveProject(
   run: GitRun = runGit,
 ): ProjectResolution {
   try {
-    const cwd = probeDirectory(input.cwd, run);
+    const hosts = input.hosts ?? DEFAULT_HOSTS;
+    const cwd = probeDirectory(input.cwd, run, hosts);
     const session = input.sessionDir
-      ? probeDirectory(input.sessionDir, run)
+      ? probeDirectory(input.sessionDir, run, hosts)
       : null;
     const decided = decide({
       cwd,
       session,
       org: input.org || DEFAULT_ORG,
-      hosts: input.hosts ?? DEFAULT_HOSTS,
+      hosts,
     });
     return { ...decided, display: displayLine(decided) };
   } catch {

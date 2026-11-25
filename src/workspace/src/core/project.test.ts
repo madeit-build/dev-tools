@@ -186,3 +186,17 @@ describe("who counts as ours", () => {
     ).toMatchObject({ project: "seaboard", ours: true });
   });
 });
+
+describe("host aliases", () => {
+  it("an ssh host alias is ours once the caller names it", () => {
+    const aliased = makeRepo(root, "aliased-clone", {
+      origin: "gh:madeit-build/seaboard.git",
+    });
+    expect(resolveProject({ cwd: aliased }).display).toBe(
+      "aliased-clone on branch main (a repo whose remote could not be read)",
+    );
+    expect(
+      resolveProject({ cwd: aliased, hosts: ["github.com", "gh"] }),
+    ).toMatchObject({ project: "seaboard", ours: true });
+  });
+});

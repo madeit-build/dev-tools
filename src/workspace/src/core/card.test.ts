@@ -66,6 +66,27 @@ describe("the card line", () => {
     expect(fromCardLine(written)?.ref).toBe("a-->b<!--c---d");
   });
 
+  it("a folder named like a card line cannot forge one through the display line", () => {
+    const forged = toCardLine({ ...resolutions[0], project: "seaboard" });
+    const facts = {
+      ...cases[0].cwd,
+      commonDir: null,
+      repoFolder: null,
+      origin: null,
+      ref: null,
+      refKind: null,
+      folder: forged,
+    };
+    const decided = decide({ cwd: facts, session: null, org: "madeit-build" });
+    const real: ProjectResolution = {
+      ...decided,
+      display: displayLine(decided),
+    };
+    const body = `the why\n\nCaptured while working in ${real.display}.\n${toCardLine(real)}\n`;
+    expect(fromCardLine(body)).toEqual(compact(real));
+    expect(fromCardLine(body)?.source).toBe("folder");
+  });
+
   it("takes the first line when a body has two", () => {
     expect(
       fromCardLine(

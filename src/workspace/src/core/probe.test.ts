@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   ALLOWED_GIT_ARGS,
   probeDirectory,
@@ -209,5 +209,107 @@ describe("the git runner", () => {
 
   it("refuses an argument list that is not allowed", () => {
     expect(runGit(root, ["status"])).toEqual({ code: -1, stdout: "" });
+  });
+});
+
+describe("a hostile repository", () => {
+  // git fetches a missing object from a promisor remote on demand, and runs the remote's
+  // uploadpack setting through a shell to do it. An allowed command can trigger that.
+  it("cannot make the probe run a program through a lazy fetch", () => {
+    const upstream = makeRepo(root, "lazy-upstream");
+    const marker = path.join(root, "lazy-marker");
+    const dir = makeRepo(root, "lazy-hostile", { commit: false });
+    const missing = "1234567890abcdef1234567890abcdef12345678";
+    git(dir, "config", "extensions.partialClone", "origin");
+    git(dir, "config", "remote.origin.url", upstream);
+    git(dir, "config", "remote.origin.promisor", "true");
+    git(
+      dir,
+      "config",
+      "remote.origin.uploadpack",
+      `touch ${marker}; git-upload-pack`,
+    );
+    fs.mkdirSync(path.join(dir, ".git", "refs", "tags"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, ".git", "refs", "tags", "v1"),
+      `${missing}\n`,
+    );
+    fs.writeFileSync(path.join(dir, ".git", "HEAD"), `${missing}\n`);
+    probeDirectory(dir);
+    expect(fs.existsSync(marker)).toBe(false);
+  });
+
+  it("a bare repo planted inside a clone is not believed over the clone", () => {
+    const host = makeRepo(root, "plant-host");
+    const planted = path.join(host, "vendor", "x");
+    fs.mkdirSync(planted, { recursive: true });
+    git(planted, "init", "-q", "--bare");
+    git(
+      planted,
+      "config",
+      "remote.origin.url",
+      "https://github.com/madeit-build/box.provisioning",
+    );
+    const facts = probeDirectory(planted);
+    // git refuses the planted repo outright instead of looking further up, so the folder is all we report.
+    expect(facts).toMatchObject({
+      origin: null,
+      commonDir: null,
+      folder: "x",
+      failures: [],
+    });
+  });
+});
+
+describe("the caller's environment", () => {
+  const KEYS = ["PATH", "GIT_DIR", "GIT_WORK_TREE"] as const;
+  const saved = KEYS.map((key) => [key, process.env[key]] as const);
+  afterEach(() => {
+    for (const [key, value] of saved) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  });
+
+  it("an inherited GIT_DIR does not redirect the probe", () => {
+    const other = makeRepo(root, "env-other", {
+      origin: "https://github.com/madeit-build/seaboard.git",
+    });
+    const plain = path.join(root, "env-plain");
+    fs.mkdirSync(plain);
+    process.env.GIT_DIR = path.join(other, ".git");
+    process.env.GIT_WORK_TREE = other;
+    expect(probeDirectory(plain)).toMatchObject({
+      commonDir: null,
+      origin: null,
+    });
+  });
+
+  it("git missing from PATH is code -1 from the real runner", () => {
+    process.env.PATH = "";
+    expect(runGit(root, ALLOWED_GIT_ARGS[0])).toEqual({ code: -1, stdout: "" });
+  });
+});
+
+describe("a lookup that fails partway", () => {
+  it("an origin lookup that times out is a failure, not a missing remote", () => {
+    const dir = makeRepo(root, "origin-timeout", {
+      origin: "https://github.com/madeit-build/seaboard.git",
+    });
+    const flaky: GitRun = (cwd, args) =>
+      args[0] === "config" ? { code: -1, stdout: "" } : runGit(cwd, args);
+    const facts = probeDirectory(dir, flaky);
+    expect(facts.origin).toBeNull();
+    expect(facts.failures.map((failure) => failure.source)).toEqual(["origin"]);
+  });
+
+  it("passes host aliases through to the origin parser", () => {
+    const dir = makeRepo(root, "aliased", {
+      origin: "gh:madeit-build/box.provisioning",
+    });
+    expect(probeDirectory(dir).origin).toBeNull();
+    expect(
+      probeDirectory(dir, runGit, ["github.com", "gh"]).origin,
+    ).toMatchObject({ host: "gh", name: "box.provisioning" });
   });
 });

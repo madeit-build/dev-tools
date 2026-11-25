@@ -34,6 +34,41 @@ describe("the built package", () => {
     expect(JSON.parse(result.stdout).display).toBe("seaboard on branch main");
   });
 
+  it("still answers when its own working directory has been removed", () => {
+    const repo = makeRepo(root, "survivor", {
+      origin: "git@github.com:madeit-build/seaboard.git",
+    });
+    const doomed = path.join(root, "doomed");
+    fs.mkdirSync(doomed);
+    const script = `cd "$1" && rmdir "$1" && "$2" "$3" project --cwd "$4"; echo "status=$?"; "$2" "$3" doctor --cwd "$4"; echo "status=$?"`;
+    const result = spawnSync(
+      "sh",
+      ["-c", script, "sh", doomed, process.execPath, dist("cli.js"), repo],
+      { encoding: "utf8", env: { PATH: process.env.PATH } },
+    );
+    expect(result.stderr).not.toContain("uv_cwd");
+    expect(result.stdout).toContain('"display": "seaboard on branch main"');
+    expect(result.stdout.match(/status=\d+/g)).toEqual([
+      "status=0",
+      "status=1",
+    ]);
+  });
+
+  it("--host adds a forge or an ssh alias that counts as ours", () => {
+    const repo = makeRepo(root, "via-alias", {
+      origin: "gh:madeit-build/seaboard.git",
+    });
+    const result = spawnSync(
+      process.execPath,
+      [dist("cli.js"), "project", "--cwd", repo, "--host", "gh"],
+      { encoding: "utf8", env: { PATH: process.env.PATH } },
+    );
+    expect(JSON.parse(result.stdout)).toMatchObject({
+      project: "seaboard",
+      ours: true,
+    });
+  });
+
   it("exports ./project and ./session, and nothing else", async () => {
     const manifest = JSON.parse(
       fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"),

@@ -68,8 +68,8 @@ folder name.
 **Ours** means the configured org on a known host: `madeit-build` on
 `github.com` by default, both inputs (`org`, `hosts`). The owner alone is not
 an identity, because anyone can create that owner name on a host of their own.
-A repo reached through an ssh host alias reads as not ours until the alias is
-passed in `hosts`.
+A repo reached through an ssh host alias (`gh:madeit-build/x`) reads as not ours
+until the alias is passed in `hosts`, or to the CLI as `--host gh`.
 
 ## The display line
 
@@ -100,8 +100,8 @@ the truth: a reader still decides whether to believe `ours`.
 ## The CLI
 
 ```
-madeit-workspace project [--cwd DIR] [--session-dir DIR] [--org ORG]
-madeit-workspace doctor [--cwd DIR]
+madeit-workspace project [--cwd DIR] [--session-dir DIR] [--org ORG] [--host HOST]...
+madeit-workspace doctor [--cwd DIR] [--host HOST]...
 ```
 
 `project` prints the full resolution as JSON. It is the answer to "why did it
@@ -120,20 +120,40 @@ cases.
 
 **What it reads.** Git metadata for up to two directories. For the session
 lookup, one transcript file under Claude Code's data directory: it takes the
-`cwd` field of the first row that has one, reads at most the first 64 KiB, and
-keeps nothing else.
+`cwd` field of the first row that has one and belongs to this session, reads
+at most the first 64 KiB, and keeps nothing else.
 
-**What it executes.** `git`, as an argument array with no shell, a 2 second
-timeout, terminal prompts off, and system config ignored. The directory is
-often an untrusted clone, so the runner refuses everything except five
-commands that read refs and config: two forms of `rev-parse`, `symbolic-ref`,
-`describe`, and `config --get`. None reads the working tree, because a repo's
-own config can name a program for those to run.
+**What it executes.** `git`, as an argument array with no shell and a 2 second
+timeout. The directory is often an untrusted clone, so two things hold
+together:
+
+- The runner refuses everything except five commands that read refs and
+  config: two forms of `rev-parse`, `symbolic-ref`, `describe`, and
+  `config --get`. None reads the working tree.
+- That list limits the arguments, not what git does with them. A repo's own
+  config can make even `describe` fetch a missing object and run a program to
+  do it. So every call also sets `GIT_NO_LAZY_FETCH=1`, `protocol.allow=never`,
+  `safe.bareRepository=explicit` and `core.fsmonitor=false`, turns terminal
+  prompts off, ignores system config, and drops every `GIT_*` variable the
+  caller had, so a `GIT_DIR` inherited from a git hook cannot redirect it.
+  `GIT_NO_LAZY_FETCH` needs git 2.45 or later; `protocol.allow=never` is the
+  backstop on older versions.
+
+It opens no network connection itself, and those settings stop git from
+opening one.
+
+**What `ours` does and does not mean.** `ours: true` says the repo's own config
+names an origin under our org on a known host. A repo's config is whatever its
+author wrote, so a hostile clone can claim to be ours. `ours` is good for
+choosing which of our own repos to look at. It is not proof of anything, and
+nothing should be granted on it.
 
 **What it must never emit.** A remote URL, which can carry a credential: the
 parser keeps host, owner and name and drops the rest, and an origin it cannot
 read is reported without being quoted. An absolute path in `display` or in a
-card line. A session id, or any transcript content.
+card line. A session id, or any transcript content. `display` also replaces
+control characters and angle brackets in names, so a folder name cannot pose
+as markup where the line is shown.
 
 ## Dependencies
 

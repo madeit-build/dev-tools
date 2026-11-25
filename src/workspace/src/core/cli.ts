@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { gitCanStart, probeDirectory } from "./probe.ts";
-import { resolveProject } from "./project.ts";
+import { DEFAULT_HOSTS, resolveProject } from "./project.ts";
 import { claudeCodeSessionDir, type SessionDir } from "./session.ts";
 
 export type CliIo = {
@@ -16,15 +16,16 @@ export type CliIo = {
 const USAGE = `madeit-workspace: which project is this work about, and how do we know
 
 Usage:
-  madeit-workspace project [--cwd DIR] [--session-dir DIR] [--org ORG]
-  madeit-workspace doctor [--cwd DIR]
+  madeit-workspace project [--cwd DIR] [--session-dir DIR] [--org ORG] [--host HOST]...
+  madeit-workspace doctor [--cwd DIR] [--host HOST]...
   madeit-workspace --help
 
 project prints the full resolution as JSON, every layer it considered included.
 doctor checks the things most likely to be wrong, in that order, and exits 1 if any fails.
 
 The session's start directory comes from CLAUDE_CODE_SESSION_ID unless --session-dir is given.
-CLAUDE_CONFIG_DIR overrides where Claude Code's transcripts are looked for.`;
+CLAUDE_CONFIG_DIR overrides where Claude Code's transcripts are looked for.
+--host adds a forge, or an ssh host alias, whose repos under ORG count as ours. github.com always does.`;
 
 const EXIT_OK = 0;
 const EXIT_CHECK_FAILED = 1;
@@ -34,8 +35,14 @@ type Options = {
   cwd?: string;
   "session-dir"?: string;
   org?: string;
+  host?: string[];
   help?: boolean;
 };
+
+const hostsOf = (options: Options): string[] => [
+  ...DEFAULT_HOSTS,
+  ...(options.host ?? []),
+];
 
 function sessionFromEnvironment(env: NodeJS.ProcessEnv): SessionDir {
   return claudeCodeSessionDir({
@@ -51,6 +58,7 @@ function project(options: Options, io: CliIo): number {
     cwd: options.cwd ?? io.cwd,
     sessionDir,
     org: options.org,
+    hosts: hostsOf(options),
   });
   io.out(JSON.stringify(resolution, null, 2));
   return EXIT_OK;
@@ -59,8 +67,12 @@ function project(options: Options, io: CliIo): number {
 type Check = { name: string; outcome: "ok" | "fail" | "skip"; detail: string };
 
 // Ordered by how often each is the reason an answer looks wrong.
-function checks(cwd: string, env: NodeJS.ProcessEnv): Check[] {
-  const facts = probeDirectory(cwd);
+function checks(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+  hosts: readonly string[],
+): Check[] {
+  const facts = probeDirectory(cwd, undefined, hosts);
   const hasSessionId = (env.CLAUDE_CODE_SESSION_ID ?? "") !== "";
   const session = hasSessionId ? sessionFromEnvironment(env) : null;
   const originFailure = facts.failures.find(
@@ -104,7 +116,7 @@ function checks(cwd: string, env: NodeJS.ProcessEnv): Check[] {
 }
 
 function doctor(options: Options, io: CliIo): number {
-  const results = checks(options.cwd ?? io.cwd, io.env);
+  const results = checks(options.cwd ?? io.cwd, io.env, hostsOf(options));
   for (const result of results) {
     if (result.outcome === "ok") io.out(`ok   ${result.name}`);
     else
@@ -133,6 +145,7 @@ export function main(argv: string[], io: CliIo): number {
         cwd: { type: "string" },
         "session-dir": { type: "string" },
         org: { type: "string" },
+        host: { type: "string", multiple: true },
         help: { type: "boolean" },
       },
     });
@@ -157,10 +170,26 @@ function isDirectEntrypoint(invokedPath: string | undefined): boolean {
   }
 }
 
+// process.cwd() throws when the directory was removed under us, which is when a person most needs an answer.
+function currentDirectory(): string {
+  try {
+    return process.cwd();
+  } catch {
+    return "";
+  }
+}
+
 if (isDirectEntrypoint(process.argv[1])) {
-  process.exitCode = main(process.argv.slice(2), {
-    out: (text) => console.log(text),
-    env: process.env,
-    cwd: process.cwd(),
-  });
+  try {
+    process.exitCode = main(process.argv.slice(2), {
+      out: (text) => console.log(text),
+      env: process.env,
+      cwd: currentDirectory(),
+    });
+  } catch {
+    console.error(
+      "madeit-workspace failed unexpectedly; run madeit-workspace doctor",
+    );
+    process.exitCode = EXIT_CHECK_FAILED;
+  }
 }

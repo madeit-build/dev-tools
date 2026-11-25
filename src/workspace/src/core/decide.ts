@@ -46,14 +46,21 @@ function originName(facts: DirectoryFacts, org: Org): string | null {
     : `${facts.origin.host}/${ownerAndName}`;
 }
 
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/g;
+
+// A folder can be named anything, a line break included. A project name is one line.
+function oneLine(name: string | null): string | null {
+  return name === null ? null : name.replace(CONTROL_CHARACTERS, "_");
+}
+
 function valueOf(
   facts: DirectoryFacts,
   source: DirectorySource,
   org: Org,
 ): string | null {
   if (source === "origin") return originName(facts, org);
-  if (source === "git-common-dir") return facts.repoFolder;
-  return facts.folder;
+  if (source === "git-common-dir") return oneLine(facts.repoFolder);
+  return oneLine(facts.folder);
 }
 
 function nameOf(facts: DirectoryFacts, org: Org): Named {
