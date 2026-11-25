@@ -1,0 +1,75 @@
+name: Publish @madeit-build/workspace
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/workspace/**"
+      - ".github/workflows/publish-workspace.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: publish-workspace
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    # A manual run can be started from any branch; only main may publish what consumers install.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        # Pinned to a commit: this job can write packages, and a tag can be moved.
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@madeit-build"
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        working-directory: src/workspace/src/core
+        run: pnpm run typecheck
+
+      - name: Test
+        working-directory: src/workspace/src/core
+        run: pnpm run test
+
+      - name: Build
+        working-directory: src/workspace/src/core
+        run: pnpm run build
+
+      - name: Determine next version
+        id: version
+        working-directory: src/workspace/src/core
+        run: |
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          CURRENT=$(npm view "${PACKAGE_NAME}" version 2>/dev/null || echo "0.0.0")
+          IFS='.' read -r MAJOR MINOR PATCH <<< "${CURRENT}"
+          NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          echo "next=${NEXT}" >> "$GITHUB_OUTPUT"
+          echo "Publishing ${PACKAGE_NAME}@${NEXT} (registry was at ${CURRENT})"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set version and publish
+        working-directory: src/workspace/src/core
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT_VERSION: ${{ steps.version.outputs.next }}
+        run: |
+          npm version "${NEXT_VERSION}" --no-git-tag-version
+          npm publish

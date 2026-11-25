@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "madeit-workspace-card-v1",
+  "title": "The compact project resolution a card carries",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "project",
+    "source",
+    "sessionSource",
+    "ours",
+    "ref",
+    "refKind",
+    "context"
+  ],
+  "properties": {
+    "schema": {
+      "const": "madeit-workspace-project-v1"
+    },
+    "project": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^[^\\u0000-\\u001f]+$"
+    },
+    "source": {
+      "enum": ["origin", "git-common-dir", "folder", "session"]
+    },
+    "sessionSource": {
+      "anyOf": [
+        {
+          "enum": ["origin", "git-common-dir"]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ours": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255,
+          "pattern": "^[^\\u0000-\\u001f]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "refKind": {
+      "anyOf": [
+        {
+          "enum": ["branch", "tag", "commit"]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["project", "source", "ref", "refKind"],
+          "properties": {
+            "project": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 255,
+              "pattern": "^[^\\u0000-\\u001f]+$"
+            },
+            "source": {
+              "enum": ["origin", "git-common-dir", "folder"]
+            },
+            "ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255,
+                  "pattern": "^[^\\u0000-\\u001f]+$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "refKind": {
+              "anyOf": [
+                {
+                  "enum": ["branch", "tag", "commit"]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "if": {
+    "properties": {
+      "source": {
+        "const": "session"
+      }
+    }
+  },
+  "then": {
+    "properties": {
+      "sessionSource": {
+        "enum": ["origin", "git-common-dir"]
+      }
+    }
+  },
+  "else": {
+    "properties": {
+      "sessionSource": {
+        "type": "null"
+      }
+    }
+  }
+}
