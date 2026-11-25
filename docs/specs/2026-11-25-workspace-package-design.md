@@ -87,16 +87,17 @@ same facts.
 
 | Fact | From |
 |---|---|
-| `origin` | owner and name parsed from `remote.origin.url` |
+| `origin` | host, owner and name parsed from `remote.origin.url` |
 | `repoFolder` | folder holding the common git dir, so a worktree reports its repo |
 | `folder` | the directory's own basename |
 | `ref` | branch; on a detached HEAD the exact tag, else the short commit id |
-| `ours` | `true` when `origin`'s owner is the configured org, `false` when it is another owner, `null` when there is no origin |
+| `ours` | `true` when `origin` is the configured org on a known host, `false` for any other owner or host, `null` when there is no origin |
 
 A directory's **name** is the first of these that exists: `origin` name,
 `repoFolder`, `folder`. Its **source** is which one that was: `origin`,
 `git-common-dir`, or `folder`. A repo that is not ours is named
-`owner/name`, never the bare name, so it cannot read like one of ours.
+`owner/name`, never the bare name, so it cannot read like one of ours. On a
+host that is not a known one it is named `host/owner/name`.
 
 **Picking the headline:**
 
@@ -114,8 +115,11 @@ as a layer and the cwd is judged alone.
 When the session wins and the cwd is somewhere else, `context` describes the
 cwd. When the cwd and the session are the same repo, there is no context.
 
-The configured org defaults to `madeit-build` and is an input, not a constant
-buried in the function.
+The configured org defaults to `madeit-build`, and the known hosts to
+`github.com`. Both are inputs, not constants buried in the function. The host
+is part of identity because an owner name is only an identity on a forge:
+anyone can create `madeit-build` on a host of their own. An ssh host alias
+counts as a host only when the caller passes it.
 
 ## The interface
 
@@ -154,6 +158,7 @@ function resolveProject(input: {
   cwd: string;
   sessionDir?: string | null;
   org?: string;
+  hosts?: readonly string[];
 }): ProjectResolution;
 
 function toCardLine(resolution: ProjectResolution): string;
@@ -219,12 +224,22 @@ the transcript it takes the `cwd` field of the first row that has one, reads
 no more than the first 64 KiB, and keeps nothing else.
 
 **What it executes.** `git`, as an argv array with `-C`, never a shell, with a
-timeout, terminal prompts off, and system config ignored. The working
-directory is often an untrusted clone, which is the case this package exists
-for, so it is limited to commands that read refs and config: `rev-parse`,
-`symbolic-ref`, `describe`, and `config --get`. It never runs a command that
-reads the working tree, because those can run a program a repo's config
-names.
+timeout. The working directory is often an untrusted clone, which is the case
+this package exists for, so two things hold together:
+
+- It is limited to commands that read refs and config: `rev-parse`,
+  `symbolic-ref`, `describe`, and `config --get`. It never runs a command that
+  reads the working tree.
+- That list limits the arguments, not what git does with them. A repo's config
+  can name a promisor remote, and then `describe` fetches a missing object and
+  runs the remote's `uploadpack` setting through a shell. So every call sets
+  `GIT_NO_LAZY_FETCH=1`, `protocol.allow=never`, `safe.bareRepository=explicit`
+  and `core.fsmonitor=false`, turns terminal prompts off, ignores system
+  config, and drops the caller's `GIT_*` variables.
+
+**What `ours` proves.** Only that the repo's own config names an origin under
+our org on a known host. A hostile clone can write that config. `ours` is for
+choosing which of our own repos to look at; nothing is granted on it.
 
 **What it must never emit.**
 
@@ -242,7 +257,10 @@ Everything on a card is untrusted when the caretaker reads it back.
 card's project only when all three hold: `ours` is true, the name was not a
 folder name (`source` is `origin`, or `session` with `sessionSource` of
 `origin`), and the project is one of the repos it mirrors. A fork with one of
-our repo names, or a folder that happens to share one, fails the first two.
+our repo names, or a folder that happens to share one, fails the first two. A
+clone that forges its origin passes all three, which is acceptable only because
+the caretaker's tools read our own mirror: the worst a forged card does is
+point the model at a different one of our repos.
 
 ## Observability
 
@@ -380,3 +398,19 @@ cannot authenticate, and a look at the first real card after step 5.
 - The caretaker's notes on a card filed after this ships are about the repo
   the card line names.
 - `madeit-workspace project` explains any of the above without a code change.
+
+## Amended after the build's review, 2026-11-25
+
+The first approved version keyed identity on owner and name, and described the
+five-command list as the whole of the git safety story. A review that ran code
+against the branch showed both were wrong, and the sections above now say what
+was built:
+
+- An origin is host, owner and name, and `hosts` is an input.
+- The git runner hardens every call against lazy fetch, planted bare repos,
+  and an inherited `GIT_DIR`.
+- `display` replaces control characters and angle brackets in names, so a
+  folder name cannot pose as the card line.
+- A lookup that failed is shown as "a repo whose remote could not be read",
+  not "a local repo with no remote".
+- The CLI takes `--host`, and answers when its own working directory is gone.
