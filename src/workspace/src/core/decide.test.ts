@@ -1,13 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { decide } from "./decide.ts";
-import { cases } from "./testing/cases.ts";
+import { cases, without } from "./testing/cases.ts";
 
 describe("decide follows the shared cases", () => {
   for (const c of cases) {
     it(c.name, () => {
-      const { layers: _layers, ...got } = decide({ cwd: c.cwd, session: c.session, org: c.org });
-      const { display: _display, ...want } = c.expect;
-      expect(got).toEqual({ schema: "madeit-workspace-project-v1", ...want });
+      const got = without(decide({ cwd: c.cwd, session: c.session, org: c.org }), "layers");
+      expect(got).toEqual({ schema: "madeit-workspace-project-v1", ...without(c.expect, "display") });
     });
   }
 });
