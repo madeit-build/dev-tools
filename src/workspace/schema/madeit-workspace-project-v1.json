@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "madeit-workspace-project-v1",
+  "title": "A project resolution from @madeit-build/workspace",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "project",
+    "source",
+    "sessionSource",
+    "ours",
+    "ref",
+    "refKind",
+    "context",
+    "layers",
+    "display"
+  ],
+  "properties": {
+    "schema": {
+      "const": "madeit-workspace-project-v1"
+    },
+    "project": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "enum": [
+        "origin",
+        "git-common-dir",
+        "folder",
+        "session"
+      ]
+    },
+    "sessionSource": {
+      "anyOf": [
+        {
+          "enum": [
+            "origin",
+            "git-common-dir"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ours": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "refKind": {
+      "anyOf": [
+        {
+          "enum": [
+            "branch",
+            "tag",
+            "commit"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "context": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "project",
+            "source",
+            "ref",
+            "refKind"
+          ],
+          "properties": {
+            "project": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source": {
+              "enum": [
+                "origin",
+                "git-common-dir",
+                "folder"
+              ]
+            },
+            "ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "refKind": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "branch",
+                    "tag",
+                    "commit"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "layers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "where",
+          "source",
+          "outcome",
+          "value",
+          "detail"
+        ],
+        "properties": {
+          "where": {
+            "enum": [
+              "cwd",
+              "session"
+            ]
+          },
+          "source": {
+            "enum": [
+              "origin",
+              "git-common-dir",
+              "folder"
+            ]
+          },
+          "outcome": {
+            "enum": [
+              "used",
+              "available",
+              "absent",
+              "failed"
+            ]
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "display": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

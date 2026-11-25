@@ -59,7 +59,7 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.1.0
-        version: 3.2.6(@types/node@20.19.43)(lightningcss@1.33.0)
+        version: 3.2.6(@types/node@24.13.5)(lightningcss@1.33.0)
 
   src/hang/src/prettier:
     dependencies:
@@ -287,6 +287,21 @@ importers:
         version: 5.9.3
       vitest:
         specifier: ^3.1.0
+        version: 3.2.6(@types/node@20.19.43)(lightningcss@1.33.0)
+
+  src/workspace/src/core:
+    devDependencies:
+      '@types/node':
+        specifier: ^20.17.0
+        version: 20.19.43
+      ajv:
+        specifier: ^8.17.1
+        version: 8.20.0
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^3.0.0
         version: 3.2.6(@types/node@20.19.43)(lightningcss@1.33.0)
 
 packages:
