@@ -109,3 +109,7 @@ export function probeDirectory(dir: string, run: GitRun = runGit): DirectoryFact
     ...originOf(resolved, safeRun),
   };
 }
+
+export function gitCanStart(run: GitRun = runGit): boolean {
+  return safely(run)(process.cwd(), COMMON_DIR).code !== -1;
+}
