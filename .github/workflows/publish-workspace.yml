@@ -18,6 +18,8 @@ permissions:
 
 jobs:
   publish:
+    # A manual run can be started from any branch; only main may publish what consumers install.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
